@@ -10,12 +10,33 @@ export interface Item {
   hint?: string;
 }
 
-/** Transient "You got X" / boss banner shown by the HUD. */
+/** Transient "You got X" / boss / room-name plate shown by the HUD. */
 export interface Banner {
   kind: "item" | "boss" | "room";
   title: string;
   sub?: string;
   icon?: ItemId | "heart";
+}
+
+export type LessonId = "move" | "dash" | "attack" | "throw" | "bomb";
+/** The contextual tutorial tag beside Wren. `keys` = which of W/A/S/D are still to press. */
+export interface Lesson {
+  id: LessonId;
+  keys?: string[];
+}
+
+/** A small pixel tag anchored to something in the world (block, door, pickup...). x/y are camera-space game px (0-640, 0-384). */
+export interface WorldTag {
+  text: string;
+  x: number;
+  y: number;
+  icon?: string; // /assets/... path
+  kind?: "push" | "locked" | "info";
+}
+
+export interface Dialogue {
+  title: string;
+  text: string;
 }
 
 /** What survives a reload. Bump SAVE_VERSION when the shape changes. */
@@ -27,12 +48,13 @@ export interface SaveData {
   keys: number;
   items: Item[];
   flags: string[];
+  lessons: string[];
   room: string;
   playtimeMs: number;
   savedAt: number;
 }
 const SAVE_KEY = "emberfall.save.1";
-const SAVE_VERSION = 2;
+const SAVE_VERSION = 3;
 
 const START_ITEMS: Item[] = [
   { id: "sword", name: "Iron Sword", qty: 1, hint: "1 dmg · equipped" },
@@ -67,8 +89,12 @@ interface GameState {
   bagOpen: boolean;
   paused: boolean;
   banner: Banner | null;
-  /** boss HP fraction (0–1) while a boss fight is on, else null */
+  /** boss HP while a boss fight is on, else null */
   boss: { name: string; hp: number; max: number; status: string } | null;
+  lessons: string[]; // completed tutorial lessons (saved)
+  lesson: Lesson | null; // the one showing now
+  tag: WorldTag | null;
+  dialogue: Dialogue | null;
   playtimeMs: number;
   sessionStart: number;
   damage: (halfHearts: number) => void;
@@ -85,6 +111,10 @@ interface GameState {
   setRoom: (id: string, name: string, dungeonName: string) => void;
   showBanner: (b: Banner | null) => void;
   setBoss: (b: GameState["boss"]) => void;
+  setLesson: (l: Lesson | null) => void;
+  finishLesson: (id: LessonId) => void;
+  setTag: (t: WorldTag | null) => void;
+  setDialogue: (d: Dialogue | null) => void;
   addMaxHearts: (halfHearts: number) => void;
   toggleBag: (open?: boolean) => void;
   togglePause: (on?: boolean) => void;
@@ -116,6 +146,7 @@ function writeSave(s: GameState) {
       keys: s.keys,
       items: s.items,
       flags: s.flags,
+      lessons: s.lessons,
       room: s.room,
       playtimeMs: s.playtimeMs + (s.sessionStart ? Date.now() - s.sessionStart : 0),
       savedAt: Date.now(),
@@ -133,6 +164,7 @@ const fresh = () => ({
   keys: 0,
   items: START_ITEMS.map((i) => ({ ...i })),
   flags: [] as string[],
+  lessons: [] as string[],
   room: "entrance",
   playtimeMs: 0,
 });
@@ -148,6 +180,9 @@ export const useGame = create<GameState>((set, get) => ({
   paused: false,
   banner: null,
   boss: null,
+  lesson: null,
+  tag: null,
+  dialogue: null,
   sessionStart: 0,
   damage: (n) => set((s) => ({ hearts: Math.max(0, s.hearts - n) })),
   heal: (n) => set((s) => ({ hearts: Math.min(s.maxHearts, s.hearts + n) })),
@@ -175,10 +210,14 @@ export const useGame = create<GameState>((set, get) => ({
   setRoom: (room, roomName, dungeonName) => set({ room, roomName, dungeonName }),
   showBanner: (banner) => set({ banner }),
   setBoss: (boss) => set({ boss }),
+  setLesson: (lesson) => set({ lesson }),
+  finishLesson: (id) => set((s) => ({ lessons: s.lessons.includes(id) ? s.lessons : [...s.lessons, id], lesson: s.lesson?.id === id ? null : s.lesson })),
+  setTag: (tag) => set({ tag }),
+  setDialogue: (dialogue) => set({ dialogue }),
   addMaxHearts: (n) => set((s) => ({ maxHearts: s.maxHearts + n, hearts: s.maxHearts + n })),
   toggleBag: (open) => set((s) => ({ bagOpen: open ?? !s.bagOpen })),
   togglePause: (on) => set((s) => ({ paused: on ?? !s.paused })),
-  newGame: () => set({ screen: "game", ...fresh(), sessionStart: Date.now(), bagOpen: false, paused: false, banner: null, boss: null }),
+  newGame: () => set({ screen: "game", ...fresh(), sessionStart: Date.now(), bagOpen: false, paused: false, banner: null, boss: null, lesson: null, tag: null, dialogue: null }),
   continueGame: () => {
     const d = readSave();
     if (!d) return get().newGame();
@@ -190,6 +229,7 @@ export const useGame = create<GameState>((set, get) => ({
       keys: d.keys,
       items: d.items,
       flags: d.flags,
+      lessons: d.lessons ?? [],
       room: d.room,
       playtimeMs: d.playtimeMs,
       sessionStart: Date.now(),
@@ -197,13 +237,16 @@ export const useGame = create<GameState>((set, get) => ({
       paused: false,
       banner: null,
       boss: null,
+      lesson: null,
+      tag: null,
+      dialogue: null,
     });
   },
-  die: () => set({ screen: "dead", bagOpen: false, paused: false, boss: null, banner: null }),
+  die: () => set({ screen: "dead", bagOpen: false, paused: false, boss: null, banner: null, lesson: null, tag: null, dialogue: null }),
   respawn: () => set((s) => ({ screen: "game", hearts: s.maxHearts, room: "entrance" })),
   quitToTitle: () => {
     writeSave(get());
-    set({ screen: "title", paused: false, bagOpen: false, boss: null, banner: null });
+    set({ screen: "title", paused: false, bagOpen: false, boss: null, banner: null, lesson: null, tag: null, dialogue: null });
   },
 }));
 
@@ -211,7 +254,7 @@ export const useGame = create<GameState>((set, get) => ({
 let saveTimer: number | undefined;
 useGame.subscribe((s, prev) => {
   if (s.screen !== "game") return;
-  if (s.hearts === prev.hearts && s.gold === prev.gold && s.keys === prev.keys && s.items === prev.items && s.flags === prev.flags && s.room === prev.room) return;
+  if (s.hearts === prev.hearts && s.gold === prev.gold && s.keys === prev.keys && s.items === prev.items && s.flags === prev.flags && s.room === prev.room && s.lessons === prev.lessons) return;
   window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => writeSave(useGame.getState()), 300);
 });

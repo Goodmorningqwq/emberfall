@@ -16,8 +16,8 @@ export class Bomb {
 
   constructor(private scene: DungeonScene, x: number, y: number) {
     this.placedAt = scene.time.now;
-    this.sprite = scene.add.image(x, y, "bomb").setOrigin(0.5, 0.9).setDepth(y);
-    scene.tweens.add({ targets: this.sprite, scaleX: 1.08, scaleY: 0.94, duration: 200, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+    this.sprite = scene.add.image(x, y, "bomb").setOrigin(0.5, 0.9).setScale(0.7).setDepth(y);
+    scene.tweens.add({ targets: this.sprite, scaleX: 0.76, scaleY: 0.66, duration: 200, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
   }
 
   update(now: number) {

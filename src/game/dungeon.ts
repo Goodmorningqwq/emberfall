@@ -23,6 +23,7 @@ export interface RoomDef {
   map: string[];
   objects?: RoomObject[];
   chests?: string[]; // contents of each "C" in reading order
+  signs?: string[]; // text of each "S" in reading order
   clearReward?: string; // "key" | "chest:<item>" — granted when all enemies die
   solveReward?: string; // same, granted when the room's puzzle is solved
 }

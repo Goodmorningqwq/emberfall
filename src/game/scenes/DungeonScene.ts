@@ -11,7 +11,7 @@ import { Treant, TREANT_HP } from "../entities/Treant";
 import { Boomerang } from "../entities/Boomerang";
 import { Bomb } from "../entities/Bomb";
 import { HERO } from "../entities/heroAssets";
-import { useGame, type ItemId } from "../../ui/store";
+import { useGame, type ItemId, type LessonId } from "../../ui/store";
 import whisperwood from "../data/whisperwood.json";
 
 type Dir = "north" | "south" | "east" | "west";
@@ -81,6 +81,11 @@ export class DungeonScene extends Phaser.Scene {
   private frozen = false;
   private treant?: Treant;
   private unsub?: () => void;
+  private signs: { zone: Phaser.GameObjects.Zone; text: string }[] = [];
+  private signLatched = false;
+  private pendingLessons: LessonId[] = [];
+  private bossRing?: Phaser.GameObjects.Arc;
+  private frameEl: HTMLElement | null = null;
 
   constructor() {
     super("Dungeon");
@@ -89,7 +94,7 @@ export class DungeonScene extends Phaser.Scene {
   preload() {
     this.load.spritesheet("tiles", "assets/tiles/whisperwood.png", { frameWidth: TILE, frameHeight: TILE });
     this.load.json("tiles-meta", "assets/tiles/whisperwood.json");
-    for (const p of ["door", "torch", "block", "chest", "chest-open", "slime", "sprite", "mushroom", "treant", "root", "door-locked", "door-locked-side", "door-boss", "stump", "crystal", "plate", "crack", "heart-container"]) {
+    for (const p of ["door", "torch", "block", "chest", "chest-open", "slime", "sprite", "mushroom", "treant", "root", "door-locked", "door-locked-side", "door-boss", "stump", "crystal", "plate", "crack", "heart-container", "signpost", "bomb", "boomerang"]) {
       this.load.image(p, `assets/sprites/props/${p}.png`);
     }
     for (const i of ["key", "boomerang", "bomb", "shard", "potion", "coin", "bosskey"]) this.load.image(`icon-${i}`, `assets/ui/icons/${i}.png`);
@@ -114,6 +119,9 @@ export class DungeonScene extends Phaser.Scene {
     this.treant = undefined;
     this.transitioning = false;
     this.frozen = false;
+    this.signs = [];
+    this.pendingLessons = [];
+    this.bossRing = undefined;
     this.data.remove("updateError");
   }
 
@@ -160,8 +168,12 @@ export class DungeonScene extends Phaser.Scene {
     this.unsub = useGame.subscribe((s, prev) => {
       if (shouldFreeze(s) !== shouldFreeze(prev)) this.setFrozen(shouldFreeze(s));
       // new game / continue / respawn: start over from the entrance with the store's flags
-      if (s.screen === "game" && prev.screen !== "game") this.time.delayedCall(0, () => this.scene.restart());
+      // (only once we're running: a restart mid-preload wedges the loader)
+      if (s.screen === "game" && prev.screen !== "game" && this.scene.isActive()) this.time.delayedCall(0, () => this.scene.restart());
+      // closing a sign's dialogue hands control back
+      if (!s.dialogue && prev.dialogue) this.player.hold(0);
     });
+    this.time.delayedCall(400, () => this.startLesson("move"));
     this.setFrozen(shouldFreeze(st));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.unsub?.();
@@ -277,6 +289,10 @@ export class DungeonScene extends Phaser.Scene {
     this.plates = [];
     this.crystals = [];
     this.solidTiles.clear();
+    this.signs = [];
+    useGame.getState().setTag(null);
+    this.bossRing?.destroy();
+    this.bossRing = undefined;
     this.boomerang?.destroy();
     this.boomerang = undefined;
     for (const b of this.bombs) b.destroy();
@@ -293,6 +309,16 @@ export class DungeonScene extends Phaser.Scene {
 
     const cleared = st.hasFlag(`cleared:${room.id}`);
     const solved = st.hasFlag(`solved:${room.id}`);
+    st.setFlag(`visited:${room.id}`);
+    // entry beat: the room-name plate shows centred, then the mobs pop in once it's gone.
+    // The boss room announces the boss instead.
+    const bossHere = (room.objects ?? []).some((o) => o.kind === "treant") && !st.hasFlag(`boss:${this.dungeon.def.id}`);
+    if (!bossHere) {
+      st.showBanner({ kind: "room", title: room.name, sub: this.dungeon.def.name });
+      this.time.delayedCall(1300, () => useGame.getState().banner?.kind === "room" && useGame.getState().showBanner(null));
+    }
+    const spawnAt = first ? 300 : 1100;
+    const spawns: { kind: string; x: number; y: number }[] = [];
     for (const p of room.placements) {
       const x = p.tx * TILE, y = p.ty * TILE;
       switch (p.kind) {
@@ -328,6 +354,15 @@ export class DungeonScene extends Phaser.Scene {
         case "chest":
           this.addChest(p, room.chests?.[p.index] ?? "gold");
           break;
+        case "sign": {
+          const img = this.addSolidProp("signpost", p);
+          img.setDepth(y + 28);
+          const zone = this.add.zone(x + 16, y + 26, 34, 22);
+          this.physics.add.existing(zone, true);
+          this.roomStuff.push(zone);
+          this.signs.push({ zone, text: room.signs?.[p.index] ?? "..." });
+          break;
+        }
         case "chest-hidden": {
           const reward = room.solveReward ?? room.clearReward ?? "";
           const done = room.solveReward ? solved : cleared;
@@ -341,17 +376,29 @@ export class DungeonScene extends Phaser.Scene {
         case "sprite":
         case "mushroom":
         case "mossback":
-          if (!(cleared && room.clearReward)) this.spawnEnemy(p.kind, x + 16, y + 30);
+          // every room stays cleared once you've cleared it (saved), not just the reward rooms
+          if (!cleared) spawns.push({ kind: p.kind, x: x + 16, y: y + 30 });
           break;
       }
     }
+    if (spawns.length) {
+      this.time.delayedCall(spawnAt, () => {
+        if (this.room !== room) return;
+        for (const sp of spawns) this.spawnEnemy(sp.kind, sp.x, sp.y, { puff: true });
+        this.startLesson("attack");
+      });
+    }
+    // puzzle targets pulse once so the eye finds them
+    for (const pl of this.plates) if (!solved) this.tweens.add({ targets: pl.image, scaleX: 1.12, scaleY: 1.12, duration: 260, yoyo: true, repeat: 2, delay: spawnAt });
+    if (this.cracks.some((c) => c.tiles.some((t) => this.dungeon.roomAtWorld(t.tx * TILE, t.ty * TILE) === room))) this.startLesson("bomb");
     // free-placed objects (the boss)
     for (const o of room.objects ?? []) {
-      if (o.kind === "treant" && !st.hasFlag(`boss:${this.dungeon.def.id}`)) {
+      if (o.kind === "treant" && bossHere) {
         this.treant = this.spawnEnemy("treant", room.x + o.x * TILE, room.y + o.y * TILE) as Treant;
         st.setBoss({ name: "Elder Treant", hp: TREANT_HP, max: TREANT_HP, status: "" });
         st.showBanner({ kind: "boss", title: "ELDER TREANT", sub: "Warden of the Hollow" });
         this.time.delayedCall(2200, () => useGame.getState().banner?.kind === "boss" && useGame.getState().showBanner(null));
+        this.setAnchor("boss", this.treant.sprite.x, this.treant.sprite.y - 96);
       } else if (o.kind === "treant" && st.hasFlag(`boss:${this.dungeon.def.id}`) && !st.hasFlag(`shard:${this.dungeon.def.id}`)) {
         this.spawnPickup("shard", room.x + o.x * TILE, room.y + o.y * TILE);
       }
@@ -471,7 +518,8 @@ export class DungeonScene extends Phaser.Scene {
       case "key":
         st.addKeys(1);
         st.setFlag(`key:${this.room.id}`);
-        this.toast("icon-key", "+1 key");
+        this.toast("icon-key", !st.hasFlag("hint:key") ? "A small key - opens one locked door" : "+1 key");
+        st.setFlag("hint:key");
         break;
       case "heart":
         st.heal(2);
@@ -518,6 +566,7 @@ export class DungeonScene extends Phaser.Scene {
     const s = e.sprite;
     const wasStunnedBoss = e instanceof Treant;
     const died = e.takeHit(this.player.sprite.x, this.player.sprite.y, 1);
+    this.finishLesson("attack");
     // feedback bundle: hit-stop, shake, damage number (flash + knockback are in takeHit)
     this.cameras.main.shake(80, 0.004);
     this.hitStop(60);
@@ -536,11 +585,11 @@ export class DungeonScene extends Phaser.Scene {
 
   private checkRoomCleared() {
     const room = this.room;
-    if (!room.clearReward) return;
     if (this.enemies.some((x) => !x.isDead)) return;
     const st = useGame.getState();
     if (st.hasFlag(`cleared:${room.id}`)) return;
     st.setFlag(`cleared:${room.id}`);
+    if (!room.clearReward) return;
     this.time.delayedCall(350, () => {
       if (this.room !== room) return;
       const k = room.placements.find((p) => p.kind === "key-drop");
@@ -591,9 +640,18 @@ export class DungeonScene extends Phaser.Scene {
   bossStatus(status: "stunned" | "recovered" | "bark") {
     const st = useGame.getState();
     if (!st.boss) return;
-    const text = status === "stunned" ? "Stunned! Strike the core" : status === "bark" ? "Its bark shrugs off steel" : "";
+    const hasBoomerang = st.hasItem("boomerang");
+    const text = status === "stunned" ? "STUNNED - STRIKE THE CORE" : status === "bark" ? (hasBoomerang ? "Bark shrugs off steel - ring the core" : "Bark shrugs off steel") : "";
     st.setBoss({ ...st.boss, status: text });
-    if (status === "bark") this.time.delayedCall(900, () => useGame.getState().boss?.status === text && useGame.getState().setBoss({ ...useGame.getState().boss!, status: "" }));
+    if (status === "bark") this.time.delayedCall(1400, () => useGame.getState().boss?.status === text && useGame.getState().setBoss({ ...useGame.getState().boss!, status: "" }));
+    // a pulsing ring on the ember core while it's open to attack
+    this.bossRing?.destroy();
+    this.bossRing = undefined;
+    if (status === "stunned" && this.treant) {
+      const t = this.treant.sprite;
+      this.bossRing = this.add.circle(t.x, t.y - 40, 12, 0x000000, 0).setStrokeStyle(2, 0xffb060, 1).setDepth(t.depth + 1);
+      this.tweens.add({ targets: this.bossRing, scale: 1.5, alpha: 0, duration: 700, repeat: -1, ease: "Quad.easeOut" });
+    }
   }
 
   bossDefeated(t: Treant) {
@@ -617,11 +675,12 @@ export class DungeonScene extends Phaser.Scene {
     const door = this.doors.find((d) => d.id === id);
     if (!door) return;
     const st = useGame.getState();
+    const at = { x: door.image.x + door.image.width / 2, y: door.image.y - 6 };
     if (door.kind === "locked") {
-      if (st.keys <= 0) return this.toast("icon-key", "Locked", true);
+      if (st.keys <= 0) return this.toast("icon-key", "Locked - needs a small key", true, at);
       st.addKeys(-1);
     } else {
-      if (!st.hasItem("bosskey")) return this.toast("icon-bosskey", "Needs the Boss Key", true);
+      if (!st.hasItem("bosskey")) return this.toast("icon-bosskey", "Locked - needs the Boss Key", true, at);
     }
     st.setFlag(door.id);
     this.doors = this.doors.filter((d) => d !== door);
@@ -634,18 +693,84 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   private lastToastAt = 0;
-  private toast(icon: string, text: string, negative = false) {
+  /** A short pixel tag above Wren (rendered by the HUD so it uses the real UI chrome and font). */
+  private toast(icon: string, text: string, negative = false, at?: { x: number; y: number }) {
     const now = this.time.now;
     if (now - this.lastToastAt < 700) return;
     this.lastToastAt = now;
-    const p = this.player.sprite;
-    const c = this.add.container(p.x, p.y - 44).setDepth(10001);
-    const t = this.add.text(0, 0, text, { fontFamily: "Emberfall Pixel, monospace", fontSize: "16px", color: negative ? "#ffb8a8" : "#fff2b0", stroke: "#2a1a10", strokeThickness: 3 }).setOrigin(0, 0.5).setResolution(2);
-    const i = this.textures.exists(icon) ? this.add.image(-14, 0, icon).setScale(0.6) : null;
-    c.add([t, ...(i ? [i] : [])]);
-    t.x = i ? -4 : -t.width / 2;
-    if (negative) this.tweens.add({ targets: c, x: "+=3", duration: 40, yoyo: true, repeat: 3 });
-    this.tweens.add({ targets: c, y: "-=14", alpha: 0, duration: 800, delay: 200, ease: "Quad.easeIn", onComplete: () => c.destroy() });
+    const p = at ?? { x: this.player.sprite.x, y: this.player.sprite.y - 40 };
+    const cam = this.cameras.main;
+    const iconPath = icon.startsWith("icon-") ? `/assets/ui/icons/${icon.slice(5)}.png` : undefined;
+    useGame.getState().setTag({ text, x: p.x - cam.scrollX, y: p.y - cam.scrollY, icon: iconPath, kind: negative ? "locked" : "info" });
+    this.time.delayedCall(1100, () => {
+      const t = useGame.getState().tag;
+      if (t && t.text === text) useGame.getState().setTag(null);
+    });
+  }
+
+  /** Camera-space anchor for HUD elements that follow world objects (Wren's lesson tag, the boss status). */
+  private setAnchor(name: "wren" | "boss", wx: number, wy: number) {
+    if (!this.frameEl || !this.frameEl.isConnected) this.frameEl = document.querySelector("#ui .frame");
+    if (!this.frameEl) return;
+    const cam = this.cameras.main;
+    this.frameEl.style.setProperty(`--${name}-x`, String(((wx - cam.scrollX) / cam.width) * 100));
+    this.frameEl.style.setProperty(`--${name}-y`, String(((wy - cam.scrollY) / cam.height) * 100));
+  }
+
+  // ---------------------------------------------------------------- lessons
+
+  /** Contextual tutorial: one tag at a time beside Wren; queued if another is showing. */
+  startLesson(id: LessonId) {
+    const st = useGame.getState();
+    if (st.lessons.includes(id) || this.pendingLessons.includes(id) || st.lesson?.id === id) return;
+    if (id === "throw" && !st.hasItem("boomerang")) return;
+    if (id === "bomb" && !st.hasItem("bomb")) return;
+    if (st.lesson) {
+      this.pendingLessons.push(id);
+      return;
+    }
+    st.setLesson({ id, keys: id === "move" ? ["W", "A", "S", "D"] : undefined });
+  }
+
+  lessonKey(key: string) {
+    const st = useGame.getState();
+    const l = st.lesson;
+    if (!l || l.id !== "move" || !l.keys?.includes(key)) return;
+    const keys = l.keys.filter((k) => k !== key);
+    if (keys.length) st.setLesson({ ...l, keys });
+    else this.finishLesson("move");
+  }
+
+  finishLesson(id: LessonId) {
+    const st = useGame.getState();
+    if (st.lessons.includes(id)) return;
+    st.finishLesson(id);
+    // the next lesson in the chain, after a beat
+    const chain: Partial<Record<LessonId, LessonId>> = { move: "dash" };
+    const next = chain[id] ?? this.pendingLessons.shift();
+    if (next) this.time.delayedCall(700, () => this.startLesson(next));
+  }
+
+  // ------------------------------------------------------------------ signs
+
+  /** Bump a signpost to read it; step away and bump again to re-read (no re-trigger while still leaning on it). */
+  private checkSigns() {
+    if (useGame.getState().dialogue) return;
+    const pb = this.player.sprite.body as Phaser.Physics.Arcade.Body;
+    let touchingAny = false;
+    for (const s of this.signs) {
+      const zb = s.zone.body as Phaser.Physics.Arcade.StaticBody;
+      const touching = pb.right > zb.left - 2 && pb.left < zb.right + 2 && pb.bottom > zb.top - 2 && pb.top < zb.bottom + 2;
+      if (!touching) continue;
+      touchingAny = true;
+      if (this.signLatched) break;
+      this.signLatched = true;
+      this.player.hold(99999);
+      this.player.sprite.setVelocity(0, 0);
+      useGame.getState().setDialogue({ title: "MOSS-CARVED SIGN", text: s.text });
+      break;
+    }
+    if (!touchingAny) this.signLatched = false;
   }
 
   private openChest(id: string) {
@@ -682,6 +807,7 @@ export class DungeonScene extends Phaser.Scene {
       case "boomerang":
         st.giveItem("boomerang");
         banner = { title: "Boomerang", sub: "Right-click to throw. Stuns foes, rings crystals, fetches loot.", icon: "boomerang" };
+        this.time.delayedCall(2600, () => this.startLesson("throw"));
         break;
       case "bosskey":
         st.giveItem("bosskey");
@@ -727,6 +853,7 @@ export class DungeonScene extends Phaser.Scene {
       }
       if (!dir) {
         b.pushMs = Math.max(0, b.pushMs - delta);
+        if (b.pushMs === 0 && useGame.getState().tag?.kind === "push") useGame.getState().setTag(null);
         continue;
       }
       if (b.pushDir !== dir) {
@@ -734,6 +861,10 @@ export class DungeonScene extends Phaser.Scene {
         b.pushMs = 0;
       }
       b.pushMs += delta;
+      if (useGame.getState().tag?.kind !== "push") {
+        const cam = this.cameras.main;
+        useGame.getState().setTag({ text: "Push", x: b.sprite.x - cam.scrollX, y: b.sprite.y - 22 - cam.scrollY, kind: "push" });
+      }
       if (b.pushMs < 140) continue;
       b.pushMs = 0;
       this.slideBlock(b, dir);
@@ -757,6 +888,7 @@ export class DungeonScene extends Phaser.Scene {
     b.moving = true;
     b.tx = tx;
     b.ty = ty;
+    if (useGame.getState().tag?.kind === "push") useGame.getState().setTag(null);
     this.tweens.add({
       targets: sprite,
       x: tx * TILE + 16,
@@ -783,6 +915,7 @@ export class DungeonScene extends Phaser.Scene {
     if (this.boomerang && !this.boomerang.done) return false;
     const p = this.player.sprite;
     this.boomerang = new Boomerang(this, p.x + dir.x * 10, p.y - 16 + dir.y * 10, dir);
+    this.finishLesson("throw");
     this.physics.add.collider(this.boomerang.sprite, this.walls);
     this.physics.add.overlap(this.boomerang.sprite, this.enemyGroup, (_b, obj) => {
       const e = (obj as Phaser.GameObjects.GameObject).getData("enemy") as Enemy;
@@ -820,6 +953,7 @@ export class DungeonScene extends Phaser.Scene {
     if (!st.useItem("bomb")) return false;
     const p = this.player.sprite;
     this.bombs.push(new Bomb(this, p.x, p.y + 2));
+    this.finishLesson("bomb");
     return true;
   }
 
@@ -911,6 +1045,7 @@ export class DungeonScene extends Phaser.Scene {
       duration: D,
       ease: "Sine.easeInOut",
       onComplete: () => {
+        if (!p.body || !p.active) return; // scene restarted mid-scroll
         (p.body as Phaser.Physics.Arcade.Body).enable = true;
         (p.body as Phaser.Physics.Arcade.Body).reset(p.x, p.y);
         this.enterRoom(next);
@@ -925,6 +1060,11 @@ export class DungeonScene extends Phaser.Scene {
   goto(id: string) {
     const r = this.dungeon.room(id);
     const p = this.player.sprite;
+    this.tweens.killTweensOf(p);
+    this.tweens.killTweensOf(this.cameras.main);
+    this.transitioning = false;
+    if (p.body) (p.body as Phaser.Physics.Arcade.Body).enable = true;
+    this.player.hold(0);
     p.setPosition(r.x + r.w / 2, r.y + r.h * 0.75);
     (p.body as Phaser.Physics.Arcade.Body).reset(p.x, p.y);
     this.enterRoom(r);
@@ -963,6 +1103,8 @@ export class DungeonScene extends Phaser.Scene {
         }
       }
       this.boomerang?.update(p.x, p.y - 14);
+      this.setAnchor("wren", p.x, p.y - 56);
+      this.checkSigns();
       for (const b of this.bombs) b.update(now);
       this.bombs = this.bombs.filter((b) => !b.exploded);
       this.updateBlocks(delta);

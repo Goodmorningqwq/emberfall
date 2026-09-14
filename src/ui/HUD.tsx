@@ -1,7 +1,8 @@
-import { useEffect } from "react";
-import { useGame, type ItemId } from "./store";
+import { useEffect, useState } from "react";
+import { useGame, type ItemId, type LessonId } from "./store";
 import { uiScale, useCanvasRect } from "./useCanvasRect";
 import { Title } from "./Title";
+import whisperwood from "../game/data/whisperwood.json";
 
 /** PixelLab icon set at public/assets/ui/icons/<name>.png (24x24). */
 type IconName = ItemId | "coin" | "bag" | "boomerang" | "shard" | "bosskey" | "grapple";
@@ -19,8 +20,118 @@ function Slot({ icon, keyHint, qty, selected, empty }: { icon?: IconName; keyHin
   );
 }
 
+const LESSON_TEXT: Record<LessonId, { key: string; text: string }> = {
+  move: { key: "WASD", text: "Move" },
+  dash: { key: "Shift", text: "Dash" },
+  attack: { key: "LMB", text: "Strike toward the cursor" },
+  throw: { key: "RMB", text: "Throw the boomerang" },
+  bomb: { key: "2", text: "Drop a bomb by the cracked wall" },
+};
+
+/** The contextual tutorial tag beside Wren. Position comes from --wren-x/--wren-y set by the scene each frame. */
+function Coach() {
+  const lesson = useGame((s) => s.lesson);
+  if (!lesson) return null;
+  const l = LESSON_TEXT[lesson.id];
+  return (
+    <div className="coach pxslot" key={lesson.id}>
+      {lesson.id === "move" ? (
+        <div className="keycross">
+          <span />
+          <span className={`kbd${lesson.keys?.includes("W") ? "" : " done"}`}>W</span>
+          <span />
+          <span className={`kbd${lesson.keys?.includes("A") ? "" : " done"}`}>A</span>
+          <span className={`kbd${lesson.keys?.includes("S") ? "" : " done"}`}>S</span>
+          <span className={`kbd${lesson.keys?.includes("D") ? "" : " done"}`}>D</span>
+        </div>
+      ) : (
+        <span className="kbd">{l.key}</span>
+      )}
+      <span className="coach-text">{l.text}</span>
+    </div>
+  );
+}
+
+/** Small tag anchored to something in the world (block, door, pickup). */
+function WorldTag() {
+  const tag = useGame((s) => s.tag);
+  if (!tag) return null;
+  return (
+    <div className={`wtag pxslot ${tag.kind ?? "info"}`} style={{ left: `${(tag.x / 640) * 100}%`, top: `${(tag.y / 384) * 100}%` }} key={tag.text + tag.x}>
+      {tag.icon && <img src={tag.icon} alt="" />}
+      <span>{tag.text}</span>
+    </div>
+  );
+}
+
+/** Sign / NPC dialogue: bottom panel, typewriter, any key or click to close. */
+function DialogueBox() {
+  const { dialogue, setDialogue } = useGame();
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    setShown(0);
+    if (!dialogue) return;
+    const id = window.setInterval(() => setShown((n) => (n >= dialogue.text.length ? n : n + 1)), 22);
+    return () => window.clearInterval(id);
+  }, [dialogue]);
+  useEffect(() => {
+    if (!dialogue) return;
+    const done = shown >= dialogue.text.length;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" || e.key === "Tab") return;
+      e.preventDefault();
+      if (done) setDialogue(null);
+      else setShown(dialogue.text.length);
+    };
+    // a short grace so the bump that opened it doesn't also close it
+    const t = window.setTimeout(() => window.addEventListener("keydown", onKey), 250);
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [dialogue, shown, setDialogue]);
+  if (!dialogue) return null;
+  const done = shown >= dialogue.text.length;
+  return (
+    <div className="dialogue pxpanel" onClick={() => (done ? setDialogue(null) : setShown(dialogue.text.length))}>
+      <img className="dialogue-icon" src="/assets/sprites/props/signpost.png" alt="" />
+      <div className="dialogue-body">
+        <span className="eyebrow">{dialogue.title}</span>
+        <span className="dialogue-text">
+          {dialogue.text.slice(0, shown)}
+          {!done && <span className="caret">_</span>}
+        </span>
+        <span className={`dialogue-hint muted${done ? "" : " hidden"}`}>
+          <span className="kbd">E</span> continue
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/** Dungeon minimap: rooms revealed as visited, current one lit. Room name sits under it. */
+function Minimap() {
+  const { room, roomName, flags } = useGame();
+  const d = whisperwood;
+  const cells: (typeof d.rooms)[number][] = d.rooms;
+  return (
+    <div className="minimap-wrap">
+      <div className="minimap pxslot" style={{ gridTemplateColumns: `repeat(${d.cols}, calc(12px * var(--s)))` }}>
+        {Array.from({ length: d.rows * d.cols }, (_, i) => {
+          const gx = i % d.cols, gy = Math.floor(i / d.cols);
+          const r = cells.find((c) => c.gx === gx && c.gy === gy);
+          const visited = r && flags.includes(`visited:${r.id}`);
+          const cls = !r ? "none" : r.id === room ? "here" : visited ? "seen" : "unknown";
+          return <span key={i} className={`mm ${cls}${r?.purpose === "boss" && visited ? " boss" : ""}`} />;
+        })}
+      </div>
+      <span className="minimap-name">{roomName}</span>
+    </div>
+  );
+}
+
 export function HUD() {
-  const { screen, hearts, maxHearts, gold, keys, items, bagOpen, toggleBag, paused, togglePause, quitToTitle, roomName, dungeonName, banner, boss, respawn, room } = useGame();
+  const { screen, hearts, maxHearts, gold, keys, items, bagOpen, toggleBag, paused, togglePause, quitToTitle, banner, boss, respawn, dialogue } = useGame();
   const rect = useCanvasRect();
   const s = uiScale(rect);
 
@@ -30,9 +141,10 @@ export function HUD() {
       if (st.screen !== "game") return;
       if (e.key === "Tab") {
         e.preventDefault();
-        if (!st.paused) toggleBag();
+        if (!st.paused && !st.dialogue) toggleBag();
       } else if (e.key === "Escape") {
-        if (st.bagOpen) toggleBag(false);
+        if (st.dialogue) st.setDialogue(null);
+        else if (st.bagOpen) toggleBag(false);
         else togglePause();
       }
     };
@@ -88,6 +200,8 @@ export function HUD() {
         </div>
       </div>
 
+      <Minimap />
+
       <div className="hotbar pxpanel">
         <Slot icon="sword" keyHint="LMB" selected />
         <div className="divider" />
@@ -99,36 +213,33 @@ export function HUD() {
         <Slot icon="bag" keyHint="Tab" />
       </div>
 
-      {!bagOpen && !banner && (
-        <div className="namecard" key={room}>
-          <div className="card pxpanel">
-            <span className="eyebrow">{dungeonName.toUpperCase()}</span>
-            <span className="t-title">{roomName}</span>
-          </div>
-        </div>
-      )}
+      {!bagOpen && !dialogue && <Coach />}
+      <WorldTag />
 
       {banner && (
-        <div className={`banner ${banner.kind}`} key={banner.title}>
+        <div className={`banner ${banner.kind}`} key={banner.kind + banner.title}>
           <div className="card pxpanel">
             {banner.icon && <img className="banner-icon" src={banner.icon === "heart" ? "/assets/sprites/props/heart-container.png" : `/assets/ui/icons/${banner.icon}.png`} alt="" />}
             <div className="banner-text">
-              <span className="eyebrow">{banner.kind === "boss" ? "BOSS" : banner.kind === "item" ? "YOU GOT" : ""}</span>
+              <span className="eyebrow">{banner.kind === "boss" ? "BOSS" : banner.kind === "item" ? "YOU GOT" : banner.sub?.toUpperCase()}</span>
               <span className="t-title">{banner.title}</span>
-              {banner.sub && <span className="muted t-small">{banner.sub}</span>}
+              {banner.sub && banner.kind !== "room" && <span className="muted t-small">{banner.sub}</span>}
             </div>
           </div>
         </div>
       )}
 
       {boss && (
-        <div className="bossbar">
-          <span className="t-small bossname">{boss.name}</span>
-          <div className="pxbar bar"><div className="fill" style={{ width: `${(100 * boss.hp) / boss.max}%` }} /></div>
-          {boss.status && <span className="t-small bossstatus">{boss.status}</span>}
-        </div>
+        <>
+          <div className="bossbar">
+            <span className="t-title bossname">{boss.name}</span>
+            <div className="pxbar bar"><div className="fill" style={{ width: `${(100 * boss.hp) / boss.max}%` }} /></div>
+          </div>
+          {boss.status && <div className="bossstatus" key={boss.status}>{boss.status}</div>}
+        </>
       )}
 
+      <DialogueBox />
 
       {paused && (
         <div className="bag-backdrop" onClick={() => togglePause(false)}>
@@ -169,7 +280,7 @@ export function HUD() {
                   </div>
                 </div>
               ))}
-              {Array.from({ length: 9 - items.length }, (_, i) => (
+              {Array.from({ length: Math.max(0, 9 - items.length) }, (_, i) => (
                 <div key={`e${i}`} className="bag-item"><div className="slot pxslot empty" /><div className="bag-item-text"><span className="muted">Empty</span></div></div>
               ))}
             </div>

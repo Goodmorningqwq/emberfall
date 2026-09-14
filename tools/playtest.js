@@ -20,3 +20,23 @@ window.__boot = async () => {
   };
   return "booted";
 };
+
+// Save the current game frame (no React HUD) to docs/mockup/frames/<name>.png via the dev snapshot sink.
+window.__snap = (name) => new Promise((resolve) => {
+  window.__game.renderer.snapshot((img) => {
+    fetch("/__snap?name=" + encodeURIComponent(name), { method: "POST", body: img.src }).then((r) => r.text()).then(resolve);
+  });
+});
+
+// Virtual-time driver: when the page is hidden (RAF stalls) step Phaser by hand
+// via MessageChannel, which browsers don't throttle. __run(ms) advances ms of game time.
+window.__vt = window.__vt || performance.now();
+window.__run = (ms) => new Promise((resolve) => {
+  const loop = window.__game.loop; const ch = new MessageChannel(); const end = window.__vt + ms;
+  ch.port1.onmessage = () => { if (window.__vt >= end) return resolve(true); window.__vt += 1000 / 60; try { loop.step(window.__vt); } catch (e) { console.error('[__run]', e); } ch.port2.postMessage(0); };
+  ch.port2.postMessage(0);
+});
+window.__vhold = async (code, keyCode, ms) => {
+  const kev = (type) => new KeyboardEvent(type, { code, key: code.replace("Key", "").toLowerCase(), keyCode, which: keyCode, bubbles: true });
+  window.dispatchEvent(kev("keydown")); await window.__run(ms); window.dispatchEvent(kev("keyup")); await window.__run(32);
+};

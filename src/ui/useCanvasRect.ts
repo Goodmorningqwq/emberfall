@@ -45,7 +45,8 @@ export function useCanvasRect(): Rect | null {
  * Integer UI scale: pixel-art chrome is authored at 1x and scaled by a whole
  * number so pixels stay square. 560px of frame ≈ one step (1280 → 2x, 1920 → 3x).
  */
+/** Integer UI scale locked to the game's own pixel scale (canvas px per game px), so 1 UI px = 1 game px. */
 export function uiScale(rect: Rect | null): number {
   if (!rect) return 2;
-  return Math.min(4, Math.max(1, Math.round(rect.width / 560)));
+  return Math.min(4, Math.max(1, Math.round(rect.width / 640)));
 }

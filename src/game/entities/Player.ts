@@ -107,6 +107,14 @@ export class Player {
     }
     const move = this.readMove();
     if (move.lengthSq() > 0) this.moveDir.copy(move);
+    // tutorial: the move lesson ticks off each key as it's pressed
+    for (const [k, key] of [["W", this.keys.up], ["A", this.keys.left], ["S", this.keys.down], ["D", this.keys.right]] as const) {
+      if (Phaser.Input.Keyboard.JustDown(key)) this.scene.lessonKey(k);
+    }
+    if (Phaser.Input.Keyboard.JustDown(this.arrows.up)) this.scene.lessonKey("W");
+    if (Phaser.Input.Keyboard.JustDown(this.arrows.left)) this.scene.lessonKey("A");
+    if (Phaser.Input.Keyboard.JustDown(this.arrows.down)) this.scene.lessonKey("S");
+    if (Phaser.Input.Keyboard.JustDown(this.arrows.right)) this.scene.lessonKey("D");
     if (Phaser.Input.Keyboard.JustDown(this.keys.attackAlt)) this.wantAttack = true;
     if (Phaser.Input.Keyboard.JustDown(this.keys.throwAlt)) this.wantThrow = true;
     if (Phaser.Input.Keyboard.JustDown(this.keys.potion)) this.scene.drinkPotion();
@@ -255,6 +263,7 @@ export class Player {
     this.sprite.setScale(1.12, 0.88);
     this.scene.tweens.add({ targets: this.sprite, scaleX: 1, scaleY: 1, duration: DASH_MS, ease: "Quad.easeOut" });
     this.play("roll", true);
+    this.scene.finishLesson("dash");
     this.syncStore();
   }
 

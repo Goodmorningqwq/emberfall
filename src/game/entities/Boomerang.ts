@@ -23,8 +23,8 @@ export class Boomerang {
   constructor(private scene: DungeonScene, x: number, y: number, dir: Phaser.Math.Vector2) {
     this.startX = x;
     this.startY = y;
-    this.sprite = scene.physics.add.sprite(x, y, "boomerang").setDepth(y + 20);
-    this.sprite.setCircle(9, 3, 3);
+    this.sprite = scene.physics.add.sprite(x, y, "boomerang").setScale(0.65).setDepth(y + 20);
+    this.sprite.setCircle(12, 4, 4);
     this.sprite.setVelocity(dir.x * SPEED, dir.y * SPEED);
     scene.tweens.add({ targets: this.sprite, angle: 360, duration: 260, repeat: -1 });
   }

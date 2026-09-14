@@ -109,8 +109,10 @@ Everything below is **React**, rendered over the Phaser canvas — but skinned e
 - **Hearts**: 16×16 sprite strip (full / half / empty).
 - Dim overlays instead of blur; no CSS shadows/gradients on chrome except the corner scrim behind vitals.
 
-- **HUD** — hearts (animated drain/gain, low-HP pulse), gold counter, equipped tool slot, consumables, small key count while in dungeon. Fades when idle for 5s during exploration.
-- **Minimap** — dungeon rooms revealed as visited, current room highlighted, boss/chest icons. Toggle with M.
+- **HUD** — hearts, gold, keys top-left in the wall band; hotbar bottom-centre (one scale notch smaller than the rest on big screens, key labels tucked inside the slots). UI scale `--s` = the game's own pixel scale, so 1 UI px = 1 game px.
+- **Minimap** — top-right in the wall band: rooms revealed as visited, current room ember, boss room marked; the room name sits under it. (2026-09-15)
+- **Room entry beat** — the room-name plate shows centred for ~1.3s while you can already move; enemies pop in only after it fades. Boss rooms announce the boss instead.
+- **Tutorial** — contextual lessons as a pixel tag beside Wren, one at a time, each clears itself when done: WASD (keys dim as pressed) → Shift dash → LMB (first enemy on screen, clears on first hit) → RMB (boomerang chest) → 2 (room with a cracked wall). Signposts (`S` in the room JSON, `signs[]` text) open the dialogue panel on bump; interaction stays bump-to-open. World tags: "Push" on a leaned-on block, "Locked - needs a small key" on doors, key pickup hint.
 - **Inventory** — grid with hover tooltips, drag-to-equip, keyboard navigable. Slide-in panel, game pauses.
 - **Dialogue** — bottom panel, portrait, typewriter text (skippable), choice buttons.
 - **Shop** — card grid, preview stats delta ("+2 dmg"), can't-afford state, purchase animation.
