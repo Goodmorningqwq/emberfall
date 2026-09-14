@@ -290,6 +290,7 @@ export class DungeonScene extends Phaser.Scene {
     this.crystals = [];
     this.solidTiles.clear();
     this.signs = [];
+    this.sealRoots = [];
     useGame.getState().setTag(null);
     this.bossRing?.destroy();
     this.bossRing = undefined;
@@ -395,10 +396,7 @@ export class DungeonScene extends Phaser.Scene {
     for (const o of room.objects ?? []) {
       if (o.kind === "treant" && bossHere) {
         this.treant = this.spawnEnemy("treant", room.x + o.x * TILE, room.y + o.y * TILE) as Treant;
-        st.setBoss({ name: "Elder Treant", hp: TREANT_HP, max: TREANT_HP, status: "" });
-        st.showBanner({ kind: "boss", title: "ELDER TREANT", sub: "Warden of the Hollow" });
-        this.time.delayedCall(2200, () => useGame.getState().banner?.kind === "boss" && useGame.getState().showBanner(null));
-        this.setAnchor("boss", this.treant.sprite.x, this.treant.sprite.y - 62);
+        this.bossIntro(room, this.treant);
       } else if (o.kind === "treant" && st.hasFlag(`boss:${this.dungeon.def.id}`) && !st.hasFlag(`shard:${this.dungeon.def.id}`)) {
         this.spawnPickup("shard", room.x + o.x * TILE, room.y + o.y * TILE);
       }
@@ -637,6 +635,94 @@ export class DungeonScene extends Phaser.Scene {
 
   // ----------------------------------------------------------- boss hooks
 
+  private sealRoots: Phaser.GameObjects.Image[] = [];
+  private introHold = 0;
+
+  /**
+   * Boss intro: Wren is held, roots seal the way she came in, the camera leans in on
+   * the Treant as its core lights and the ground quakes, the name banner drops, then
+   * the fight starts. Bar and status only appear once the camera is back.
+   */
+  private bossIntro(room: Room, t: Treant) {
+    const st = useGame.getState();
+    const cam = this.cameras.main;
+    const s = t.sprite;
+    this.player.hold(3400);
+    this.introHold = 3400;
+    this.player.sprite.setVelocity(0, 0);
+    // step clear of the doorway before the roots come up
+    this.tweens.add({ targets: this.player.sprite, y: this.player.sprite.y - 30, duration: 450, ease: "Sine.easeInOut" });
+    t.delayStart(4200);
+    st.setBoss(null);
+    // roots burst up in the south doorway behind her
+    this.time.delayedCall(500, () => this.sealDoorway(room));
+    // lean in
+    this.time.delayedCall(700, () => {
+      cam.pan(s.x, s.y - 44, 800, "Sine.easeInOut");
+      cam.zoomTo(1.5, 800, "Sine.easeInOut");
+    });
+    // the core wakes: three amber flashes, then a quake
+    for (const [i, d] of [1500, 1700, 1900].entries()) {
+      this.time.delayedCall(d, () => {
+        if (t.isDead) return;
+        s.setTint(0x7a3a00).setTintMode(Phaser.TintModes.ADD);
+        this.puff(s.x, s.y - 40, 0xffb060, 6 + i * 4);
+        this.time.delayedCall(90, () => !t.isDead && s.clearTint().setTintMode(Phaser.TintModes.MULTIPLY));
+      });
+    }
+    this.time.delayedCall(2100, () => {
+      cam.shake(420, 0.012);
+      st.showBanner({ kind: "boss", title: "ELDER TREANT", sub: "Warden of the Hollow" });
+      this.time.delayedCall(2200, () => useGame.getState().banner?.kind === "boss" && useGame.getState().showBanner(null));
+    });
+    // back out, and the fight is on
+    this.time.delayedCall(2900, () => {
+      cam.pan(room.x + room.w / 2, room.y + room.h / 2, 600, "Sine.easeInOut");
+      cam.zoomTo(1, 600, "Sine.easeInOut");
+    });
+    this.time.delayedCall(3500, () => {
+      if (t.isDead) return;
+      cam.setScroll(room.x, room.y);
+      cam.setZoom(1);
+      useGame.getState().setBoss({ name: "Elder Treant", hp: TREANT_HP, max: TREANT_HP, status: "" });
+      this.setAnchor("boss", s.x, s.y - 62);
+    });
+  }
+
+  /** Root spikes rise in the boss room's south doorway and block it. */
+  private sealDoorway(room: Room) {
+    this.unsealDoorway();
+    this.cameras.main.shake(200, 0.006);
+    for (const tx of [9, 10]) {
+      const x = room.x + tx * TILE + 16;
+      const y = room.y + 11 * TILE + 30;
+      const img = this.add.image(x, y, "root").setOrigin(0.5, 1).setDepth(y).setScale(1, 0.1);
+      this.tweens.add({ targets: img, scaleY: 1.1, duration: 220, ease: "Back.easeOut", delay: (tx - 9) * 80 });
+      this.puff(x, y - 8, 0x9a8a72, 8);
+      const zone = this.add.zone(x, y - 14, 30, 28);
+      this.solids.add(zone);
+      this.roomStuff.push(img, zone);
+      this.sealRoots.push(img);
+    }
+  }
+
+  private unsealDoorway() {
+    for (const img of this.sealRoots) {
+      if (!img.active) continue;
+      this.tweens.add({ targets: img, scaleY: 0, alpha: 0.5, duration: 300, ease: "Quad.easeIn", onComplete: () => img.destroy() });
+    }
+    this.sealRoots = [];
+    // the zones were pushed to roomStuff next to their images; rebuild solids without them
+    for (const o of this.roomStuff) if (o instanceof Phaser.GameObjects.Zone && this.solids.contains(o)) this.solids.remove(o, true, true);
+  }
+
+  bossPhase2() {
+    const st = useGame.getState();
+    if (st.boss) st.setBoss({ ...st.boss, status: "IT DIGS IN DEEPER" });
+    this.cameras.main.shake(250, 0.008);
+    this.time.delayedCall(1600, () => useGame.getState().boss?.status === "IT DIGS IN DEEPER" && useGame.getState().setBoss({ ...useGame.getState().boss!, status: "" }));
+  }
+
   bossStatus(status: "stunned" | "recovered" | "bark") {
     const st = useGame.getState();
     if (!st.boss) return;
@@ -666,6 +752,10 @@ export class DungeonScene extends Phaser.Scene {
     this.enemies = this.enemies.filter((e) => e === t);
     st.addGold(t.bounty);
     const { x, y } = t.sprite;
+    // white-out, then the roots let go of the doorway, then the shard
+    const flash = this.add.rectangle(this.room.x, this.room.y, this.room.w, this.room.h, 0xfff2b0, 0.85).setOrigin(0).setDepth(20000);
+    this.tweens.add({ targets: flash, alpha: 0, duration: 900, ease: "Quad.easeOut", onComplete: () => flash.destroy() });
+    this.time.delayedCall(900, () => this.unsealDoorway());
     this.time.delayedCall(1700, () => this.room.purpose === "boss" && this.spawnPickup("shard", x, y - 20));
   }
 
@@ -1058,7 +1148,8 @@ export class DungeonScene extends Phaser.Scene {
         (p.body as Phaser.Physics.Arcade.Body).enable = true;
         (p.body as Phaser.Physics.Arcade.Body).reset(p.x, p.y);
         this.enterRoom(next);
-        this.player.hold(0);
+        this.player.hold(this.introHold); // a boss intro may have asked to keep her still
+        this.introHold = 0;
         this.player.grace(700);
         this.transitioning = false;
       },

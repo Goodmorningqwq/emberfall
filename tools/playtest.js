@@ -30,10 +30,12 @@ window.__snap = (name) => new Promise((resolve) => {
 
 // Virtual-time driver: when the page is hidden (RAF stalls) step Phaser by hand
 // via MessageChannel, which browsers don't throttle. __run(ms) advances ms of game time.
-window.__vt = window.__vt || performance.now();
 window.__run = (ms) => new Promise((resolve) => {
-  const loop = window.__game.loop; const ch = new MessageChannel(); const end = window.__vt + ms;
-  ch.port1.onmessage = () => { if (window.__vt >= end) return resolve(true); window.__vt += 1000 / 60; try { loop.step(window.__vt); } catch (e) { console.error('[__run]', e); } ch.port2.postMessage(0); };
+  // visible page: RAF is stepping the game, so just wait it out in real time
+  if (document.visibilityState === "visible") return setTimeout(() => resolve(true), ms);
+  const loop = window.__game.loop; const ch = new MessageChannel();
+  let vt = Math.max(loop.now, window.__vt || 0); const end = vt + ms;
+  ch.port1.onmessage = () => { if (vt >= end) { window.__vt = vt; return resolve(true); } vt += 1000 / 60; try { loop.step(vt); } catch (e) { console.error('[__run]', e); } ch.port2.postMessage(0); };
   ch.port2.postMessage(0);
 });
 window.__vhold = async (code, keyCode, ms) => {

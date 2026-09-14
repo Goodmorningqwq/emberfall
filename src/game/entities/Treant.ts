@@ -25,6 +25,9 @@ export class Treant extends Enemy {
   private spikes: { hz: Hazard; until: number }[] = [];
   private sway: Phaser.Tweens.Tween;
   private lastAttack: "slam" | "summon" = "summon";
+  private phase2Announced = false;
+  /** resting tint: clear in phase 1, darker bark in phase 2 */
+  private baseTint: number | null = null;
 
   constructor(scene: DungeonScene, group: Phaser.Physics.Arcade.Group, x: number, y: number) {
     super(scene, group, x, y, "treant", TREANT_HP);
@@ -39,6 +42,28 @@ export class Treant extends Enemy {
 
   get isAttacking() {
     return false; // its body never hurts; the roots do
+  }
+
+  /** Hold the first attack back (boss intro). */
+  delayStart(ms: number) {
+    this.state = "idle";
+    this.stateUntil = this.scene.time.now + ms;
+  }
+
+  private restTint() {
+    const s = this.sprite;
+    if (this.baseTint === null) s.clearTint().setTintMode(Phaser.TintModes.MULTIPLY);
+    else s.setTint(this.baseTint).setTintMode(Phaser.TintModes.MULTIPLY);
+  }
+
+  /** Below half HP: bark darkens, sway quickens, more roots. Announced once. */
+  private checkPhase2() {
+    if (this.phase2Announced || !this.phase2) return;
+    this.phase2Announced = true;
+    this.baseTint = 0x9a7a62;
+    this.sway.stop();
+    this.sway = this.scene.tweens.add({ targets: this.sprite, scaleX: 1.03, scaleY: 0.98, duration: 800, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+    this.scene.bossPhase2();
   }
 
   get isStunned() {
@@ -79,10 +104,11 @@ export class Treant extends Enemy {
         break;
       case "stunned":
         if (now >= this.stateUntil) {
-          s.clearTint().setTintMode(Phaser.TintModes.MULTIPLY);
+          this.restTint();
           this.sway.resume();
           this.rest(now);
           this.scene.bossStatus("recovered");
+          this.checkPhase2();
         }
         break;
     }
@@ -105,7 +131,7 @@ export class Treant extends Enemy {
     s.setTint(0x5a3a1a).setTintMode(Phaser.TintModes.MULTIPLY);
     this.scene.time.delayedCall(WIND, () => {
       if (this.isDead || this.state !== "windup") return;
-      s.clearTint().setTintMode(Phaser.TintModes.MULTIPLY);
+      this.restTint();
       this.scene.tweens.add({ targets: s, scaleY: 1, scaleX: 1, duration: 140, ease: "Back.easeOut" });
       this.scene.cameras.main.shake(160, 0.006);
       this.state = "slam";
@@ -194,6 +220,7 @@ export class Treant extends Enemy {
 
   /** Overridden: a slower, bigger death than the base dissolve. */
   protected die() {
+    this.dead = true;
     (this.sprite.body as Phaser.Physics.Arcade.Body).enable = false;
     this.onDeath();
     const s = this.sprite;
