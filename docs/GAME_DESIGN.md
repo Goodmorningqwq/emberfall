@@ -97,7 +97,14 @@ Room design rules:
 
 ## 8. UI / UX (the "modern" part)
 
-Everything below is **React**, rendered over the Phaser canvas.
+Everything below is **React**, rendered over the Phaser canvas — but skinned entirely in **pixel art** (decided 2026-09-14). Layout stays CSS (flex, anchors, safe areas); the look comes from PixelLab assets:
+
+- **9-slice chrome**: `public/assets/ui/panel.png` (10px corners), `slot.png` (5px), `bar.png`, cut from the PixelLab UI kit (`tools/slice_ui_kit.py`).
+- **Integer UI scale** `--s` (1×–4×) derived from the game frame width (`uiScale()`); every UI dimension is `calc(Npx * var(--s))` so pixels never land on half-steps. Mobile later = same skins at 2–3× with touch controls.
+- **Bitmap font** "Emberfall Pixel" (PixelLab, 16px glyphs, bold) at 16px × integer only. No vector fonts in-game.
+- **Icons**: 24×24 PixelLab item set in `public/assets/ui/icons/` (coin, key, potion, bomb, sword, bag, boomerang, shard, boss key, grapple + spares). HUD icon = inventory icon = world pickup.
+- **Hearts**: 16×16 sprite strip (full / half / empty).
+- Dim overlays instead of blur; no CSS shadows/gradients on chrome except the corner scrim behind vitals.
 
 - **HUD** — hearts (animated drain/gain, low-HP pulse), gold counter, equipped tool slot, consumables, small key count while in dungeon. Fades when idle for 5s during exploration.
 - **Minimap** — dungeon rooms revealed as visited, current room highlighted, boss/chest icons. Toggle with M.

@@ -36,7 +36,9 @@ export class DemoScene extends Phaser.Scene {
     this.player = new Player(this, PLAYER_SPAWN.tx * TILE, PLAYER_SPAWN.ty * TILE);
     this.buildSlimes();
     this.cameras.main.setBounds(0, 0, ROOM_W * TILE, ROOM_H * TILE);
-    this.cameras.main.fadeIn(600, 15, 17, 15);
+    // room entry fade is done in CSS on the canvas (Phaser 4's camera fadeIn
+    // left the view black on a fresh load); just flag that we're ready
+    this.game.canvas.classList.add("ready");
 
     // the React bag panel pauses the world while it's open
     const unsub = useGame.subscribe((s, prev) => {

@@ -40,3 +40,12 @@ export function useCanvasRect(): Rect | null {
   }, []);
   return rect;
 }
+
+/**
+ * Integer UI scale: pixel-art chrome is authored at 1x and scaled by a whole
+ * number so pixels stay square. 560px of frame ≈ one step (1280 → 2x, 1920 → 3x).
+ */
+export function uiScale(rect: Rect | null): number {
+  if (!rect) return 2;
+  return Math.min(4, Math.max(1, Math.round(rect.width / 560)));
+}
