@@ -73,7 +73,7 @@ export const ITEM_META: Record<ItemId, { name: string; hint: string }> = {
 };
 
 interface GameState {
-  screen: "title" | "game" | "dead";
+  screen: "title" | "intro" | "game" | "dead" | "complete";
   hearts: number; // in half-hearts
   maxHearts: number;
   gold: number;
@@ -119,7 +119,10 @@ interface GameState {
   toggleBag: (open?: boolean) => void;
   togglePause: (on?: boolean) => void;
   newGame: () => void;
+  startGame: () => void; // after the intro plates
   continueGame: () => void;
+  completeDungeon: () => void;
+  keepExploring: () => void;
   die: () => void;
   respawn: () => void;
   quitToTitle: () => void;
@@ -217,7 +220,10 @@ export const useGame = create<GameState>((set, get) => ({
   addMaxHearts: (n) => set((s) => ({ maxHearts: s.maxHearts + n, hearts: s.maxHearts + n })),
   toggleBag: (open) => set((s) => ({ bagOpen: open ?? !s.bagOpen })),
   togglePause: (on) => set((s) => ({ paused: on ?? !s.paused })),
-  newGame: () => set({ screen: "game", ...fresh(), sessionStart: Date.now(), bagOpen: false, paused: false, banner: null, boss: null, lesson: null, tag: null, dialogue: null }),
+  newGame: () => set({ screen: "intro", ...fresh(), sessionStart: Date.now(), bagOpen: false, paused: false, banner: null, boss: null, lesson: null, tag: null, dialogue: null }),
+  startGame: () => set({ screen: "game" }),
+  completeDungeon: () => set({ screen: "complete", banner: null, tag: null, lesson: null }),
+  keepExploring: () => set({ screen: "game" }),
   continueGame: () => {
     const d = readSave();
     if (!d) return get().newGame();
@@ -253,7 +259,7 @@ export const useGame = create<GameState>((set, get) => ({
 // auto-save whenever progress-relevant state changes while playing
 let saveTimer: number | undefined;
 useGame.subscribe((s, prev) => {
-  if (s.screen !== "game") return;
+  if (s.screen !== "game" && s.screen !== "complete") return;
   if (s.hearts === prev.hearts && s.gold === prev.gold && s.keys === prev.keys && s.items === prev.items && s.flags === prev.flags && s.room === prev.room && s.lessons === prev.lessons) return;
   window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => writeSave(useGame.getState()), 300);

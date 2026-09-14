@@ -187,7 +187,7 @@ export class DungeonScene extends Phaser.Scene {
       if (shouldFreeze(s) !== shouldFreeze(prev)) this.setFrozen(shouldFreeze(s));
       // new game / continue / respawn: start over from the entrance with the store's flags
       // (only once we're running: a restart mid-preload wedges the loader)
-      if (s.screen === "game" && prev.screen !== "game" && this.scene.isActive()) this.time.delayedCall(0, () => this.scene.restart());
+      if (s.screen === "game" && prev.screen !== "game" && prev.screen !== "complete" && this.scene.isActive()) this.time.delayedCall(0, () => this.scene.restart());
       // closing a sign's dialogue hands control back
       if (!s.dialogue && prev.dialogue) this.player.hold(0);
     });
@@ -562,8 +562,12 @@ export class DungeonScene extends Phaser.Scene {
         st.giveItem("shard");
         st.setFlag(`shard:${this.dungeon.def.id}`);
         st.showBanner({ kind: "item", title: "Ember Shard", sub: "One of three. Whisperwood Hollow is cleansed.", icon: "shard" });
-        this.player.hold(1600);
-        this.time.delayedCall(2600, () => useGame.getState().banner?.kind === "item" && useGame.getState().showBanner(null));
+        this.player.hold(3200);
+        this.time.delayedCall(2600, () => {
+          const g = useGame.getState();
+          if (g.banner?.kind === "item") g.showBanner(null);
+          g.completeDungeon();
+        });
         break;
     }
   }

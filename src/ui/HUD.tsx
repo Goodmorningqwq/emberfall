@@ -112,6 +112,73 @@ function DialogueBox() {
   );
 }
 
+const INTRO: { eyebrow: string; text: string }[] = [
+  { eyebrow: "EMBERFALL", text: "For a thousand winters the Ember burned at the heart of the town, and the dark kept to the woods." },
+  { eyebrow: "THE SPLITTING", text: "Then it cracked. Three shards, flung into three hollows. The fire guttered, and the dark walked in." },
+  { eyebrow: "WREN, LAST WARDEN", text: "Someone has to bring the flame home. The nearest shard lies beneath Whisperwood Hollow." },
+];
+
+/** New-game opening: three plates over the title world, any key or click advances. */
+function Intro() {
+  const startGame = useGame((s) => s.startGame);
+  const [i, setI] = useState(0);
+  const next = () => (i + 1 >= INTRO.length ? startGame() : setI(i + 1));
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") return startGame();
+      e.preventDefault();
+      next();
+    };
+    const t = window.setTimeout(() => window.addEventListener("keydown", onKey), 300);
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener("keydown", onKey);
+    };
+  });
+  const p = INTRO[i];
+  return (
+    <div className="bag-backdrop intro" onClick={next}>
+      <div className="pause pxpanel intro-plate" key={i}>
+        <span className="eyebrow">{p.eyebrow}</span>
+        <span className="intro-text">{p.text}</span>
+        <span className="dialogue-hint muted"><span className="kbd">Any key</span> {i + 1 < INTRO.length ? "continue" : "begin"} · <span className="kbd">Esc</span> skip</span>
+      </div>
+    </div>
+  );
+}
+
+function fmtTime(ms: number) {
+  const m = Math.floor(ms / 60000);
+  return m < 60 ? `${m}m` : `${Math.floor(m / 60)}h ${m % 60}m`;
+}
+
+/** Dungeon cleared: shard tally and a way back. */
+function Complete() {
+  const { keepExploring, quitToTitle, gold, playtimeMs, sessionStart, items } = useGame();
+  const shards = items.find((i) => i.id === "shard")?.qty ?? 0;
+  return (
+    <div className="bag-backdrop intro">
+      <div className="pause pxpanel intro-plate complete">
+        <span className="eyebrow">WHISPERWOOD HOLLOW</span>
+        <span className="t-title">Cleansed</span>
+        <div className="complete-row">
+          <img src="/assets/ui/icons/shard.png" alt="" />
+          <span className="t-title">{shards}/3</span>
+          <span className="muted t-small">shards</span>
+          <img src="/assets/ui/icons/coin.png" alt="" />
+          <span className="t-title">{gold}</span>
+          <span className="muted t-small">gold · {fmtTime(playtimeMs + (Date.now() - sessionStart))}</span>
+        </div>
+        <span className="muted t-small">The Sunken Crypt waits beyond the marsh. The road there is not built yet.</span>
+        <div className="pause-actions">
+          <button className="pxbtn pxslot" onClick={quitToTitle}>Return to title</button>
+          <button className="pxbtn pxslot" onClick={keepExploring} autoFocus>Keep exploring</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** Dungeon minimap: rooms revealed as visited, current one lit. Room name sits under it. */
 function Minimap() {
   const { room, roomName, flags } = useGame();
@@ -170,6 +237,22 @@ export function HUD() {
     return (
       <div className="frame" style={frame as React.CSSProperties}>
         <Title />
+      </div>
+    );
+  }
+
+  if (screen === "intro") {
+    return (
+      <div className="frame" style={frame as React.CSSProperties}>
+        <Intro />
+      </div>
+    );
+  }
+
+  if (screen === "complete") {
+    return (
+      <div className="frame" style={frame as React.CSSProperties}>
+        <Complete />
       </div>
     );
   }
