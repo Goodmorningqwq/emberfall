@@ -2,7 +2,7 @@ import Phaser from "phaser";
 import { HERO, type Clip, type Dir } from "./heroAssets";
 import { SWORD, SWORD_MS, SWORD_RECOVER_MS } from "./weapons";
 import { useGame, type Facing } from "../../ui/store";
-import type { DemoScene } from "../scenes/DemoScene";
+import type { DungeonScene } from "../scenes/DungeonScene";
 
 const WALK_SPEED = 110;
 const SPRINT_SPEED = 185;
@@ -13,26 +13,33 @@ const SPRINT_HOLD_MS = 180; // …hold Shift past this and the dash flows into a
 const HURT_IFRAMES_MS = 700;
 const HURT_KNOCKBACK = 150;
 
-type State = "idle" | "walk" | "sprint" | "attack" | "recover" | "dash";
+type State = "idle" | "walk" | "sprint" | "attack" | "recover" | "dash" | "dead";
 
 export class Player {
   readonly sprite: Phaser.Physics.Arcade.Sprite;
   readonly hitbox: Phaser.GameObjects.Zone;
   attackActive = false;
+  /** last non-zero movement input; the scene uses it to work out push direction */
+  moveDir = new Phaser.Math.Vector2(0, 0);
 
-  private scene: DemoScene;
-  private keys: Record<"up" | "down" | "left" | "right" | "attackAlt" | "dashAlt", Phaser.Input.Keyboard.Key>;
+  private scene: DungeonScene;
+  private keys: Record<"up" | "down" | "left" | "right" | "attackAlt" | "dashAlt" | "throwAlt" | "potion" | "bomb", Phaser.Input.Keyboard.Key>;
   private arrows: Phaser.Types.Input.Keyboard.CursorKeys;
   private shift: Phaser.Input.Keyboard.Key;
   private facing: Dir = "south";
   private state: State = "idle";
+  get action() {
+    return this.state;
+  }
   private stateUntil = 0;
   private dashReadyAt = 0;
   private shiftDownAt = 0;
   private invulnerableUntil = 0;
   private wantAttack = false;
+  private wantThrow = false;
+  private holdUntil = 0;
 
-  constructor(scene: DemoScene, x: number, y: number) {
+  constructor(scene: DungeonScene, x: number, y: number) {
     this.scene = scene;
     this.sprite = scene.physics.add.sprite(x, y, HERO.texture("south"));
     // All frames share a 68x68 canvas with the feet line at y=57; pivot there
@@ -58,6 +65,9 @@ export class Player {
       right: kb.addKey(K.D),
       attackAlt: kb.addKey(K.J),
       dashAlt: kb.addKey(K.K),
+      throwAlt: kb.addKey(K.L),
+      potion: kb.addKey(K.ONE),
+      bomb: kb.addKey(K.TWO),
     };
     this.arrows = kb.createCursorKeys();
     this.shift = kb.addKey(K.SHIFT);
@@ -67,15 +77,40 @@ export class Player {
     scene.input.mouse?.disableContextMenu();
     scene.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
       if (p.leftButtonDown()) this.wantAttack = true;
+      if (p.rightButtonDown()) this.wantThrow = true;
     });
 
     HERO.createAnims(scene);
   }
 
+  /** Brief invulnerability, e.g. right after a room scroll so nothing ambushes her mid-step. */
+  grace(ms: number) {
+    this.invulnerableUntil = Math.max(this.invulnerableUntil, this.scene.time.now + ms);
+  }
+
+  /** Freeze input for a while (item get, room scroll). 0 releases. */
+  hold(ms: number) {
+    this.holdUntil = ms ? this.scene.time.now + ms : 0;
+  }
+
   update(_delta: number) {
     const now = this.scene.time.now;
+    if (this.state === "dead") return;
+    if (now < this.holdUntil) {
+      this.wantAttack = this.wantThrow = false;
+      if (this.state !== "attack" && this.state !== "dash") {
+        this.sprite.setVelocity(0, 0);
+        this.play("idle");
+        this.state = "idle";
+      }
+      return this.syncDepth();
+    }
     const move = this.readMove();
+    if (move.lengthSq() > 0) this.moveDir.copy(move);
     if (Phaser.Input.Keyboard.JustDown(this.keys.attackAlt)) this.wantAttack = true;
+    if (Phaser.Input.Keyboard.JustDown(this.keys.throwAlt)) this.wantThrow = true;
+    if (Phaser.Input.Keyboard.JustDown(this.keys.potion)) this.scene.drinkPotion();
+    if (Phaser.Input.Keyboard.JustDown(this.keys.bomb)) this.scene.placeBomb();
     const shiftHeld = this.shift.isDown || this.keys.dashAlt.isDown;
     const shiftPressed = Phaser.Input.Keyboard.JustDown(this.shift) || Phaser.Input.Keyboard.JustDown(this.keys.dashAlt);
     if (shiftPressed) this.shiftDownAt = now;
@@ -110,6 +145,21 @@ export class Player {
     }
 
     // ---- new actions
+    if (this.wantThrow) {
+      this.wantThrow = false;
+      if (useGame.getState().hasItem("boomerang")) {
+        const dir = this.vecToPointer();
+        if (this.scene.throwBoomerang(dir)) {
+          this.facing = this.dirFrom(dir);
+          this.sprite.setScale(1.06, 0.94);
+          this.scene.tweens.add({ targets: this.sprite, scaleX: 1, scaleY: 1, duration: 140, ease: "Back.easeOut" });
+          this.play("idle");
+          this.sprite.setVelocity(0, 0);
+          this.hold(90);
+          return this.syncDepth();
+        }
+      }
+    }
     if (this.wantAttack) {
       this.wantAttack = false;
       return this.startAttack();
@@ -137,9 +187,10 @@ export class Player {
 
   hurt(fromX: number, fromY: number) {
     const now = this.scene.time.now;
-    if (now < this.invulnerableUntil || this.state === "dash") return;
+    if (now < this.invulnerableUntil || this.state === "dash" || this.state === "dead") return;
     this.invulnerableUntil = now + HURT_IFRAMES_MS;
     useGame.getState().damage(1);
+    if (useGame.getState().hearts <= 0) return this.die(fromX, fromY);
     this.scene.cameras.main.shake(120, 0.006);
     // separate from the attacker so a second touch isn't instant
     const away = new Phaser.Math.Vector2(this.sprite.x - fromX, this.sprite.y - fromY).normalize();
@@ -147,7 +198,27 @@ export class Player {
     this.scene.time.delayedCall(110, () => this.state !== "dash" && this.sprite.setVelocity(0, 0));
     this.sprite.setTint(0xff6b5a).setTintMode(Phaser.TintModes.FILL);
     this.scene.time.delayedCall(70, () => this.sprite.clearTint().setTintMode(Phaser.TintModes.MULTIPLY));
-    this.scene.tweens.add({ targets: this.sprite, alpha: 0.35, duration: 80, yoyo: true, repeat: 4 });
+    // restart the blink cleanly so overlapping hurts can't leave her stuck translucent
+    this.scene.tweens.killTweensOf(this.sprite);
+    this.sprite.setAlpha(1).setScale(1);
+    this.scene.tweens.add({ targets: this.sprite, alpha: 0.35, duration: 80, yoyo: true, repeat: 4, onComplete: () => this.sprite.setAlpha(1) });
+  }
+
+  private die(fromX: number, fromY: number) {
+    this.state = "dead";
+    this.attackActive = false;
+    const s = this.sprite;
+    const away = new Phaser.Math.Vector2(s.x - fromX, s.y - fromY).normalize();
+    s.setVelocity(away.x * 120, away.y * 120);
+    this.scene.time.delayedCall(140, () => s.setVelocity(0, 0));
+    this.scene.cameras.main.shake(260, 0.01);
+    s.setTint(0xff6b5a).setTintMode(Phaser.TintModes.FILL);
+    this.scene.time.delayedCall(120, () => s.clearTint().setTintMode(Phaser.TintModes.MULTIPLY));
+    this.play("idle");
+    // spin down and fade, then the death screen takes over
+    this.scene.tweens.add({ targets: s, angle: 360 * 2, duration: 900, ease: "Quad.easeIn" });
+    this.scene.tweens.add({ targets: s, scale: 0.4, alpha: 0, duration: 900, delay: 200, ease: "Quad.easeIn", onComplete: () => useGame.getState().die() });
+    this.syncStore();
   }
 
   private readMove(): Phaser.Math.Vector2 {
@@ -238,11 +309,15 @@ export class Player {
     if (s.action !== this.state) s.setAction(this.state);
   }
 
-  private dirToPointer(): Dir {
+  private vecToPointer(): Phaser.Math.Vector2 {
     const p = this.scene.input.activePointer;
     const wp = p.positionToCamera(this.scene.cameras.main) as Phaser.Math.Vector2;
     const v = new Phaser.Math.Vector2(wp.x - this.sprite.x, wp.y - (this.sprite.y - 18));
-    return v.lengthSq() < 4 ? this.facing : this.dirFrom(v);
+    return v.lengthSq() < 4 ? this.vecFrom(this.facing) : v.normalize();
+  }
+
+  private dirToPointer(): Dir {
+    return this.dirFrom(this.vecToPointer());
   }
 
   private dirFrom(v: Phaser.Math.Vector2): Dir {

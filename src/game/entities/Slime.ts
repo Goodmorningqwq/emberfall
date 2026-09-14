@@ -1,9 +1,12 @@
 import Phaser from "phaser";
+import { Enemy } from "./Enemy";
+import type { DungeonScene } from "../scenes/DungeonScene";
 
 /**
- * Demo slime. State machine:
+ * Slime. State machine:
  *   wander → (player near) telegraph → lunge → recover → wander
  * Touching it only hurts during `lunge`; being hit knocks it into `stunned`.
+ * Mossback is the same machine scaled up, and splits into two slimes on death.
  */
 type SlimeState = "wander" | "telegraph" | "lunge" | "recover" | "stunned";
 
@@ -15,24 +18,26 @@ const LUNGE_MS = 260;
 const RECOVER_MS = 900;
 const STUN_MS = 450;
 
-export class Slime {
-  readonly sprite: Phaser.Physics.Arcade.Sprite;
-  hp = 2;
-  hitThisSwing = false;
+export interface SlimeOptions {
+  scale?: number;
+  hp?: number;
+  split?: boolean;
+  bounty?: number;
+}
 
-  private scene: Phaser.Scene;
+export class Slime extends Enemy {
   private state: SlimeState = "wander";
   private stateUntil = 0;
   private breathe?: Phaser.Tweens.Tween;
+  private opts: Required<SlimeOptions>;
 
-  constructor(scene: Phaser.Scene, group: Phaser.Physics.Arcade.Group, x: number, y: number) {
-    this.scene = scene;
-    this.sprite = group.create(x, y, "slime") as Phaser.Physics.Arcade.Sprite;
-    this.sprite.setOrigin(0.5, 1);
-    this.sprite.body!.setSize(this.sprite.width * 0.7, this.sprite.height * 0.5).setOffset(this.sprite.width * 0.15, this.sprite.height * 0.5);
-    this.sprite.setPushable(false);
-    this.sprite.setDrag(900, 900);
-    this.sprite.setData("slime", this);
+  constructor(scene: DungeonScene, group: Phaser.Physics.Arcade.Group, x: number, y: number, opts: SlimeOptions = {}) {
+    super(scene, group, x, y, "slime", opts.hp ?? 2);
+    this.opts = { scale: opts.scale ?? 1, hp: opts.hp ?? 2, split: opts.split ?? false, bounty: opts.bounty ?? 3 };
+    this.bounty = this.opts.bounty;
+    const s = this.sprite;
+    s.setScale(this.opts.scale);
+    s.body!.setSize(s.width * 0.7, s.height * 0.5).setOffset(s.width * 0.15, s.height * 0.5);
     this.startBreathing();
   }
 
@@ -42,18 +47,23 @@ export class Slime {
 
   update(now: number, px: number, py: number) {
     const s = this.sprite;
-    if (!s.active) return;
+    if (!s.active || this.isDead) return;
     s.setDepth(s.y);
+    if (this.isStunned) {
+      s.setVelocity(0, 0);
+      return;
+    }
     const d = Phaser.Math.Distance.Between(s.x, s.y, px, py);
+    const k = this.opts.scale;
 
     switch (this.state) {
       case "wander":
-        if (d < AGGRO_RANGE) {
+        if (d < AGGRO_RANGE * k) {
           this.enter("telegraph", now + TELEGRAPH_MS);
           // the tell: squash down + red glints
           s.setVelocity(0, 0);
           this.breathe?.pause();
-          this.scene.tweens.add({ targets: s, scaleX: 1.25, scaleY: 0.7, duration: TELEGRAPH_MS * 0.8, ease: "Quad.easeIn" });
+          this.scene.tweens.add({ targets: s, scaleX: 1.25 * k, scaleY: 0.7 * k, duration: TELEGRAPH_MS * 0.8, ease: "Quad.easeIn" });
           this.glint();
         } else if (d > 24) {
           const v = new Phaser.Math.Vector2(px - s.x, py - s.y).normalize().scale(WANDER_SPEED * 0.6);
@@ -64,9 +74,9 @@ export class Slime {
         if (now >= this.stateUntil) {
           this.enter("lunge", now + LUNGE_MS);
           s.clearTint().setTintMode(Phaser.TintModes.MULTIPLY);
-          s.setScale(0.85, 1.2); // stretch on launch
-          this.scene.tweens.add({ targets: s, scaleX: 1, scaleY: 1, duration: LUNGE_MS, ease: "Quad.easeOut" });
-          const v = new Phaser.Math.Vector2(px - s.x, py - s.y).normalize().scale(LUNGE_SPEED);
+          s.setScale(0.85 * k, 1.2 * k); // stretch on launch
+          this.scene.tweens.add({ targets: s, scaleX: k, scaleY: k, duration: LUNGE_MS, ease: "Quad.easeOut" });
+          const v = new Phaser.Math.Vector2(px - s.x, py - s.y).normalize().scale(LUNGE_SPEED * (0.8 + 0.2 * k));
           s.setVelocity(v.x, v.y);
         }
         break;
@@ -84,33 +94,26 @@ export class Slime {
     }
   }
 
-  /** Called by the scene when the sword connects. Returns true if it died. */
-  takeHit(fromX: number, fromY: number, now: number): boolean {
-    this.hp -= 1;
-    this.hitThisSwing = true;
-    this.enter("stunned", now + STUN_MS);
+  protected onHit() {
+    this.enter("stunned", this.scene.time.now + STUN_MS);
     this.scene.tweens.killTweensOf(this.sprite);
     this.breathe?.resume();
+    this.sprite.setScale(this.opts.scale);
+  }
+
+  protected onStun() {
+    this.scene.tweens.killTweensOf(this.sprite);
+    this.breathe?.pause();
+    this.sprite.setScale(this.opts.scale);
+    this.enter("recover", this.stunnedUntil);
+  }
+
+  protected onDeath() {
+    if (!this.opts.split) return;
     const s = this.sprite;
-    s.setScale(1, 1);
-    s.setTint(0xfff2b0).setTintMode(Phaser.TintModes.FILL);
-    this.scene.time.delayedCall(70, () => s.active && s.clearTint().setTintMode(Phaser.TintModes.MULTIPLY));
-    const dir = new Phaser.Math.Vector2(s.x - fromX, s.y - fromY).normalize();
-    s.setVelocity(dir.x * 200, dir.y * 200); // drag brings it to rest
-    if (this.hp <= 0) {
-      this.state = "stunned";
-      this.stateUntil = Infinity;
-      this.scene.tweens.add({
-        targets: s,
-        alpha: 0,
-        scale: 0.2,
-        duration: 220,
-        ease: "Quad.easeIn",
-        onComplete: () => s.destroy(),
-      });
-      return true;
+    for (const dx of [-14, 14]) {
+      this.scene.spawnEnemy("slime", s.x + dx, s.y, { fromSplit: true });
     }
-    return false;
   }
 
   /** The tell: two short red glints, then one right before the lunge. Additive so the green stays green. */
@@ -129,10 +132,11 @@ export class Slime {
   }
 
   private startBreathing() {
+    const k = this.opts.scale;
     this.breathe = this.scene.tweens.add({
       targets: this.sprite,
-      scaleY: { from: 1, to: 0.9 },
-      scaleX: { from: 1, to: 1.08 },
+      scaleY: { from: k, to: 0.9 * k },
+      scaleX: { from: k, to: 1.08 * k },
       duration: 480,
       yoyo: true,
       repeat: -1,

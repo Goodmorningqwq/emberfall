@@ -14,13 +14,13 @@ function Slot({ icon, keyHint, qty, selected, empty }: { icon?: IconName; keyHin
     <div className={`slot pxslot${selected ? " sel" : ""}${empty ? " empty" : ""}`}>
       {icon && <Icon name={icon} />}
       {qty !== undefined && qty > 1 && <span className="qty">x{qty}</span>}
-      <span className="kbd key">{keyHint}</span>
+      {keyHint && <span className="kbd key">{keyHint}</span>}
     </div>
   );
 }
 
 export function HUD() {
-  const { screen, hearts, maxHearts, gold, keys, items, bagOpen, toggleBag, paused, togglePause, quitToTitle } = useGame();
+  const { screen, hearts, maxHearts, gold, keys, items, bagOpen, toggleBag, paused, togglePause, quitToTitle, roomName, dungeonName, banner, boss, respawn, room } = useGame();
   const rect = useCanvasRect();
   const s = uiScale(rect);
 
@@ -59,6 +59,24 @@ export function HUD() {
     );
   }
 
+  if (screen === "dead") {
+    return (
+      <div className="frame" style={frame as React.CSSProperties}>
+        <div className="bag-backdrop dead">
+          <div className="pause pxpanel death">
+            <span className="eyebrow">WHISPERWOOD HOLLOW</span>
+            <span className="t-title">You fell.</span>
+            <span className="muted t-small">The Hollow keeps what it takes. Your keys and treasures are safe.</span>
+            <div className="pause-actions">
+              <button className="pxbtn pxslot" onClick={quitToTitle}>Title</button>
+              <button className="pxbtn pxslot" onClick={respawn} autoFocus>Try again</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="frame" style={frame as React.CSSProperties}>
       <div className="scrim" />
@@ -75,17 +93,39 @@ export function HUD() {
         <div className="divider" />
         <Slot icon="potion" keyHint="1" qty={item("potion")?.qty ?? 0} empty={!item("potion")} />
         <Slot icon="bomb" keyHint="2" qty={item("bomb")?.qty ?? 0} empty={!item("bomb")} />
-        <Slot keyHint="3" empty />
+        <Slot icon={item("boomerang") ? "boomerang" : undefined} keyHint="RMB" empty={!item("boomerang")} />
+        {item("bosskey") && <Slot icon="bosskey" keyHint="" />}
         <div className="divider" />
         <Slot icon="bag" keyHint="Tab" />
       </div>
 
-      {!bagOpen && (
-        <div className="namecard">
+      {!bagOpen && !banner && (
+        <div className="namecard" key={room}>
           <div className="card pxpanel">
-            <span className="eyebrow">WHISPERWOOD HOLLOW</span>
-            <span className="t-title">Mossy Antechamber</span>
+            <span className="eyebrow">{dungeonName.toUpperCase()}</span>
+            <span className="t-title">{roomName}</span>
           </div>
+        </div>
+      )}
+
+      {banner && (
+        <div className={`banner ${banner.kind}`} key={banner.title}>
+          <div className="card pxpanel">
+            {banner.icon && <img className="banner-icon" src={banner.icon === "heart" ? "/assets/sprites/props/heart-container.png" : `/assets/ui/icons/${banner.icon}.png`} alt="" />}
+            <div className="banner-text">
+              <span className="eyebrow">{banner.kind === "boss" ? "BOSS" : banner.kind === "item" ? "YOU GOT" : ""}</span>
+              <span className="t-title">{banner.title}</span>
+              {banner.sub && <span className="muted t-small">{banner.sub}</span>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {boss && (
+        <div className="bossbar">
+          <span className="t-small bossname">{boss.name}</span>
+          <div className="pxbar bar"><div className="fill" style={{ width: `${(100 * boss.hp) / boss.max}%` }} /></div>
+          {boss.status && <span className="t-small bossstatus">{boss.status}</span>}
         </div>
       )}
 
@@ -98,6 +138,9 @@ export function HUD() {
               <div><span className="kbd">WASD</span><span>Move</span></div>
               <div><span className="kbd">LMB</span><span>Attack toward cursor</span></div>
               <div><span className="kbd">Shift</span><span>Tap: dash · Hold: sprint</span></div>
+              <div><span className="kbd">RMB</span><span>Throw boomerang</span></div>
+              <div><span className="kbd">1</span><span>Drink potion</span></div>
+              <div><span className="kbd">2</span><span>Drop bomb</span></div>
               <div><span className="kbd">Tab</span><span>Bag</span></div>
               <div><span className="kbd">Esc</span><span>Pause / resume</span></div>
             </div>

@@ -8,4 +8,5 @@ if (import.meta.env.DEV) {
 }
 
 createRoot(document.getElementById("ui")!).render(<HUD />);
-createGame(document.getElementById("game")!);
+const game = createGame(document.getElementById("game")!);
+if (import.meta.env.DEV) (window as unknown as { __game: unknown }).__game = game; // console access for playtesting
