@@ -40,16 +40,37 @@ export class DemoScene extends Phaser.Scene {
     // left the view black on a fresh load); just flag that we're ready
     this.game.canvas.classList.add("ready");
 
-    // the React bag panel pauses the world while it's open
+    // the React bag / pause panels freeze the world while open. Not
+    // scene.pause(): in Phaser 4 that stops rendering too and the canvas
+    // clears to black; freezing the systems keeps the last frame on screen.
     const unsub = useGame.subscribe((s, prev) => {
-      if (s.bagOpen === prev.bagOpen) return;
-      if (s.bagOpen) this.scene.pause();
-      else this.scene.resume();
+      const was = prev.bagOpen || prev.paused;
+      const now = s.bagOpen || s.paused;
+      if (was === now) return;
+      this.setFrozen(now);
     });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, unsub);
   }
 
+  private frozen = false;
+
+  private setFrozen(on: boolean) {
+    this.frozen = on;
+    if (on) {
+      this.physics.world.pause();
+      this.anims.pauseAll();
+      this.tweens.pauseAll();
+      this.time.paused = true;
+    } else {
+      this.physics.world.resume();
+      this.anims.resumeAll();
+      this.tweens.resumeAll();
+      this.time.paused = false;
+    }
+  }
+
   update(_time: number, delta: number) {
+    if (this.frozen) return;
     try {
       this.player.update(delta);
       const now = this.time.now;

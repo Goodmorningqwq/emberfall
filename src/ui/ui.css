@@ -69,12 +69,6 @@ html, body { margin: 0; height: 100%; background: #0f110f; color: var(--ink); ov
 .slot .qty { position: absolute; right: calc(-2px * var(--s)); bottom: calc(-4px * var(--s)); font-size: 16px; color: var(--ink); text-shadow: 0 var(--px) 0 var(--shadow), var(--px) 0 0 var(--shadow), calc(-1 * var(--px)) 0 0 var(--shadow), 0 calc(-1 * var(--px)) 0 var(--shadow); }
 .slot .key { position: absolute; left: calc(-6px * var(--s)); top: calc(-8px * var(--s)); }
 
-/* hints, top-right for the first seconds; hidden in narrow frames */
-.hint { position: absolute; right: calc(12px * var(--s)); top: calc(10px * var(--s)); display: flex; gap: calc(8px * var(--s)); align-items: center; padding: calc(2px * var(--s)) calc(6px * var(--s)); color: var(--muted); font-size: 16px; animation: hint-fade 9s steps(1, end) forwards; }
-.hint span { display: inline-flex; align-items: center; gap: calc(3px * var(--s)); white-space: nowrap; }
-/* solid, then gone — pixel chrome never sits half-transparent over the world */
-@keyframes hint-fade { 0%, 95% { opacity: 1; visibility: visible; } 100% { opacity: 0; visibility: hidden; } }
-@container (max-width: 1100px) { .hint { display: none; } }
 
 /* room name card */
 .namecard { position: absolute; left: 0; right: 0; bottom: calc(68px * var(--s)); display: flex; justify-content: center; animation: namecard 4.5s ease-out forwards; }
@@ -92,4 +86,12 @@ html, body { margin: 0; height: 100%; background: #0f110f; color: var(--ink); ov
 .bag-item-text { display: flex; flex-direction: column; gap: calc(1px * var(--s)); min-width: 0; font-size: 16px; line-height: 1.2; }
 .bag-item-text .muted { font-size: 16px; }
 
-@media (prefers-reduced-motion: reduce) { .namecard, .hint { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .namecard { animation: none; } }
+
+/* pause */
+#ui .pause { width: calc(200px * var(--s)); max-width: 92%; padding: calc(6px * var(--s)) calc(10px * var(--s)) calc(8px * var(--s)); display: flex; flex-direction: column; gap: calc(8px * var(--s)); align-items: flex-start; pointer-events: auto; }
+.pause .controls { display: grid; grid-template-columns: auto 1fr; gap: calc(4px * var(--s)) calc(6px * var(--s)); align-items: center; font-size: 16px; color: var(--muted); }
+.pause .controls div { display: contents; }
+.pause .controls span:last-child { color: var(--ink); }
+.pxbtn { font: inherit; font-size: 16px; color: var(--ink); background: none; cursor: pointer; padding: calc(2px * var(--s)) calc(10px * var(--s)); pointer-events: auto; align-self: flex-end; }
+.pxbtn:hover, .pxbtn:focus-visible { filter: brightness(1.2); outline: none; }

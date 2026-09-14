@@ -19,22 +19,24 @@ function Slot({ icon, keyHint, qty, selected, empty }: { icon?: IconName; keyHin
 }
 
 export function HUD() {
-  const { hearts, maxHearts, gold, keys, items, bagOpen, toggleBag } = useGame();
+  const { hearts, maxHearts, gold, keys, items, bagOpen, toggleBag, paused, togglePause } = useGame();
   const rect = useCanvasRect();
   const s = uiScale(rect);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      const st = useGame.getState();
       if (e.key === "Tab") {
         e.preventDefault();
-        toggleBag();
-      } else if (e.key === "Escape" && useGame.getState().bagOpen) {
-        toggleBag(false);
+        if (!st.paused) toggleBag();
+      } else if (e.key === "Escape") {
+        if (st.bagOpen) toggleBag(false);
+        else togglePause();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [toggleBag]);
+  }, [toggleBag, togglePause]);
 
   const heartStates = Array.from({ length: maxHearts / 2 }, (_, i) => {
     const filled = hearts - i * 2;
@@ -77,11 +79,22 @@ export function HUD() {
         </div>
       )}
 
-      <div className="hint pxpanel">
-        <span><span className="kbd">WASD</span> move</span>
-        <span><span className="kbd">LMB</span> attack</span>
-        <span><span className="kbd">Shift</span> tap dash / hold sprint</span>
-      </div>
+
+      {paused && (
+        <div className="bag-backdrop" onClick={() => togglePause(false)}>
+          <div className="pause pxpanel" onClick={(e) => e.stopPropagation()}>
+            <span className="t-title">Paused</span>
+            <div className="controls">
+              <div><span className="kbd">WASD</span><span>Move</span></div>
+              <div><span className="kbd">LMB</span><span>Attack toward cursor</span></div>
+              <div><span className="kbd">Shift</span><span>Tap: dash · Hold: sprint</span></div>
+              <div><span className="kbd">Tab</span><span>Bag</span></div>
+              <div><span className="kbd">Esc</span><span>Pause / resume</span></div>
+            </div>
+            <button className="pxbtn pxslot" onClick={() => togglePause(false)}>Resume</button>
+          </div>
+        </div>
+      )}
 
       {bagOpen && (
         <div className="bag-backdrop" onClick={() => toggleBag(false)}>
