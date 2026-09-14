@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import type { DungeonScene } from "../scenes/DungeonScene";
+import { sfx } from "../audio";
 
 /**
  * Dungeon 1 tool. Flies toward the cursor for RANGE px (or until it hits a
@@ -72,6 +73,7 @@ export class Boomerang {
 
   private finish() {
     this.done = true;
+    sfx("catch");
     for (const c of this.cargo) this.scene.collectPickup(c);
     this.cargo = [];
     this.scene.tweens.killTweensOf(this.sprite);

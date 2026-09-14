@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { Enemy } from "./Enemy";
 import type { DungeonScene } from "../scenes/DungeonScene";
+import { sfx } from "../audio";
 
 /**
  * Mushroom: doesn't move. When the player lingers close it shudders, then
@@ -62,6 +63,7 @@ export class Mushroom extends Enemy {
         if (now >= this.stateUntil) {
           this.state = "spore";
           this.stateUntil = now + SPORE_MS;
+          sfx("spore");
           if (!this.scene.anims.exists("mushroom-spore")) this.scene.tweens.add({ targets: s, scaleX: 1, scaleY: 1, duration: 120, ease: "Back.easeOut" });
           this.puff();
         }

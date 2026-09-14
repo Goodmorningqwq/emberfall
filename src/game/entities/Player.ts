@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { HERO, HURT_MS, DEATH_MS, type Clip, type Dir } from "./heroAssets";
 import { SWORD, SWORD_MS, SWORD_RECOVER_MS } from "./weapons";
 import { useGame, type Facing } from "../../ui/store";
+import { sfx } from "../audio";
 import type { DungeonScene } from "../scenes/DungeonScene";
 
 const WALK_SPEED = 110;
@@ -215,6 +216,7 @@ export class Player {
     const now = this.scene.time.now;
     if (now < this.invulnerableUntil || this.state === "dash" || this.state === "dead") return;
     this.invulnerableUntil = now + HURT_IFRAMES_MS;
+    sfx("hurt");
     useGame.getState().damage(1);
     if (useGame.getState().hearts <= 0) return this.die(fromX, fromY);
     this.scene.onPlayerHurt();
@@ -240,6 +242,7 @@ export class Player {
 
   private die(fromX: number, fromY: number) {
     this.state = "dead";
+    sfx("death");
     this.attackActive = false;
     const s = this.sprite;
     const away = new Phaser.Math.Vector2(s.x - fromX, s.y - fromY).normalize();
@@ -296,6 +299,7 @@ export class Player {
     this.sprite.setScale(1.12, 0.88);
     this.scene.tweens.add({ targets: this.sprite, scaleX: 1, scaleY: 1, duration: DASH_MS, ease: "Quad.easeOut" });
     this.play("roll", true);
+    sfx("dash");
     this.scene.finishLesson("dash");
     this.syncStore();
   }

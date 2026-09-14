@@ -13,6 +13,7 @@ import { Bomb } from "../entities/Bomb";
 import { HERO } from "../entities/heroAssets";
 import { useGame, type ItemId, type LessonId } from "../../ui/store";
 import whisperwood from "../data/whisperwood.json";
+import { sfx } from "../audio";
 
 type Dir = "north" | "south" | "east" | "west";
 
@@ -293,6 +294,7 @@ export class DungeonScene extends Phaser.Scene {
 
   private breakCrack(c: Crack) {
     this.cracks = this.cracks.filter((x) => x !== c);
+    sfx("crack");
     useGame.getState().setFlag(c.id);
     for (const t of c.tiles) this.dungeon.setTile(t.tx, t.ty, ".");
     const mid = c.tiles[Math.floor(c.tiles.length / 2)];
@@ -571,6 +573,7 @@ export class DungeonScene extends Phaser.Scene {
     const st = useGame.getState();
     this.tweens.killTweensOf(img);
     img.destroy();
+    sfx(kind === "key" ? "key" : kind === "shard" ? "victory" : "heart");
     switch (kind) {
       case "key":
         st.addKeys(1);
@@ -627,6 +630,7 @@ export class DungeonScene extends Phaser.Scene {
     const s = e.sprite;
     const wasStunnedBoss = e instanceof Treant;
     const died = e.takeHit(this.player.sprite.x, this.player.sprite.y, 1);
+    sfx(e instanceof Treant && !(e as Treant).isStunned ? "clang" : "hit");
     this.finishLesson("attack");
     // feedback bundle: hit-stop, shake, damage number (flash + knockback are in takeHit)
     this.shake(80, 0.004);
@@ -638,6 +642,7 @@ export class DungeonScene extends Phaser.Scene {
 
   private onEnemyDied(e: Enemy) {
     this.enemies = this.enemies.filter((x) => x !== e);
+    sfx(e instanceof ForestSprite ? "sprite" : "slime");
     const st = useGame.getState();
     st.addGold(e.bounty);
     if (!(e instanceof Treant) && Math.random() < 0.2 && st.hearts < st.maxHearts) this.spawnPickup("heart", e.sprite.x, e.sprite.y);
@@ -740,6 +745,7 @@ export class DungeonScene extends Phaser.Scene {
       });
     }
     this.time.delayedCall(2100, () => {
+      sfx("roar");
       cam.shake(420, 0.012);
       st.showBanner({ kind: "boss", title: "ELDER TREANT", sub: "Warden of the Hollow" });
       this.time.delayedCall(2200, () => useGame.getState().banner?.kind === "boss" && useGame.getState().showBanner(null));
@@ -786,6 +792,7 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   bossPhase2() {
+    sfx("phase");
     const st = useGame.getState();
     if (st.boss) st.setBoss({ ...st.boss, status: "IT DIGS IN DEEPER" });
     this.shake(250, 0.008);
@@ -814,6 +821,8 @@ export class DungeonScene extends Phaser.Scene {
     st.setFlag(`boss:${this.dungeon.def.id}`);
     st.setFlag(`cleared:${this.room.id}`);
     st.setBoss(null);
+    sfx("roar");
+    this.time.delayedCall(900, () => sfx("victory"));
     this.shake(500, 0.01);
     this.hitStop(120);
     // the summoned sprites die with their master
@@ -842,6 +851,7 @@ export class DungeonScene extends Phaser.Scene {
       if (!st.hasItem("bosskey")) return this.toast("icon-bosskey", "Locked - needs the Boss Key", true, at);
     }
     st.setFlag(door.id);
+    sfx(door.kind === "boss" ? "boss-door" : "door");
     this.doors = this.doors.filter((d) => d !== door);
     door.zone.destroy();
     const clip = door.kind === "boss" ? "door-boss-open" : "door-locked-open";
@@ -914,6 +924,7 @@ export class DungeonScene extends Phaser.Scene {
       return;
     }
     st.setLesson({ id, keys: id === "move" ? ["W", "A", "S", "D"] : undefined });
+    sfx("lesson");
   }
 
   lessonKey(key: string) {
@@ -963,6 +974,7 @@ export class DungeonScene extends Phaser.Scene {
     c.opened = true;
     const st = useGame.getState();
     st.setFlag(c.id);
+    sfx("chest");
     if (this.textures.exists("chest-open")) c.image.setTexture("chest-open");
     else c.image.setTint(0x777777);
     this.tweens.add({ targets: c.image, scaleY: 0.85, duration: 60, yoyo: true });
@@ -1072,6 +1084,7 @@ export class DungeonScene extends Phaser.Scene {
     b.moving = true;
     b.tx = tx;
     b.ty = ty;
+    sfx("block");
     if (useGame.getState().tag?.kind === "push") useGame.getState().setTag(null);
     this.tweens.add({
       targets: sprite,
@@ -1085,6 +1098,7 @@ export class DungeonScene extends Phaser.Scene {
         (sprite.body as Phaser.Physics.Arcade.Body).reset(sprite.x, sprite.y);
         const plate = this.plates.find((pl) => pl.tx === tx && pl.ty === ty);
         if (plate) {
+          sfx("plate");
           plate.image.setTint(0x9adf9a);
           this.shake(60, 0.002);
           this.solveRoom();
@@ -1099,12 +1113,14 @@ export class DungeonScene extends Phaser.Scene {
     if (this.boomerang && !this.boomerang.done) return false;
     const p = this.player.sprite;
     this.boomerang = new Boomerang(this, p.x + dir.x * 10, p.y - 16 + dir.y * 10, dir);
+    sfx("whoosh");
     this.finishLesson("throw");
     this.physics.add.collider(this.boomerang.sprite, this.walls);
     this.physics.add.overlap(this.boomerang.sprite, this.enemyGroup, (_b, obj) => {
       const e = (obj as Phaser.GameObjects.GameObject).getData("enemy") as Enemy;
       if (!e || e.isDead || !this.boomerang?.canHit(e)) return;
       e.boomerangHit();
+      sfx("stun");
       this.hitStop(30);
       if (e.isDead) this.onEnemyDied(e);
       else if (!(e instanceof Treant)) this.boomerang.turnBack();
@@ -1122,6 +1138,7 @@ export class DungeonScene extends Phaser.Scene {
       this.physics.add.overlap(this.boomerang.sprite, c.zone, () => {
         if (c.lit || !this.boomerang?.canHit(c)) return;
         c.lit = true;
+        sfx("crystal");
         c.image.setTint(0xffb060);
         this.tweens.add({ targets: c.image, scaleX: 1.2, scaleY: 0.85, duration: 70, yoyo: true });
         this.puff(c.image.x + 16, c.image.y + 10, 0xffd090, 12);
@@ -1147,6 +1164,7 @@ export class DungeonScene extends Phaser.Scene {
     if (!st.useItem("bomb")) return false;
     const p = this.player.sprite;
     this.bombs.push(new Bomb(this, p.x, p.y + 2));
+    sfx("bomb-place");
     this.finishLesson("bomb");
     return true;
   }
@@ -1163,12 +1181,14 @@ export class DungeonScene extends Phaser.Scene {
     }
     if (!st.useItem("potion")) return false;
     st.heal(6);
+    sfx("potion");
     this.finishLesson("potion");
     this.puff(this.player.sprite.x, this.player.sprite.y - 20, 0xff8090, 10);
     return true;
   }
 
   onExplosion(x: number, y: number, r: number) {
+    sfx("bomb");
     this.shake(180, 0.008);
     this.hitStop(50);
     for (const e of [...this.enemies]) {

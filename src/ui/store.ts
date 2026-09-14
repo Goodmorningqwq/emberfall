@@ -13,13 +13,14 @@ export interface Item {
 /** Player preferences, persisted on their own (survive New game). */
 export interface Settings {
   shake: 0 | 0.5 | 1;
+  sfx: number; // 0..1
 }
 const SETTINGS_KEY = "emberfall.settings";
 export function readSettings(): Settings {
   try {
-    return { shake: 1, ...(JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}") as Partial<Settings>) };
+    return { shake: 1, sfx: 0.8, ...(JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}") as Partial<Settings>) };
   } catch {
-    return { shake: 1 };
+    return { shake: 1, sfx: 0.8 };
   }
 }
 

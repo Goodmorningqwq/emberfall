@@ -3,6 +3,7 @@ import { useGame, type ItemId, type LessonId } from "./store";
 import { uiScale, useCanvasRect } from "./useCanvasRect";
 import { Title } from "./Title";
 import whisperwood from "../game/data/whisperwood.json";
+import { sfx } from "../game/audio";
 
 /** PixelLab icon set at public/assets/ui/icons/<name>.png (24x24). */
 type IconName = ItemId | "coin" | "bag" | "boomerang" | "shard" | "bosskey" | "grapple";
@@ -267,6 +268,7 @@ export function HUD() {
         e.preventDefault();
         if (!st.paused && !st.dialogue) toggleBag();
       } else if (e.key === "Escape") {
+        sfx("ui");
         if (st.dialogue) st.setDialogue(null);
         else if (st.bagOpen) toggleBag(false);
         else togglePause();
@@ -396,6 +398,12 @@ export function HUD() {
               <div><span className="kbd">2</span><span>Drop bomb</span></div>
               <div><span className="kbd">Tab</span><span>Bag</span></div>
               <div><span className="kbd">Esc</span><span>Pause / resume</span></div>
+            </div>
+            <div className="pause-settings">
+              <span className="muted t-small">Sound</span>
+              <button className="pxbtn pxslot" onClick={() => { const v = settings.sfx >= 1 ? 0 : Math.min(1, Math.round((settings.sfx + 0.25) * 4) / 4); setSettings({ sfx: v }); sfx("ui"); }}>
+                {settings.sfx <= 0 ? "Off" : `${Math.round(settings.sfx * 100)}%`}
+              </button>
             </div>
             <div className="pause-settings">
               <span className="muted t-small">Screen shake</span>
