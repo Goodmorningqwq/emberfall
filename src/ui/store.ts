@@ -104,7 +104,7 @@ interface GameState {
   paused: boolean;
   banner: Banner | null;
   /** boss HP while a boss fight is on, else null */
-  boss: { name: string; hp: number; max: number; status: string } | null;
+  boss: { name: string; hp: number; max: number; status: string; sub?: string; intro?: boolean } | null;
   lessons: string[]; // completed tutorial lessons (saved)
   lesson: Lesson | null; // the one showing now
   tag: WorldTag | null;

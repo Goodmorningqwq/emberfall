@@ -636,7 +636,10 @@ export class DungeonScene extends Phaser.Scene {
     this.shake(80, 0.004);
     this.hitStop(60);
     if (!(wasStunnedBoss && !(e as Treant).isStunned)) this.damageNumber(s.x, s.y - s.displayHeight, 1);
-    if (e instanceof Treant && !died) useGame.getState().setBoss({ name: "Elder Treant", hp: Math.max(0, e.hp), max: TREANT_HP, status: useGame.getState().boss?.status ?? "" });
+    if (e instanceof Treant && !died) {
+      const b = useGame.getState().boss;
+      if (b) useGame.getState().setBoss({ ...b, hp: Math.max(0, e.hp) });
+    }
     if (died) this.onEnemyDied(e);
   }
 
@@ -747,8 +750,8 @@ export class DungeonScene extends Phaser.Scene {
     this.time.delayedCall(2100, () => {
       sfx("roar");
       cam.shake(420, 0.012);
-      st.showBanner({ kind: "boss", title: "ELDER TREANT", sub: "Warden of the Hollow" });
-      this.time.delayedCall(2200, () => useGame.getState().banner?.kind === "boss" && useGame.getState().showBanner(null));
+      // the name plate lands mid-screen, then rides up and becomes the health bar
+      useGame.getState().setBoss({ name: "ELDER TREANT", sub: "Warden of the Hollow", hp: TREANT_HP, max: TREANT_HP, status: "", intro: true });
     });
     // back out, and the fight is on
     this.time.delayedCall(2900, () => {
@@ -759,7 +762,8 @@ export class DungeonScene extends Phaser.Scene {
       if (t.isDead) return;
       cam.setScroll(room.x, room.y);
       cam.setZoom(1);
-      useGame.getState().setBoss({ name: "Elder Treant", hp: TREANT_HP, max: TREANT_HP, status: "" });
+      const b = useGame.getState().boss;
+      useGame.getState().setBoss({ ...(b ?? { name: "ELDER TREANT", sub: "Warden of the Hollow", hp: TREANT_HP, max: TREANT_HP, status: "" }), intro: false });
       this.setAnchor("boss", s.x, s.y - 62);
     });
   }

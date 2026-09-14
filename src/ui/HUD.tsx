@@ -374,11 +374,14 @@ export function HUD() {
 
       {boss && (
         <>
-          <div className="bossbar">
+          {/* one stone plate: lands mid-screen on the intro, then slides up and becomes the health bar */}
+          <div className={`bossplate pxpanel ${boss.intro ? "intro" : "bar"}`}>
+            <span className="eyebrow">BOSS</span>
             <span className="t-title bossname">{boss.name}</span>
+            <span className="muted t-small bosssub">{boss.sub}</span>
             <div className="pxbar bar"><div className="fill" style={{ width: `${(100 * boss.hp) / boss.max}%` }} /></div>
           </div>
-          {boss.status && <div className="bossstatus" key={boss.status}>{boss.status}</div>}
+          {!boss.intro && boss.status && <div className="bossstatus" key={boss.status}>{boss.status}</div>}
         </>
       )}
 
