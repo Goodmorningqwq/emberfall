@@ -83,6 +83,19 @@ export class Player {
     HERO.createAnims(scene);
   }
 
+  /** Scripted walk (room scroll): face a direction and play the walk clip while the scene moves her. */
+  walkScripted(dir: Dir | null) {
+    if (dir) {
+      this.facing = dir;
+      this.play("walk");
+      this.state = "walk";
+    } else {
+      this.play("idle");
+      this.state = "idle";
+    }
+    this.syncStore();
+  }
+
   /** Brief invulnerability, e.g. right after a room scroll so nothing ambushes her mid-step. */
   grace(ms: number) {
     this.invulnerableUntil = Math.max(this.invulnerableUntil, this.scene.time.now + ms);

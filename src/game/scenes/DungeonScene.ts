@@ -17,8 +17,8 @@ import whisperwood from "../data/whisperwood.json";
 type Dir = "north" | "south" | "east" | "west";
 
 /** clip name -> frame count. "-loop" suffix loops. */
-const ENEMY_CLIPS: Record<string, number> = { "slime-hop-loop": 6, "slime-splat": 6, "sprite-hover-loop": 6, "mushroom-spore": 8 };
-const ENEMY_FPS: Record<string, number> = { "slime-hop-loop": 9, "slime-splat": 14, "sprite-hover-loop": 12, "mushroom-spore": 7.3 };
+const ENEMY_CLIPS: Record<string, number> = { "slime-hop-loop": 6, "slime-splat": 6, "sprite-hover-loop": 6, "mushroom-spore": 8, "door-locked-open": 6, "door-boss-open": 6 };
+const ENEMY_FPS: Record<string, number> = { "slime-hop-loop": 9, "slime-splat": 14, "sprite-hover-loop": 12, "mushroom-spore": 7.3, "door-locked-open": 10, "door-boss-open": 8 };
 const DIRS: Record<Dir, { dx: number; dy: number }> = { north: { dx: 0, dy: -1 }, south: { dx: 0, dy: 1 }, east: { dx: 1, dy: 0 }, west: { dx: -1, dy: 0 } };
 
 interface Door {
@@ -98,7 +98,7 @@ export class DungeonScene extends Phaser.Scene {
   preload() {
     this.load.spritesheet("tiles", "assets/tiles/whisperwood.png", { frameWidth: TILE, frameHeight: TILE });
     this.load.json("tiles-meta", "assets/tiles/whisperwood.json");
-    for (const p of ["door", "torch", "block", "chest", "chest-open", "slime", "sprite", "mushroom", "treant", "root", "door-locked", "door-locked-side", "door-boss", "stump", "crystal", "plate", "crack", "heart-container", "signpost", "bomb", "boomerang"]) {
+    for (const p of ["door", "torch", "block", "chest", "chest-open", "slime", "sprite", "mushroom", "treant", "root", "door-locked", "door-locked-side", "door-boss", "stump", "crystal", "plate", "crack", "heart-container", "signpost", "bomb", "boomerang", "archway"]) {
       this.load.image(p, `assets/sprites/props/${p}.png`);
     }
     for (const i of ["key", "boomerang", "bomb", "shard", "potion", "coin", "bosskey"]) this.load.image(`icon-${i}`, `assets/ui/icons/${i}.png`);
@@ -136,6 +136,13 @@ export class DungeonScene extends Phaser.Scene {
       if (this.anims.exists(clip)) continue;
       const frames = Array.from({ length: n }, (_, i) => `${clip}-${i}`).filter((k) => this.textures.exists(k)).map((key) => ({ key }));
       if (frames.length) this.anims.create({ key: clip, frames, frameRate: ENEMY_FPS[clip] ?? 8, repeat: clip.endsWith("-loop") ? -1 : 0 });
+    }
+    if (!this.textures.exists("halo")) {
+      // soft radial glow for torches (drawn once, 48px)
+      const g = this.add.graphics();
+      for (let r = 24; r > 0; r -= 2) g.fillStyle(0xffa040, 0.05).fillCircle(24, 24, r);
+      g.generateTexture("halo", 48, 48);
+      g.destroy();
     }
     // a tiny soft dot for particles (spores, smoke, sparkles)
     if (!this.textures.exists("spore")) {
@@ -254,6 +261,20 @@ export class DungeonScene extends Phaser.Scene {
           this.doors.push({ id, kind: kind === "door-boss" ? "boss" : "locked", image, zone });
         }
       }
+      // open top doorways get an empty arch (already-unlocked doors are drawn as arches too)
+      if (this.textures.exists("archway")) {
+        for (let tx = 1; tx < ROOM_W - 2; tx++) {
+          const ax = room.gx * ROOM_W + tx, ay = room.gy * ROOM_H + 2;
+          const open = (t: number) => !this.dungeon.isWall(t, ay) && !this.dungeon.isWall(t, ay - 1) && !this.dungeon.isWall(t, ay - 2);
+          // a 2-wide corridor through the top wall: floor at ax..ax+1, wall either side
+          if (!open(ax) || !open(ax + 1) || !this.dungeon.isWall(ax - 1, ay) || !this.dungeon.isWall(ax + 2, ay)) continue;
+          const hasDoor = room.placements.some((p) => (p.kind === "door-locked" || p.kind === "door-boss") && p.ty === ay && p.tx === ax && !st.hasFlag(`door:${room.id}:${p.kind}:0`));
+          const wasCracked = room.placements.some((p) => p.kind === "wall-cracked" && p.tx === ax);
+          if (hasDoor || wasCracked) continue;
+          const x = ax * TILE, y = (ay - 1) * TILE;
+          this.add.image(x, y, "archway").setOrigin(0).setDepth(y + 48);
+        }
+      }
       const cracked = byKind("wall-cracked");
       if (cracked.length && !st.hasFlag(`crack:${room.id}`)) {
         // decal on the lowest (face) row of the cracked column
@@ -338,6 +359,10 @@ export class DungeonScene extends Phaser.Scene {
           const img = this.add.image(x, y - TILE * 0.6, "torch").setOrigin(0).setDepth(y + 20);
           this.roomStuff.push(img);
           this.tweens.add({ targets: img, alpha: 0.85, duration: 120 + Math.random() * 90, yoyo: true, repeat: -1 });
+          // warm halo that breathes
+          const halo = this.add.image(x + 16, y + 6, "halo").setDepth(y + 19).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.55).setScale(1.6);
+          this.roomStuff.push(halo);
+          this.tweens.add({ targets: halo, alpha: 0.35, scale: 1.45, duration: 160 + Math.random() * 120, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
           break;
         }
         case "stump":
@@ -786,9 +811,24 @@ export class DungeonScene extends Phaser.Scene {
     st.setFlag(door.id);
     this.doors = this.doors.filter((d) => d !== door);
     door.zone.destroy();
+    const clip = door.kind === "boss" ? "door-boss-open" : "door-locked-open";
+    const vertical = door.image.width === door.image.height; // side doors have no swing clip
     door.image.setTint(0xffffff).setTintMode(Phaser.TintModes.FILL);
     this.time.delayedCall(80, () => door.image.active && door.image.clearTint().setTintMode(Phaser.TintModes.MULTIPLY));
-    this.tweens.add({ targets: door.image, alpha: 0, y: "-=10", duration: 320, delay: 80, ease: "Quad.easeIn", onComplete: () => door.image.destroy() });
+    if (!vertical && this.anims.exists(clip)) {
+      // swap the still for a sprite that swings open, then leave the empty arch behind
+      const spr = this.add.sprite(door.image.x, door.image.y, door.image.texture.key).setOrigin(0).setDepth(door.image.depth);
+      door.image.destroy();
+      this.time.delayedCall(120, () => {
+        spr.play(clip);
+        spr.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+          if (this.textures.exists("archway")) spr.setTexture("archway");
+          else spr.destroy();
+        });
+      });
+    } else {
+      this.tweens.add({ targets: door.image, alpha: 0, y: "-=10", duration: 320, delay: 80, ease: "Quad.easeIn", onComplete: () => door.image.destroy() });
+    }
     this.puff(door.image.x + 32, door.image.y + 24, 0xfff2b0, 12);
     this.cameras.main.shake(70, 0.003);
   }
@@ -1138,6 +1178,7 @@ export class DungeonScene extends Phaser.Scene {
     this.player.hold(99999);
     p.setVelocity(0, 0);
     (p.body as Phaser.Physics.Arcade.Body).enable = false;
+    this.player.walkScripted(dir);
     // old room's contents go now; they'd only be seen for a split second mid-scroll
     for (const e of this.enemies) e.destroy();
     this.enemies = [];
@@ -1158,6 +1199,7 @@ export class DungeonScene extends Phaser.Scene {
         if (!p.body || !p.active) return; // scene restarted mid-scroll
         (p.body as Phaser.Physics.Arcade.Body).enable = true;
         (p.body as Phaser.Physics.Arcade.Body).reset(p.x, p.y);
+        this.player.walkScripted(null);
         this.enterRoom(next);
         this.player.hold(this.introHold); // a boss intro may have asked to keep her still
         this.introHold = 0;
