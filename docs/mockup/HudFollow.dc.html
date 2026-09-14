@@ -1,0 +1,58 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+  <style>
+    body { margin: 0; background: #0f110f; font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; color: #ede9df; }
+    a { color: #e8763a; } a:hover { color: #f19a68; }
+    .px { font-family: "Pixelify Sans", "IBM Plex Mono", monospace; }
+    .panel { background: rgba(16, 19, 17, 0.88); border: 1px solid rgba(255,255,255,0.09); box-shadow: 0 12px 40px rgba(0,0,0,0.45); }
+    .kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 4px; background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.16); color: #cfd2c6; font-family: "Pixelify Sans", monospace; font-size: 14px; }
+    .stat { font-family: "Pixelify Sans", monospace; font-variant-numeric: tabular-nums; }
+    .slot { width: 64px; height: 64px; border-radius: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.10); display: flex; align-items: center; justify-content: center; position: relative; }
+    .slot.sel { border-color: #e8763a; box-shadow: 0 0 0 2px rgba(232,118,58,0.35), inset 0 0 18px rgba(232,118,58,0.15); }
+    .slot .qty { position: absolute; right: 4px; bottom: 2px; font-family: "Pixelify Sans", monospace; font-size: 16px; font-weight: 700; color: #ede9df; text-shadow: 0 1px 0 #000; }
+    .chip { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 999px; background: rgba(127,184,164,0.14); color: #7fb8a4; font-weight: 600; font-size: 13px; border: 1px solid rgba(127,184,164,0.35); }
+    .btn { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 18px; border-radius: 6px; font-weight: 600; font-size: 15px; letter-spacing: 0.01em; }
+    .btn.primary { background: #e8763a; color: #1b0f08; }
+    .btn.ghost { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14); color: #ede9df; }
+    .btn.disabled { background: rgba(255,255,255,0.04); color: #6f756c; border: 1px solid rgba(255,255,255,0.06); }
+    .eyebrow { font-family: "Pixelify Sans", monospace; font-size: 14px; letter-spacing: 0.10em; text-transform: uppercase; color: #e8763a; }
+    .muted { color: #a8aa9c; }
+    .hearts { display: flex; gap: 4px; }
+  </style>
+</helmet>
+<div style="position:relative; width:1280px; height:720px; overflow:hidden; background:#0f110f;">
+<img src="game-frame.png" alt="" style="position:absolute; inset:0; width:1280px; height:720px; image-rendering: pixelated;">
+
+  <div style="position:absolute; left:568px; top:240px; display:flex; flex-direction:column; align-items:center; gap:3px;">
+    <div class="hearts" style="gap:3px;"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21 3 12.5V6l3-3h3l3 3 3-3h3l3 3v6.5z" fill="none" stroke="#1a0c0a" stroke-width="2" stroke-linejoin="round"/><path d="M12 21 3 12.5V6l3-3h3l3 3 3-3h3l3 3v6.5z" fill="#e0483f"/></svg><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21 3 12.5V6l3-3h3l3 3 3-3h3l3 3v6.5z" fill="none" stroke="#1a0c0a" stroke-width="2" stroke-linejoin="round"/><path d="M12 21 3 12.5V6l3-3h3l3 3 3-3h3l3 3v6.5z" fill="#e0483f"/></svg><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21 3 12.5V6l3-3h3l3 3 3-3h3l3 3v6.5z" fill="none" stroke="#1a0c0a" stroke-width="2" stroke-linejoin="round"/><path d="M12 21 3 12.5V6l3-3h3l3 3 3-3h3l3 3v6.5z" fill="#3b3f3b"/><path d="M12 21 3 12.5V6l3-3h3l3 3v15z" fill="#e0483f"/></svg><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21 3 12.5V6l3-3h3l3 3 3-3h3l3 3v6.5z" fill="none" stroke="#1a0c0a" stroke-width="2" stroke-linejoin="round"/><path d="M12 21 3 12.5V6l3-3h3l3 3 3-3h3l3 3v6.5z" fill="#3b3f3b"/></svg></div>
+  </div>
+  <div style="position:absolute; right:28px; top:24px; display:flex; gap:18px; align-items:center;">
+    <span class="stat" style="display:inline-flex; align-items:center; gap:8px; font-size:22px; font-weight:700; color:#e2b24a; text-shadow:0 2px 0 rgba(0,0,0,.6);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#e2b24a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M9.5 10.5h3.5a1.5 1.5 0 0 1 0 3H9.5"/></svg>142</span>
+    <span class="stat" style="display:inline-flex; align-items:center; gap:8px; font-size:22px; font-weight:700; color:#ede9df; text-shadow:0 2px 0 rgba(0,0,0,.6);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cfd2c6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="12" r="3.5"/><path d="M11.5 12H21M18 12v3M15 12v2"/></svg>×1</span>
+  </div>
+  
+  <div class="panel" style="position:absolute; bottom:22px; left:50%; transform:translateX(-50%); display:flex; gap:10px; padding:10px 12px; border-radius:12px; align-items:center;">
+    <div class="slot sel" style="width:60px; height:60px;"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#ede9df" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6c5-1 10 1 13 5 1 2 2 5 2 8-3-1-6-3-8-6C9 11 6 9 4 6z"/></svg><span class="kbd" style="position:absolute; left:-6px; top:-6px;">RMB</span></div>
+    <div style="width:1px; height:44px; background:rgba(255,255,255,0.12);"></div>
+    <div class="slot" style="width:60px; height:60px;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#cfd2c6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3h4M11 3v4.5L6.5 14a4.5 4.5 0 0 0 4 6.5h3a4.5 4.5 0 0 0 4-6.5L13 7.5V3"/><path d="M8 15h8" /></svg><span class=qty>×2</span><span class="kbd" style="position:absolute; left:-6px; top:-6px;">1</span></div>
+    <div class="slot" style="width:60px; height:60px;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#cfd2c6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="14" r="6.5"/><path d="M14.5 9.5 17 7M17 7l1.5-1.5M18.5 4.5l1 1"/></svg><span class=qty>×3</span><span class="kbd" style="position:absolute; left:-6px; top:-6px;">2</span></div>
+    <div class="slot" style="width:60px; height:60px;"><span class="kbd" style="position:absolute; left:-6px; top:-6px;">3</span></div>
+    <div style="width:1px; height:44px; background:rgba(255,255,255,0.12);"></div>
+    <div class="slot" style="width:60px; height:60px;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#e2b24a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="8" width="18" height="12" rx="2"/><path d="M3 12h18M12 12v3"/></svg><span class="kbd" style="position:absolute; left:-6px; top:-6px;">Tab</span></div>
+  </div>
+  <div class="panel" style="position:absolute; left:28px; top:24px; padding:8px 12px; border-radius:8px; font-size:13px; color:#a8aa9c; max-width:34ch; line-height:1.4;">
+    <b style="color:#ede9df;">C · Hearts follow Wren.</b> Health lives where your eyes already are; hotbar bottom-centre; gold/keys top-right. Cleanest, but hearts can be hidden by walls and it's unusual for the genre.
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

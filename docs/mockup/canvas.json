@@ -6,7 +6,8 @@
       "x": 0,
       "y": 0,
       "w": 1280,
-      "h": 720
+      "h": 720,
+      "page": "page-1"
     },
     {
       "file": "Main.dc.html",
@@ -14,7 +15,8 @@
       "x": 1400,
       "y": 0,
       "w": 1280,
-      "h": 720
+      "h": 720,
+      "page": "page-1"
     },
     {
       "file": "Inventory.dc.html",
@@ -22,7 +24,8 @@
       "x": 2800,
       "y": 0,
       "w": 1280,
-      "h": 720
+      "h": 720,
+      "page": "page-1"
     },
     {
       "file": "Dialogue.dc.html",
@@ -30,7 +33,8 @@
       "x": 0,
       "y": 900,
       "w": 1280,
-      "h": 720
+      "h": 720,
+      "page": "page-1"
     },
     {
       "file": "Shop.dc.html",
@@ -38,7 +42,35 @@
       "x": 1400,
       "y": 900,
       "w": 1280,
-      "h": 720
+      "h": 720,
+      "page": "page-1"
+    },
+    {
+      "file": "HudAnchored.dc.html",
+      "title": "A \u00b7 Anchored & scaled (recommended)",
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 720,
+      "page": "page-2"
+    },
+    {
+      "file": "HudBar.dc.html",
+      "title": "B \u00b7 Bottom bar",
+      "x": 1400,
+      "y": 0,
+      "w": 1280,
+      "h": 720,
+      "page": "page-2"
+    },
+    {
+      "file": "HudFollow.dc.html",
+      "title": "C \u00b7 Hearts follow Wren",
+      "x": 0,
+      "y": 900,
+      "w": 1280,
+      "h": 720,
+      "page": "page-2"
     }
   ],
   "annotations": [
@@ -47,10 +79,30 @@
       "x": 2800,
       "y": 900,
       "w": 420,
-      "text": "Placeholder pixel art.\nRoom, town, hero, slime and portraits here are drawn procedurally so the UI has a scene under it. PixelLab-generated sprites and tilesets replace them in the pre-M0 demo.\n\nWhat this mockup is deciding: HUD layout, panel style, type pairing (Pixelify Sans display + IBM Plex Sans UI), the ember/moss/gold accents, and how menus sit over the game."
+      "text": "Placeholder pixel art.\nRoom, town, hero, slime and portraits here are drawn procedurally so the UI has a scene under it. PixelLab-generated sprites and tilesets replace them in the pre-M0 demo.\n\nWhat this mockup is deciding: HUD layout, panel style, type pairing (Pixelify Sans display + IBM Plex Sans UI), the ember/moss/gold accents, and how menus sit over the game.",
+      "page": "page-1"
+    },
+    {
+      "id": "hud-brief",
+      "x": 1400,
+      "y": 900,
+      "w": 460,
+      "page": "page-2",
+      "text": "Problem: the HUD was anchored to the browser window, not the game frame, so hearts and hints sat in the letterbox far from the action, at 26px.\n\nAll three options: anchor inside the game frame, hearts >= 36px, numbers 24px bold, hotbar with tool + 3 consumables + bag (Tab opens the Inventory screen on page 1).\n\nBackground is the real rendered game frame (tools/render_room.py)."
     }
   ],
   "launch": {
-    "view": "canvas"
-  }
+    "view": "canvas",
+    "page": "page-2"
+  },
+  "pages": [
+    {
+      "id": "page-1",
+      "name": "Screens"
+    },
+    {
+      "id": "page-2",
+      "name": "HUD scale"
+    }
+  ]
 }

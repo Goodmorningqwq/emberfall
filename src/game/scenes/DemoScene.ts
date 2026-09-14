@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { autotile, buildWangLookup, type TilesetMeta } from "../wang";
 import { PLAYER_SPAWN, PROPS, ROOM_H, ROOM_W, SLIME_SPAWNS, TILE, buildRoomVertices, wallRects } from "../room";
 import { Player } from "../entities/Player";
+import { Slime } from "../entities/Slime";
 import { HERO } from "../entities/heroAssets";
 import { useGame } from "../../ui/store";
 
@@ -12,7 +13,8 @@ import { useGame } from "../../ui/store";
  */
 export class DemoScene extends Phaser.Scene {
   private player!: Player;
-  private slimes!: Phaser.Physics.Arcade.Group;
+  private slimeGroup!: Phaser.Physics.Arcade.Group;
+  private slimes: Slime[] = [];
 
   constructor() {
     super("Demo");
@@ -35,21 +37,26 @@ export class DemoScene extends Phaser.Scene {
     this.buildSlimes();
     this.cameras.main.setBounds(0, 0, ROOM_W * TILE, ROOM_H * TILE);
     this.cameras.main.fadeIn(600, 15, 17, 15);
+
+    // the React bag panel pauses the world while it's open
+    const unsub = useGame.subscribe((s, prev) => {
+      if (s.bagOpen === prev.bagOpen) return;
+      if (s.bagOpen) this.scene.pause();
+      else this.scene.resume();
+    });
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, unsub);
   }
 
   update(_time: number, delta: number) {
-    this.player.update(delta);
-    const px = this.player.sprite.x;
-    const py = this.player.sprite.y;
-    for (const child of this.slimes.children) {
-      const s = child as Phaser.Physics.Arcade.Sprite;
-      s.setDepth(s.y);
-      if (!s.active || this.time.now < (s.getData("stunUntil") ?? 0)) continue;
-      // lazy chase: drift toward the player when she's close
-      const d = Phaser.Math.Distance.Between(s.x, s.y, px, py);
-      if (d < 180 && d > 20) {
-        const v = new Phaser.Math.Vector2(px - s.x, py - s.y).normalize().scale(32);
-        s.setVelocity(v.x, v.y);
+    try {
+      this.player.update(delta);
+      const now = this.time.now;
+      for (const s of this.slimes) s.update(now, this.player.sprite.x, this.player.sprite.y);
+    } catch (err) {
+      // a throw inside update aborts the render step, which is invisible in-game; surface it once
+      if (!this.data.get("updateError")) {
+        this.data.set("updateError", true);
+        console.error("[DemoScene.update]", (err as Error).stack ?? err);
       }
     }
   }
@@ -68,8 +75,7 @@ export class DemoScene extends Phaser.Scene {
   private buildWalls() {
     const walls = this.physics.add.staticGroup();
     for (const r of wallRects()) {
-      const z = this.add.zone(r.x + r.w / 2, r.y + r.h / 2, r.w, r.h);
-      walls.add(z);
+      walls.add(this.add.zone(r.x + r.w / 2, r.y + r.h / 2, r.w, r.h));
     }
     this.data.set("walls", walls);
   }
@@ -84,66 +90,40 @@ export class DemoScene extends Phaser.Scene {
       // depth-sort by the prop's foot line so the player can walk behind it
       img.setDepth(y + img.height);
       if (p.solid) {
-        const z = this.add.zone(x + img.width / 2, y + img.height * 0.7, img.width, img.height * 0.6);
-        solids.add(z);
+        solids.add(this.add.zone(x + img.width / 2, y + img.height * 0.7, img.width, img.height * 0.6));
       }
     }
     this.data.set("solids", solids);
   }
 
   private buildSlimes() {
-    this.slimes = this.physics.add.group();
-    for (const s of SLIME_SPAWNS) {
-      if (!this.textures.exists("slime")) break;
-      const slime = this.slimes.create(s.tx * TILE, s.ty * TILE, "slime") as Phaser.Physics.Arcade.Sprite;
-      slime.setOrigin(0.5, 1);
-      slime.body!.setSize(slime.width * 0.7, slime.height * 0.5).setOffset(slime.width * 0.15, slime.height * 0.5);
-      slime.setData("hp", 2);
-      slime.setPushable(false);
-      slime.setDrag(900, 900);
-      // idle hop: a squash-and-stretch tween, no spritesheet needed for the demo
-      this.tweens.add({
-        targets: slime,
-        scaleY: { from: 1, to: 0.85 },
-        scaleX: { from: 1, to: 1.12 },
-        duration: 420,
-        yoyo: true,
-        repeat: -1,
-        ease: "Sine.easeInOut",
-        delay: Math.random() * 400,
-      });
+    this.slimeGroup = this.physics.add.group();
+    if (this.textures.exists("slime")) {
+      for (const s of SLIME_SPAWNS) this.slimes.push(new Slime(this, this.slimeGroup, s.tx * TILE, s.ty * TILE));
     }
-    this.physics.add.collider(this.slimes, this.data.get("walls"));
-    this.physics.add.collider(this.slimes, this.data.get("solids"));
-    this.physics.add.collider(this.player.sprite, this.slimes, () => this.player.hurt());
-    this.physics.add.overlap(this.player.hitbox, this.slimes, (_hb, obj) => this.hitSlime(obj as Phaser.Physics.Arcade.Sprite));
+    this.physics.add.collider(this.slimeGroup, this.data.get("walls"));
+    this.physics.add.collider(this.slimeGroup, this.data.get("solids"));
+    // contact only hurts while the slime is mid-lunge
+    this.physics.add.collider(this.player.sprite, this.slimeGroup, (_p, obj) => {
+      const slime = (obj as Phaser.GameObjects.GameObject).getData("slime") as Slime;
+      if (slime?.isAttacking) this.player.hurt(slime.sprite.x, slime.sprite.y);
+    });
+    this.physics.add.overlap(this.player.hitbox, this.slimeGroup, (_hb, obj) => {
+      const slime = (obj as Phaser.GameObjects.GameObject).getData("slime") as Slime;
+      if (slime) this.hitSlime(slime);
+    });
   }
 
-  private hitSlime(slime: Phaser.Physics.Arcade.Sprite) {
-    if (!this.player.attackActive || slime.getData("hitThisSwing")) return;
-    slime.setData("hitThisSwing", true);
-    const hp = (slime.getData("hp") as number) - 1;
-    slime.setData("hp", hp);
-
-    // feedback: flash, knockback, hit-stop, shake, damage number
-    slime.setTint(0xfff2b0).setTintMode(Phaser.TintModes.FILL);
-    this.time.delayedCall(70, () => slime.clearTint().setTintMode(Phaser.TintModes.MULTIPLY));
-    const dir = new Phaser.Math.Vector2(slime.x - this.player.sprite.x, slime.y - this.player.sprite.y).normalize();
-    slime.setVelocity(dir.x * 200, dir.y * 200); // drag brings it to rest
-    slime.setData("stunUntil", this.time.now + 500);
+  private hitSlime(slime: Slime) {
+    if (!this.player.attackActive || slime.hitThisSwing) return;
+    const s = slime.sprite;
+    const died = slime.takeHit(this.player.sprite.x, this.player.sprite.y, this.time.now);
+    // feedback bundle: hit-stop, shake, damage number (flash + knockback are in takeHit)
     this.cameras.main.shake(80, 0.004);
     this.hitStop(60);
-    this.damageNumber(slime.x, slime.y - slime.height, 1);
-
-    if (hp <= 0) {
-      this.tweens.add({
-        targets: slime,
-        alpha: 0,
-        scale: 0.2,
-        duration: 220,
-        ease: "Quad.easeIn",
-        onComplete: () => slime.destroy(),
-      });
+    this.damageNumber(s.x, s.y - s.height, 1);
+    if (died) {
+      this.slimes = this.slimes.filter((x) => x !== slime);
       useGame.getState().addGold(3);
     }
   }
@@ -174,6 +154,6 @@ export class DemoScene extends Phaser.Scene {
 
   /** Called by Player when a swing starts so each slime can be hit once per swing. */
   resetSwingHits() {
-    for (const c of this.slimes.children) c.setData("hitThisSwing", false);
+    for (const s of this.slimes) s.hitThisSwing = false;
   }
 }

@@ -1,16 +1,19 @@
 import Phaser from "phaser";
-import { HERO, type Dir } from "./heroAssets";
+import { HERO, type Clip, type Dir } from "./heroAssets";
+import { SWORD, SWORD_MS, SWORD_RECOVER_MS } from "./weapons";
 import { useGame, type Facing } from "../../ui/store";
 import type { DemoScene } from "../scenes/DemoScene";
 
-const SPEED = 110;
-const ROLL_SPEED = 260;
-const ROLL_MS = 350;
-const ROLL_COOLDOWN_MS = 400;
-const ATTACK_MS = 320;
-const ATTACK_ACTIVE_FROM = 60; // ms into the swing the hitbox turns on
-const ATTACK_ACTIVE_TO = 200;
+const WALK_SPEED = 110;
+const SPRINT_SPEED = 185;
+const DASH_SPEED = 300;
+const DASH_MS = 200; // tap Shift: a short burst with i-frames…
+const DASH_COOLDOWN_MS = 300;
+const SPRINT_HOLD_MS = 180; // …hold Shift past this and the dash flows into a sprint
 const HURT_IFRAMES_MS = 700;
+const HURT_KNOCKBACK = 150;
+
+type State = "idle" | "walk" | "sprint" | "attack" | "recover" | "dash";
 
 export class Player {
   readonly sprite: Phaser.Physics.Arcade.Sprite;
@@ -18,25 +21,28 @@ export class Player {
   attackActive = false;
 
   private scene: DemoScene;
-  private keys: Record<"up" | "down" | "left" | "right" | "attack" | "roll", Phaser.Input.Keyboard.Key>;
+  private keys: Record<"up" | "down" | "left" | "right" | "attackAlt" | "dashAlt", Phaser.Input.Keyboard.Key>;
   private arrows: Phaser.Types.Input.Keyboard.CursorKeys;
+  private shift: Phaser.Input.Keyboard.Key;
   private facing: Dir = "south";
-  private state: "idle" | "walk" | "attack" | "roll" = "idle";
+  private state: State = "idle";
   private stateUntil = 0;
-  private rollReadyAt = 0;
-  private rollDir = new Phaser.Math.Vector2(0, 1);
+  private dashReadyAt = 0;
+  private shiftDownAt = 0;
   private invulnerableUntil = 0;
+  private wantAttack = false;
 
   constructor(scene: DemoScene, x: number, y: number) {
     this.scene = scene;
-    this.sprite = scene.physics.add.sprite(x, y, HERO.texture("idle", "south"));
-    this.sprite.setOrigin(0.5, 1);
-    // feet-sized body so she can walk behind props
-    this.sprite.body!.setSize(14, 10).setOffset((this.sprite.width - 14) / 2, this.sprite.height - 10);
+    this.sprite = scene.physics.add.sprite(x, y, HERO.texture("south"));
+    // All frames share a 68x68 canvas with the feet line at y=57; pivot there
+    // so sprite.y is where she stands.
+    this.sprite.setOrigin(0.5, HERO.feetLine / HERO.canvas);
+    this.sprite.body!.setSize(14, 10).setOffset((HERO.canvas - 14) / 2, HERO.feetLine - 10);
     this.sprite.setCollideWorldBounds(true);
     this.sprite.setDepth(y);
 
-    this.hitbox = scene.add.zone(x, y, 28, 24);
+    this.hitbox = scene.add.zone(x, y, SWORD.arc.long, SWORD.arc.short);
     scene.physics.add.existing(this.hitbox);
     (this.hitbox.body as Phaser.Physics.Arcade.Body).setAllowGravity(false);
 
@@ -44,64 +50,84 @@ export class Player {
     scene.physics.add.collider(this.sprite, scene.data.get("solids"));
 
     const kb = scene.input.keyboard!;
+    const K = Phaser.Input.Keyboard.KeyCodes;
     this.keys = {
-      up: kb.addKey(Phaser.Input.Keyboard.KeyCodes.W),
-      down: kb.addKey(Phaser.Input.Keyboard.KeyCodes.S),
-      left: kb.addKey(Phaser.Input.Keyboard.KeyCodes.A),
-      right: kb.addKey(Phaser.Input.Keyboard.KeyCodes.D),
-      attack: kb.addKey(Phaser.Input.Keyboard.KeyCodes.J),
-      roll: kb.addKey(Phaser.Input.Keyboard.KeyCodes.K),
+      up: kb.addKey(K.W),
+      down: kb.addKey(K.S),
+      left: kb.addKey(K.A),
+      right: kb.addKey(K.D),
+      attackAlt: kb.addKey(K.J),
+      dashAlt: kb.addKey(K.K),
     };
     this.arrows = kb.createCursorKeys();
+    this.shift = kb.addKey(K.SHIFT);
+
+    // Left mouse = attack toward the cursor. Buffered so a click during a
+    // swing or dash queues the next swing instead of being dropped.
+    scene.input.mouse?.disableContextMenu();
+    scene.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
+      if (p.leftButtonDown()) this.wantAttack = true;
+    });
+
     HERO.createAnims(scene);
   }
 
   update(_delta: number) {
     const now = this.scene.time.now;
-    const move = new Phaser.Math.Vector2(
-      (this.keys.right.isDown ? 1 : 0) - (this.keys.left.isDown ? 1 : 0),
-      (this.keys.down.isDown ? 1 : 0) - (this.keys.up.isDown ? 1 : 0),
-    );
-    const arrows = this.arrows;
-    if (arrows.left.isDown) move.x = -1;
-    if (arrows.right.isDown) move.x = 1;
-    if (arrows.up.isDown) move.y = -1;
-    if (arrows.down.isDown) move.y = 1;
+    const move = this.readMove();
+    if (Phaser.Input.Keyboard.JustDown(this.keys.attackAlt)) this.wantAttack = true;
+    const shiftHeld = this.shift.isDown || this.keys.dashAlt.isDown;
+    const shiftPressed = Phaser.Input.Keyboard.JustDown(this.shift) || Phaser.Input.Keyboard.JustDown(this.keys.dashAlt);
+    if (shiftPressed) this.shiftDownAt = now;
 
-    // committed states run out their timer
-    if (this.state === "attack" || this.state === "roll") {
-      if (this.state === "attack") {
-        const t = ATTACK_MS - (this.stateUntil - now);
-        this.attackActive = t >= ATTACK_ACTIVE_FROM && t <= ATTACK_ACTIVE_TO;
-        this.placeHitbox();
-      }
-      if (now >= this.stateUntil) {
-        this.state = "idle";
-        this.attackActive = false;
-        this.sprite.setVelocity(0, 0);
+    // ---- committed states
+    if (this.state === "attack") {
+      const t = SWORD_MS - (this.stateUntil - now);
+      this.attackActive = t >= SWORD.activeFrom && t <= SWORD.activeTo;
+      if (t > 120) this.sprite.setVelocity(0, 0);
+      this.placeHitbox();
+      if (now < this.stateUntil) return this.syncDepth();
+      this.attackActive = false;
+      this.sprite.setVelocity(0, 0);
+      // recovery: plays the sheathe frames, but any input cancels it
+      this.enter("recover", now + SWORD_RECOVER_MS);
+      this.play("attack-out", true);
+    }
+    if (this.state === "dash") {
+      if (now < this.stateUntil) return this.syncDepth();
+      // still holding Shift and still steering → flow into a sprint
+      if (shiftHeld && move.lengthSq() > 0 && now - this.shiftDownAt >= SPRINT_HOLD_MS) {
+        this.enter("sprint", 0);
       } else {
-        this.syncDepth();
-        return;
+        this.enter("idle", 0);
+        this.sprite.setVelocity(0, 0);
       }
     }
-
-    if (Phaser.Input.Keyboard.JustDown(this.keys.attack)) {
-      this.startAttack();
-      return;
-    }
-    if (Phaser.Input.Keyboard.JustDown(this.keys.roll) && now >= this.rollReadyAt) {
-      this.startRoll(move);
-      return;
+    if (this.state === "recover") {
+      const cancelled = move.lengthSq() > 0 || this.wantAttack || shiftPressed;
+      if (!cancelled && now < this.stateUntil) return this.syncDepth();
+      this.enter("idle", 0);
     }
 
+    // ---- new actions
+    if (this.wantAttack) {
+      this.wantAttack = false;
+      return this.startAttack();
+    }
+    if (shiftPressed && now >= this.dashReadyAt) return this.startDash(move);
+
+    // ---- locomotion
     if (move.lengthSq() > 0) {
       move.normalize();
-      this.sprite.setVelocity(move.x * SPEED, move.y * SPEED);
       this.facing = this.dirFrom(move);
-      this.play("walk");
-      this.state = "walk";
+      const sprinting = this.state === "sprint" && shiftHeld;
+      const speed = sprinting ? SPRINT_SPEED : WALK_SPEED;
+      this.sprite.setVelocity(move.x * speed, move.y * speed);
+      this.play(sprinting ? "run" : "walk");
+      this.state = sprinting ? "sprint" : "walk";
     } else {
       this.sprite.setVelocity(0, 0);
+      if (this.state === "walk" || this.state === "sprint") this.settle();
       this.play("idle");
       this.state = "idle";
     }
@@ -109,61 +135,97 @@ export class Player {
     this.syncStore();
   }
 
-  hurt() {
+  hurt(fromX: number, fromY: number) {
     const now = this.scene.time.now;
-    if (now < this.invulnerableUntil || this.state === "roll") return;
+    if (now < this.invulnerableUntil || this.state === "dash") return;
     this.invulnerableUntil = now + HURT_IFRAMES_MS;
     useGame.getState().damage(1);
     this.scene.cameras.main.shake(120, 0.006);
-    this.sprite.setTint(0xffffff).setTintMode(Phaser.TintModes.FILL);
-    this.scene.time.delayedCall(80, () => this.sprite.clearTint().setTintMode(Phaser.TintModes.MULTIPLY));
+    // separate from the attacker so a second touch isn't instant
+    const away = new Phaser.Math.Vector2(this.sprite.x - fromX, this.sprite.y - fromY).normalize();
+    this.sprite.setVelocity(away.x * HURT_KNOCKBACK, away.y * HURT_KNOCKBACK);
+    this.scene.time.delayedCall(110, () => this.state !== "dash" && this.sprite.setVelocity(0, 0));
+    this.sprite.setTint(0xff6b5a).setTintMode(Phaser.TintModes.FILL);
+    this.scene.time.delayedCall(70, () => this.sprite.clearTint().setTintMode(Phaser.TintModes.MULTIPLY));
     this.scene.tweens.add({ targets: this.sprite, alpha: 0.35, duration: 80, yoyo: true, repeat: 4 });
+  }
+
+  private readMove(): Phaser.Math.Vector2 {
+    return new Phaser.Math.Vector2(
+      (this.keys.right.isDown || this.arrows.right.isDown ? 1 : 0) - (this.keys.left.isDown || this.arrows.left.isDown ? 1 : 0),
+      (this.keys.down.isDown || this.arrows.down.isDown ? 1 : 0) - (this.keys.up.isDown || this.arrows.up.isDown ? 1 : 0),
+    );
   }
 
   private startAttack() {
     const now = this.scene.time.now;
-    this.state = "attack";
-    this.stateUntil = now + ATTACK_MS;
+    this.enter("attack", now + SWORD_MS);
     this.attackActive = false;
+    this.facing = this.dirToPointer();
     this.scene.resetSwingHits();
-    // small lunge in the facing direction
-    const v = this.vecFrom(this.facing).scale(70);
+    // short lunge, then plant
+    const v = this.vecFrom(this.facing).scale(SWORD.lunge);
     this.sprite.setVelocity(v.x, v.y);
-    this.scene.time.delayedCall(90, () => this.state === "attack" && this.sprite.setVelocity(0, 0));
+    // anticipation squash on top of the wind-up frames
+    this.sprite.setScale(1.05, 0.95);
+    this.scene.tweens.add({ targets: this.sprite, scaleX: 1, scaleY: 1, duration: 150, ease: "Back.easeOut" });
     this.play("attack", true);
     this.syncStore();
   }
 
-  private startRoll(move: Phaser.Math.Vector2) {
+  private startDash(move: Phaser.Math.Vector2) {
     const now = this.scene.time.now;
-    this.state = "roll";
-    this.stateUntil = now + ROLL_MS;
-    this.rollReadyAt = now + ROLL_MS + ROLL_COOLDOWN_MS;
-    this.invulnerableUntil = now + ROLL_MS;
-    this.rollDir = move.lengthSq() > 0 ? move.clone().normalize() : this.vecFrom(this.facing);
-    this.sprite.setVelocity(this.rollDir.x * ROLL_SPEED, this.rollDir.y * ROLL_SPEED);
+    this.enter("dash", now + DASH_MS);
+    this.dashReadyAt = now + DASH_MS + DASH_COOLDOWN_MS;
+    this.invulnerableUntil = now + DASH_MS;
+    const dir = move.lengthSq() > 0 ? move.clone().normalize() : this.vecFrom(this.facing);
+    this.facing = this.dirFrom(dir);
+    this.sprite.setVelocity(dir.x * DASH_SPEED, dir.y * DASH_SPEED);
+    this.sprite.setScale(1.12, 0.88);
+    this.scene.tweens.add({ targets: this.sprite, scaleX: 1, scaleY: 1, duration: DASH_MS, ease: "Quad.easeOut" });
     this.play("roll", true);
     this.syncStore();
   }
 
-  private placeHitbox() {
-    const v = this.vecFrom(this.facing);
-    const cx = this.sprite.x + v.x * 18;
-    const cy = this.sprite.y - this.sprite.height * 0.4 + v.y * 16;
-    this.hitbox.setPosition(cx, cy);
-    (this.hitbox.body as Phaser.Physics.Arcade.Body).reset(cx, cy);
+  /** Tiny settle when coming to a stop so walk→idle doesn't snap. */
+  private settle() {
+    this.sprite.setScale(0.97, 1.03);
+    this.scene.tweens.add({ targets: this.sprite, scaleX: 1, scaleY: 1, duration: 120, ease: "Quad.easeOut" });
   }
 
-  private play(clip: "idle" | "walk" | "attack" | "roll", restart = false) {
-    const key = HERO.animKey(clip, this.facing);
-    if (this.scene.anims.exists(key)) {
-      if (restart) this.sprite.play(key, true);
-      else if (this.sprite.anims.currentAnim?.key !== key) this.sprite.play(key, true);
-    } else {
-      // no animation for this clip — fall back to a static rotation frame
-      this.sprite.stop();
-      this.sprite.setTexture(HERO.texture(clip, this.facing));
+  private placeHitbox() {
+    const v = this.vecFrom(this.facing);
+    const horizontal = v.x !== 0;
+    const w = horizontal ? SWORD.arc.short : SWORD.arc.long;
+    const h = horizontal ? SWORD.arc.long : SWORD.arc.short;
+    const cx = this.sprite.x + v.x * (SWORD.reach + w / 2);
+    const cy = this.sprite.y - 16 + v.y * (SWORD.reach + h / 2);
+    this.hitbox.setSize(w, h);
+    const body = this.hitbox.body as Phaser.Physics.Arcade.Body;
+    body.setSize(w, h);
+    this.hitbox.setPosition(cx, cy);
+    body.reset(cx, cy);
+  }
+
+  private play(clip: Clip, restart = false) {
+    let key = HERO.animKey(clip, this.facing);
+    let timeScale = 1;
+    if (clip === "run" && !this.scene.anims.exists(key)) {
+      key = HERO.animKey("walk", this.facing); // run frames not generated yet
+      timeScale = 1.7;
     }
+    if (this.scene.anims.exists(key)) {
+      if (restart || this.sprite.anims.currentAnim?.key !== key) this.sprite.play(key, true);
+      this.sprite.anims.timeScale = timeScale;
+    } else {
+      this.sprite.stop();
+      this.sprite.setTexture(HERO.texture(this.facing));
+    }
+  }
+
+  private enter(state: State, until: number) {
+    this.state = state;
+    this.stateUntil = until;
   }
 
   private syncDepth() {
@@ -174,6 +236,13 @@ export class Player {
     const s = useGame.getState();
     if (s.facing !== this.facing) s.setFacing(this.facing as Facing);
     if (s.action !== this.state) s.setAction(this.state);
+  }
+
+  private dirToPointer(): Dir {
+    const p = this.scene.input.activePointer;
+    const wp = p.positionToCamera(this.scene.cameras.main) as Phaser.Math.Vector2;
+    const v = new Phaser.Math.Vector2(wp.x - this.sprite.x, wp.y - (this.sprite.y - 18));
+    return v.lengthSq() < 4 ? this.facing : this.dirFrom(v);
   }
 
   private dirFrom(v: Phaser.Math.Vector2): Dir {

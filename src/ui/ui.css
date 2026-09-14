@@ -11,17 +11,53 @@ html, body { margin: 0; height: 100%; background: #0f110f; color: var(--ink); fo
 #game { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
 #game canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
 #ui { position: absolute; inset: 0; pointer-events: none; }
-#ui * { pointer-events: auto; }
+#ui .frame { position: absolute; pointer-events: none; container-type: size; }
+#ui .frame > * { pointer-events: none; }
 
 .px { font-family: "Pixelify Sans", monospace; }
-.hud { position: absolute; left: 28px; top: 24px; display: flex; flex-direction: column; gap: 10px; }
-.hearts { display: flex; gap: 4px; }
-.stat-row { display: flex; gap: 14px; align-items: center; }
-.stat { display: flex; align-items: center; gap: 6px; font-family: "Pixelify Sans", monospace; font-size: 20px; font-variant-numeric: tabular-nums; }
-.hint { position: absolute; right: 28px; bottom: 24px; display: flex; gap: 12px; color: var(--muted); font-size: 13px; align-items: center; }
+.muted { color: var(--muted); font-size: 13px; }
+.panel { background: var(--panel); border: 1px solid var(--line); box-shadow: 0 12px 40px rgba(0,0,0,.45); }
 .kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 4px; background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.16); color: #cfd2c6; font-family: "Pixelify Sans", monospace; font-size: 14px; }
-.namecard { position: absolute; left: 0; right: 0; bottom: 96px; display: flex; flex-direction: column; align-items: center; gap: 2px; pointer-events: none; animation: namecard 4s ease-out forwards; }
-.namecard .eyebrow { font-family: "Pixelify Sans", monospace; font-size: 14px; letter-spacing: .1em; text-transform: uppercase; color: var(--ember); }
-.namecard .title { font-family: "Pixelify Sans", monospace; font-size: 22px; text-shadow: 0 2px 0 rgba(0,0,0,.6); }
+
+/* corner scrim so vitals read over any floor */
+.scrim { position: absolute; left: 0; top: 0; width: 34%; height: 30%; background: radial-gradient(ellipse at 0% 0%, rgba(8,10,8,0.78) 0%, rgba(8,10,8,0) 70%); }
+
+.hud { position: absolute; left: 28px; top: 24px; display: flex; flex-direction: column; gap: 8px; }
+.hearts { display: flex; gap: 6px; }
+.stat-row { display: flex; gap: 18px; align-items: center; }
+.stat { display: inline-flex; align-items: center; gap: 8px; font-family: "Pixelify Sans", monospace; font-weight: 700; font-size: 24px; font-variant-numeric: tabular-nums; color: var(--ink); text-shadow: 0 2px 0 rgba(0,0,0,.6); }
+.stat.gold { color: var(--gold); }
+
+/* hotbar */
+.hotbar { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 12px; }
+.hotbar .divider { width: 1px; height: 44px; background: rgba(255,255,255,0.12); }
+.slot { position: relative; width: 60px; height: 60px; border-radius: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.10); display: flex; align-items: center; justify-content: center; }
+.slot.sel { border-color: var(--ember); box-shadow: 0 0 0 2px rgba(232,118,58,0.35), inset 0 0 18px rgba(232,118,58,0.15); }
+.slot.empty { opacity: .55; }
+.slot .qty { position: absolute; right: 4px; bottom: 2px; font-family: "Pixelify Sans", monospace; font-size: 16px; font-weight: 700; color: var(--ink); text-shadow: 0 1px 0 #000; }
+.slot .key { position: absolute; left: -6px; top: -6px; }
+
+/* hints — fade after the first seconds */
+.hint { position: absolute; right: 28px; bottom: 30px; display: flex; gap: 14px; align-items: center; padding: 8px 12px; border-radius: 8px; color: var(--muted); font-size: 14px; animation: hint-fade 9s ease-out forwards; }
+@keyframes hint-fade { 0%, 70% { opacity: 1; } 100% { opacity: 0.35; } }
+
+.namecard { position: absolute; left: 0; right: 0; bottom: 110px; display: flex; justify-content: center; animation: namecard 4.5s ease-out forwards; }
+.namecard .card { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 28px 14px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line); box-shadow: 0 12px 40px rgba(0,0,0,.45); backdrop-filter: blur(4px); }
+.namecard .eyebrow { font-family: "Pixelify Sans", monospace; font-weight: 700; font-size: 15px; letter-spacing: .12em; text-transform: uppercase; color: var(--ember); }
+.namecard .title { font-family: "Pixelify Sans", monospace; font-weight: 700; font-size: 30px; line-height: 1.1; color: var(--ink); }
 @keyframes namecard { 0% { opacity: 0; transform: translateY(6px); } 12% { opacity: 1; transform: none; } 75% { opacity: 1; } 100% { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .namecard { animation: none; } }
+
+/* bag */
+#ui .bag-backdrop { position: absolute; inset: 0; background: rgba(8,10,8,.55); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; pointer-events: auto; }
+#ui .bag { width: 520px; padding: 24px 28px; border-radius: 12px; display: flex; flex-direction: column; gap: 18px; pointer-events: auto; }
+.bag-head { display: flex; justify-content: space-between; align-items: center; }
+.bag-title { font-size: 26px; font-weight: 700; }
+.bag-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.bag-item { display: flex; align-items: center; gap: 10px; }
+.bag-item-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.bag-item-name { font-weight: 600; font-size: 14px; }
+
+@media (prefers-reduced-motion: reduce) { .namecard, .hint { animation: none; } }
+
+/* narrow frames: drop the hint strip so it never collides with the hotbar */
+@container (max-width: 980px) { .hint { display: none; } }

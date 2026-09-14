@@ -1,31 +1,55 @@
 import Phaser from "phaser";
+import { SWORD } from "./weapons";
 
 export type Dir = "south" | "north" | "east" | "west";
-export type Clip = "idle" | "walk" | "attack" | "roll";
+export type Clip = "idle" | "walk" | "run" | "attack" | "attack-out" | "roll";
 
 const DIRS: Dir[] = ["south", "north", "east", "west"];
 
 /**
- * Frame counts per clip. PixelLab exports one PNG per frame at
- * assets/sprites/wren/<clip>/<dir>/<i>.png. A clip with 0 frames falls back
- * to the static rotation image so the demo runs before every animation lands.
+ * Frames live at assets/sprites/wren/<folder>/<dir>/<i>.png, one PNG per
+ * frame, all on a shared 68x68 canvas (tools/normalize_frames.py).
+ *
+ * A clip is a list of (folder, frame index, duration ms) so a single playable
+ * clip can stitch PixelLab's separate generations together — the sword swing
+ * is wind-up in-betweens + the swing itself.
  */
-const FRAMES: Record<Clip, number> = {
-  idle: 4,
-  walk: 6,
-  attack: 7,
-  roll: 7,
+type Src = { folder: string; index: number; ms: number };
+
+function seq(folder: string, count: number, ms: number, start = 0): Src[] {
+  return Array.from({ length: count }, (_, i) => ({ folder, index: start + i, ms }));
+}
+
+const swing: Src[] = [
+  ...SWORD.windupMs.map((ms, i) => ({ folder: "attack-in", index: i + 1, ms })),
+  ...SWORD.swingMs.map((ms, i) => ({ folder: "attack", index: i + 1, ms })),
+];
+const recover: Src[] = SWORD.recoverMs.map((ms, i) => ({ folder: "attack-out", index: i, ms }));
+
+const CLIPS: Record<Clip, { frames: Src[]; loop: boolean }> = {
+  idle: { frames: seq("idle", 4, 200), loop: true },
+  walk: { frames: seq("walk", 6, 100), loop: true },
+  run: { frames: seq("run", 6, 70), loop: true },
+  attack: { frames: swing, loop: false },
+  "attack-out": { frames: recover, loop: false },
+  roll: { frames: seq("roll", 6, 52, 1), loop: false },
 };
 
-const FPS: Record<Clip, number> = { idle: 5, walk: 10, attack: 18, roll: 16 };
-
 export const HERO = {
+  /** shared frame canvas (px) and the row her feet stand on */
+  canvas: 68,
+  feetLine: 57,
+
   preload(scene: Phaser.Scene) {
+    const seen = new Set<string>();
     for (const d of DIRS) {
       scene.load.image(`wren-rot-${d}`, `assets/sprites/wren/rotations/${d}.png`);
-      for (const clip of Object.keys(FRAMES) as Clip[]) {
-        for (let i = 0; i < FRAMES[clip]; i++) {
-          scene.load.image(`wren-${clip}-${d}-${i}`, `assets/sprites/wren/${clip}/${d}/${i}.png`);
+      for (const clip of Object.values(CLIPS)) {
+        for (const f of clip.frames) {
+          const key = texKey(f, d);
+          if (seen.has(key)) continue;
+          seen.add(key);
+          scene.load.image(key, `assets/sprites/wren/${f.folder}/${d}/${f.index}.png`);
         }
       }
     }
@@ -33,21 +57,14 @@ export const HERO = {
 
   createAnims(scene: Phaser.Scene) {
     for (const d of DIRS) {
-      for (const clip of Object.keys(FRAMES) as Clip[]) {
-        const key = HERO.animKey(clip, d);
+      for (const [name, clip] of Object.entries(CLIPS) as [Clip, (typeof CLIPS)[Clip]][]) {
+        const key = HERO.animKey(name, d);
         if (scene.anims.exists(key)) continue;
-        const frames = [];
-        for (let i = 0; i < FRAMES[clip]; i++) {
-          const tex = `wren-${clip}-${d}-${i}`;
-          if (scene.textures.exists(tex)) frames.push({ key: tex });
-        }
+        const frames = clip.frames
+          .filter((f) => scene.textures.exists(texKey(f, d)))
+          .map((f) => ({ key: texKey(f, d), duration: f.ms }));
         if (frames.length === 0) continue;
-        scene.anims.create({
-          key,
-          frames,
-          frameRate: FPS[clip],
-          repeat: clip === "idle" || clip === "walk" ? -1 : 0,
-        });
+        scene.anims.create({ key, frames, repeat: clip.loop ? -1 : 0 });
       }
     }
   },
@@ -56,8 +73,12 @@ export const HERO = {
     return `wren-${clip}-${d}`;
   },
 
-  /** Static texture for a clip/direction, falling back to the rotation frame. */
-  texture(_clip: Clip, d: Dir) {
+  /** Static texture fallback (rotation frame) for a direction. */
+  texture(d: Dir) {
     return `wren-rot-${d}`;
   },
 };
+
+function texKey(f: Src, d: Dir) {
+  return `wren-${f.folder}-${d}-${f.index}`;
+}

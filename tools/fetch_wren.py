@@ -49,3 +49,5 @@ def fetch(clip: str, specs: list[str]) -> None:
 
 if __name__ == "__main__":
     fetch(sys.argv[1], sys.argv[2:])
+    import subprocess
+    subprocess.run([sys.executable, str(Path(__file__).with_name("normalize_frames.py"))], check=True)
