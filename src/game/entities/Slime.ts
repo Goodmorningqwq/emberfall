@@ -50,11 +50,11 @@ export class Slime {
       case "wander":
         if (d < AGGRO_RANGE) {
           this.enter("telegraph", now + TELEGRAPH_MS);
-          // wind-up: squash down, tint darker — the tell
+          // the tell: squash down + red glints
           s.setVelocity(0, 0);
           this.breathe?.pause();
           this.scene.tweens.add({ targets: s, scaleX: 1.25, scaleY: 0.7, duration: TELEGRAPH_MS * 0.8, ease: "Quad.easeIn" });
-          s.setTint(0x9fd35f);
+          this.glint();
         } else if (d > 24) {
           const v = new Phaser.Math.Vector2(px - s.x, py - s.y).normalize().scale(WANDER_SPEED * 0.6);
           s.setVelocity(v.x, v.y);
@@ -63,7 +63,7 @@ export class Slime {
       case "telegraph":
         if (now >= this.stateUntil) {
           this.enter("lunge", now + LUNGE_MS);
-          s.clearTint();
+          s.clearTint().setTintMode(Phaser.TintModes.MULTIPLY);
           s.setScale(0.85, 1.2); // stretch on launch
           this.scene.tweens.add({ targets: s, scaleX: 1, scaleY: 1, duration: LUNGE_MS, ease: "Quad.easeOut" });
           const v = new Phaser.Math.Vector2(px - s.x, py - s.y).normalize().scale(LUNGE_SPEED);
@@ -111,6 +111,16 @@ export class Slime {
       return true;
     }
     return false;
+  }
+
+  /** The tell: two short red glints, then one right before the lunge. Additive so the green stays green. */
+  private glint() {
+    const s = this.sprite;
+    const on = () => s.active && s.setTint(0x8a1c1c).setTintMode(Phaser.TintModes.ADD);
+    const off = () => s.active && s.clearTint().setTintMode(Phaser.TintModes.MULTIPLY);
+    for (const [t, fn] of [[0, on], [70, off], [150, on], [220, off], [TELEGRAPH_MS - 90, on], [TELEGRAPH_MS - 10, off]] as const) {
+      this.scene.time.delayedCall(t, fn);
+    }
   }
 
   private enter(state: SlimeState, until: number) {
