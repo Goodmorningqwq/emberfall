@@ -1,0 +1,54 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+  <style>
+    body { margin: 0; background: #0f110f; font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; color: #ede9df; }
+    a { color: #e8763a; } a:hover { color: #f19a68; }
+    .px { font-family: "Pixelify Sans", "IBM Plex Mono", monospace; }
+    .panel { background: rgba(16, 19, 17, 0.88); border: 1px solid rgba(255,255,255,0.09); box-shadow: 0 12px 40px rgba(0,0,0,0.45); }
+    .kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 4px; background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.16); color: #cfd2c6; font-family: "Pixelify Sans", monospace; font-size: 14px; }
+    .stat { font-family: "Pixelify Sans", monospace; font-variant-numeric: tabular-nums; }
+    .slot { width: 64px; height: 64px; border-radius: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.10); display: flex; align-items: center; justify-content: center; position: relative; }
+    .slot.sel { border-color: #e8763a; box-shadow: 0 0 0 2px rgba(232,118,58,0.35), inset 0 0 18px rgba(232,118,58,0.15); }
+    .slot .qty { position: absolute; right: 4px; bottom: 2px; font-family: "Pixelify Sans", monospace; font-size: 16px; font-weight: 700; color: #ede9df; text-shadow: 0 1px 0 #000; }
+    .chip { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 999px; background: rgba(127,184,164,0.14); color: #7fb8a4; font-weight: 600; font-size: 13px; border: 1px solid rgba(127,184,164,0.35); }
+    .btn { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 18px; border-radius: 6px; font-weight: 600; font-size: 15px; letter-spacing: 0.01em; }
+    .btn.primary { background: #e8763a; color: #1b0f08; }
+    .btn.ghost { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14); color: #ede9df; }
+    .btn.disabled { background: rgba(255,255,255,0.04); color: #6f756c; border: 1px solid rgba(255,255,255,0.06); }
+    .eyebrow { font-family: "Pixelify Sans", monospace; font-size: 14px; letter-spacing: 0.10em; text-transform: uppercase; color: #e8763a; }
+    .muted { color: #a8aa9c; }
+    .hearts { display: flex; gap: 4px; }
+  </style>
+</helmet>
+<div style="position:relative; width:1280px; height:720px; overflow:hidden; background:#0f110f;">
+
+  <img src="hub.png" alt="" style="position:absolute; inset:0; width:1280px; height:720px; image-rendering: pixelated;"><div style="position:absolute; inset:0; background:rgba(8,10,8,0.18);"></div>
+  <div class="panel" style="position:absolute; left:120px; right:120px; bottom:36px; border-radius:12px; padding:18px 22px; display:flex; gap:20px; align-items:flex-start;">
+    <div style="width:88px; height:88px; border-radius:8px; overflow:hidden; background:#4a4650; flex-shrink:0; border:1px solid rgba(255,255,255,0.10);"><img src="elder_portrait.png" alt="" style="width:88px; height:88px; image-rendering: pixelated;"></div>
+    <div style="display:flex; flex-direction:column; gap:10px; flex-grow:1;">
+      <span style="font-size:18px; font-weight:600; color:#e8763a;">Elder Maren</span>
+      <p style="margin:0; font-size:18px; line-height:1.45; max-width:62ch; color:#ede9df;">The first shard fell into Whisperwood, past the old gate. The roots have grown over it since. Take this, and mind the spores<span style="display:inline-block; width:10px; height:20px; background:#e8763a; margin-left:4px; vertical-align:-3px;"></span></p>
+      <div style="display:flex; gap:8px; margin-top:2px; flex-wrap:wrap;">
+        <div class="btn ghost" style="height:36px; font-size:14px; border-color:#e8763a; background:rgba(232,118,58,0.10);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e8763a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg> Where exactly is the gate?</div>
+        <div class="btn ghost" style="height:36px; font-size:14px;">Tell me about the Ember.</div>
+        <div class="btn ghost" style="height:36px; font-size:14px;">I'll be going.</div>
+      </div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end; align-self:flex-end;" class="muted">
+      <span style="font-size:13px;"><span class="kbd">E</span> next</span>
+      <span style="font-size:13px;"><span class="kbd">Esc</span> skip</span>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

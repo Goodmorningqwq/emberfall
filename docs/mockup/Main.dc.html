@@ -1,0 +1,79 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+  <style>
+    body { margin: 0; background: #0f110f; font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; color: #ede9df; }
+    a { color: #e8763a; } a:hover { color: #f19a68; }
+    .px { font-family: "Pixelify Sans", "IBM Plex Mono", monospace; }
+    .panel { background: rgba(16, 19, 17, 0.88); border: 1px solid rgba(255,255,255,0.09); box-shadow: 0 12px 40px rgba(0,0,0,0.45); }
+    .kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 4px; background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.16); color: #cfd2c6; font-family: "Pixelify Sans", monospace; font-size: 14px; }
+    .stat { font-family: "Pixelify Sans", monospace; font-variant-numeric: tabular-nums; }
+    .slot { width: 64px; height: 64px; border-radius: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.10); display: flex; align-items: center; justify-content: center; position: relative; }
+    .slot.sel { border-color: #e8763a; box-shadow: 0 0 0 2px rgba(232,118,58,0.35), inset 0 0 18px rgba(232,118,58,0.15); }
+    .slot .qty { position: absolute; right: 4px; bottom: 2px; font-family: "Pixelify Sans", monospace; font-size: 16px; font-weight: 700; color: #ede9df; text-shadow: 0 1px 0 #000; }
+    .chip { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 999px; background: rgba(127,184,164,0.14); color: #7fb8a4; font-weight: 600; font-size: 13px; border: 1px solid rgba(127,184,164,0.35); }
+    .btn { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 18px; border-radius: 6px; font-weight: 600; font-size: 15px; letter-spacing: 0.01em; }
+    .btn.primary { background: #e8763a; color: #1b0f08; }
+    .btn.ghost { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14); color: #ede9df; }
+    .btn.disabled { background: rgba(255,255,255,0.04); color: #6f756c; border: 1px solid rgba(255,255,255,0.06); }
+    .eyebrow { font-family: "Pixelify Sans", monospace; font-size: 14px; letter-spacing: 0.10em; text-transform: uppercase; color: #e8763a; }
+    .muted { color: #a8aa9c; }
+    .hearts { display: flex; gap: 4px; }
+  </style>
+</helmet>
+<div style="position:relative; width:1280px; height:720px; overflow:hidden; background:#0f110f;">
+
+  <img src="room.png" alt="" style="position:absolute; inset:0; width:1280px; height:720px; image-rendering: pixelated;">
+  <!-- combat feedback: damage number + hit flash near the slime at (~780,395) -->
+  <div class="px" style="position:absolute; left:806px; top:352px; font-size:30px; font-weight:700; color:#fff2b0; text-shadow: 0 3px 0 #7a2e10, 0 0 12px rgba(232,118,58,0.6); letter-spacing:0.02em;">-2</div>
+  <!-- dungeon room name card, mid-fade -->
+  <div style="position:absolute; left:0; right:0; top:560px; display:flex; justify-content:center; pointer-events:none;">
+    <div style="display:flex; flex-direction:column; align-items:center; gap:2px; opacity:0.85;">
+      <span class="eyebrow">Whisperwood Hollow</span>
+      <span class="px" style="font-size:22px; color:#ede9df; text-shadow: 0 2px 0 rgba(0,0,0,0.6);">Mossy Antechamber</span>
+    </div>
+  </div>
+  
+  <!-- HUD: top-left vitals -->
+  <div style="position:absolute; left:28px; top:24px; display:flex; flex-direction:column; gap:10px;">
+    <div class="hearts"><svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21 3 12.5V6l3-3h3l3 3 3-3h3l3 3v6.5z" fill="none" stroke="#1a0c0a" stroke-width="2" stroke-linejoin="round"/><path d="M12 21 3 12.5V6l3-3h3l3 3 3-3h3l3 3v6.5z" fill="#e0483f"/></svg><svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21 3 12.5V6l3-3h3l3 3 3-3h3l3 3v6.5z" fill="none" stroke="#1a0c0a" stroke-width="2" stroke-linejoin="round"/><path d="M12 21 3 12.5V6l3-3h3l3 3 3-3h3l3 3v6.5z" fill="#e0483f"/></svg><svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21 3 12.5V6l3-3h3l3 3 3-3h3l3 3v6.5z" fill="none" stroke="#1a0c0a" stroke-width="2" stroke-linejoin="round"/><path d="M12 21 3 12.5V6l3-3h3l3 3 3-3h3l3 3v6.5z" fill="#e0483f"/></svg><svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21 3 12.5V6l3-3h3l3 3 3-3h3l3 3v6.5z" fill="none" stroke="#1a0c0a" stroke-width="2" stroke-linejoin="round"/><path d="M12 21 3 12.5V6l3-3h3l3 3 3-3h3l3 3v6.5z" fill="#3b3f3b"/><path d="M12 21 3 12.5V6l3-3h3l3 3v15z" fill="#e0483f"/></svg></div>
+    <div style="display:flex; gap:14px; align-items:center;">
+      <div style="display:flex; align-items:center; gap:6px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#e2b24a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M9.5 10.5h3.5a1.5 1.5 0 0 1 0 3H9.5"/></svg><span class="stat" style="font-size:20px; color:#e2b24a;">142</span></div>
+      <div style="display:flex; align-items:center; gap:6px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cfd2c6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="12" r="3.5"/><path d="M11.5 12H21M18 12v3M15 12v2"/></svg><span class="stat" style="font-size:20px; color:#cfd2c6;">×1</span></div>
+    </div>
+  </div>
+  <!-- HUD: bottom-left tool + consumables -->
+  <div style="position:absolute; left:28px; bottom:24px; display:flex; gap:14px; align-items:flex-end;">
+    <div style="display:flex; flex-direction:column; gap:6px; align-items:center;">
+      <div class="slot sel" style="width:72px; height:72px;"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#ede9df" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6c5-1 10 1 13 5 1 2 2 5 2 8-3-1-6-3-8-6C9 11 6 9 4 6z"/></svg><span class="kbd" style="position:absolute; left:-6px; top:-6px;">L</span></div>
+      <span class="px" style="font-size:13px; color:#cfd2c6;">Boomerang</span>
+    </div>
+    <div class="slot" style="width:56px; height:56px;"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#cfd2c6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3h4M11 3v4.5L6.5 14a4.5 4.5 0 0 0 4 6.5h3a4.5 4.5 0 0 0 4-6.5L13 7.5V3"/><path d="M8 15h8" /></svg><span class="qty">×2</span><span class="kbd" style="position:absolute; left:-6px; top:-6px;">1</span></div>
+    <div class="slot" style="width:56px; height:56px;"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#cfd2c6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="14" r="6.5"/><path d="M14.5 9.5 17 7M17 7l1.5-1.5M18.5 4.5l1 1"/></svg><span class="qty">×3</span><span class="kbd" style="position:absolute; left:-6px; top:-6px;">2</span></div>
+  </div>
+
+  
+  <div class="panel" style="position:absolute; right:28px; top:24px; padding:10px 12px; border-radius:8px; display:flex; flex-direction:column; gap:8px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:16px;">
+      <span class="eyebrow">Whisperwood Hollow</span>
+      <span class="kbd">M</span>
+    </div>
+    <div style="display:grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap:3px;"><div style="width:22px; height:16px; border-radius:2px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.10); display:flex; align-items:center; justify-content:center;"></div><div style="width:22px; height:16px; border-radius:2px; background:rgba(255,255,255,0.22);  display:flex; align-items:center; justify-content:center;"></div><div style="width:22px; height:16px; border-radius:2px; background:rgba(255,255,255,0.22);  display:flex; align-items:center; justify-content:center;"></div><div style="width:22px; height:16px; border-radius:2px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.10); display:flex; align-items:center; justify-content:center;"></div><div style="width:22px; height:16px; border-radius:2px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.10); display:flex; align-items:center; justify-content:center;"></div><div style="width:22px; height:16px; border-radius:2px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.10); display:flex; align-items:center; justify-content:center;"></div><div style="width:22px; height:16px; border-radius:2px; background:rgba(255,255,255,0.22);  display:flex; align-items:center; justify-content:center;"></div><div style="width:22px; height:16px; border-radius:2px; background:#e8763a;  display:flex; align-items:center; justify-content:center;"></div><div style="width:22px; height:16px; border-radius:2px; background:rgba(255,255,255,0.22);  display:flex; align-items:center; justify-content:center;"></div><div style="width:22px; height:16px; border-radius:2px; background:rgba(224,72,63,0.55);  display:flex; align-items:center; justify-content:center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ede9df" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a7 7 0 0 0-7 7c0 2.5 1.2 4.3 3 5.5V19h8v-3.5c1.8-1.2 3-3 3-5.5a7 7 0 0 0-7-7z"/><circle cx="9.5" cy="10.5" r="1.2"/><circle cx="14.5" cy="10.5" r="1.2"/></svg></div><div style="width:22px; height:16px; border-radius:2px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.10); display:flex; align-items:center; justify-content:center;"></div><div style="width:22px; height:16px; border-radius:2px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.10); display:flex; align-items:center; justify-content:center;"></div><div style="width:22px; height:16px; border-radius:2px; background:rgba(255,255,255,0.22);  display:flex; align-items:center; justify-content:center;"></div><div style="width:22px; height:16px; border-radius:2px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.10); display:flex; align-items:center; justify-content:center;"></div><div style="width:22px; height:16px; border-radius:2px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.10); display:flex; align-items:center; justify-content:center;"></div></div>
+  </div>
+
+  <!-- contextual hint near the chest -->
+  <div class="panel" style="position:absolute; left:1000px; top:170px; padding:6px 10px; border-radius:6px; display:flex; align-items:center; gap:8px; font-size:13px;">
+    <span class="kbd">E</span><span>Open</span>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

@@ -1,0 +1,56 @@
+{
+  "artboards": [
+    {
+      "file": "Title.dc.html",
+      "title": "Title screen",
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 720
+    },
+    {
+      "file": "Main.dc.html",
+      "title": "Gameplay + HUD",
+      "x": 1400,
+      "y": 0,
+      "w": 1280,
+      "h": 720
+    },
+    {
+      "file": "Inventory.dc.html",
+      "title": "Inventory open",
+      "x": 2800,
+      "y": 0,
+      "w": 1280,
+      "h": 720
+    },
+    {
+      "file": "Dialogue.dc.html",
+      "title": "Dialogue",
+      "x": 0,
+      "y": 900,
+      "w": 1280,
+      "h": 720
+    },
+    {
+      "file": "Shop.dc.html",
+      "title": "Blacksmith shop",
+      "x": 1400,
+      "y": 900,
+      "w": 1280,
+      "h": 720
+    }
+  ],
+  "annotations": [
+    {
+      "id": "placeholder-art",
+      "x": 2800,
+      "y": 900,
+      "w": 420,
+      "text": "Placeholder pixel art.\nRoom, town, hero, slime and portraits here are drawn procedurally so the UI has a scene under it. PixelLab-generated sprites and tilesets replace them in the pre-M0 demo.\n\nWhat this mockup is deciding: HUD layout, panel style, type pairing (Pixelify Sans display + IBM Plex Sans UI), the ember/moss/gold accents, and how menus sit over the game."
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}

@@ -1,0 +1,122 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+  <style>
+    body { margin: 0; background: #0f110f; font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; color: #ede9df; }
+    a { color: #e8763a; } a:hover { color: #f19a68; }
+    .px { font-family: "Pixelify Sans", "IBM Plex Mono", monospace; }
+    .panel { background: rgba(16, 19, 17, 0.88); border: 1px solid rgba(255,255,255,0.09); box-shadow: 0 12px 40px rgba(0,0,0,0.45); }
+    .kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 4px; background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.16); color: #cfd2c6; font-family: "Pixelify Sans", monospace; font-size: 14px; }
+    .stat { font-family: "Pixelify Sans", monospace; font-variant-numeric: tabular-nums; }
+    .slot { width: 64px; height: 64px; border-radius: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.10); display: flex; align-items: center; justify-content: center; position: relative; }
+    .slot.sel { border-color: #e8763a; box-shadow: 0 0 0 2px rgba(232,118,58,0.35), inset 0 0 18px rgba(232,118,58,0.15); }
+    .slot .qty { position: absolute; right: 4px; bottom: 2px; font-family: "Pixelify Sans", monospace; font-size: 16px; font-weight: 700; color: #ede9df; text-shadow: 0 1px 0 #000; }
+    .chip { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 999px; background: rgba(127,184,164,0.14); color: #7fb8a4; font-weight: 600; font-size: 13px; border: 1px solid rgba(127,184,164,0.35); }
+    .btn { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 18px; border-radius: 6px; font-weight: 600; font-size: 15px; letter-spacing: 0.01em; }
+    .btn.primary { background: #e8763a; color: #1b0f08; }
+    .btn.ghost { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14); color: #ede9df; }
+    .btn.disabled { background: rgba(255,255,255,0.04); color: #6f756c; border: 1px solid rgba(255,255,255,0.06); }
+    .eyebrow { font-family: "Pixelify Sans", monospace; font-size: 14px; letter-spacing: 0.10em; text-transform: uppercase; color: #e8763a; }
+    .muted { color: #a8aa9c; }
+    .hearts { display: flex; gap: 4px; }
+  </style>
+</helmet>
+<div style="position:relative; width:1280px; height:720px; overflow:hidden; background:#0f110f;">
+
+  <img src="hub.png" alt="" style="position:absolute; inset:0; width:1280px; height:720px; image-rendering: pixelated; filter: blur(3px);"><div style="position:absolute; inset:0; background:rgba(8,10,8,0.6);"></div>
+  <div class="panel" style="position:absolute; left:160px; right:160px; top:90px; bottom:90px; border-radius:12px; padding:28px 32px; display:flex; flex-direction:column; gap:22px;">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div style="display:flex; flex-direction:column; gap:2px;">
+        <span class="eyebrow">Blacksmith</span>
+        <span class="px" style="font-size:28px;">Tomas' Forge</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:18px;">
+        <div style="display:flex; align-items:center; gap:8px; padding:8px 14px; border-radius:8px; background:rgba(226,178,74,0.10); border:1px solid rgba(226,178,74,0.35);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#e2b24a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M9.5 10.5h3.5a1.5 1.5 0 0 1 0 3H9.5"/></svg><span class="stat" style="font-size:22px; color:#e2b24a;">142</span></div>
+        <div style="display:flex; align-items:center; gap:8px;"><span class="kbd">Esc</span><span class="muted" style="font-size:13px;">leave</span></div>
+      </div>
+    </div>
+    <div style="display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:14px;">
+      
+      <div style="border-radius:10px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.03); padding:16px; display:flex; flex-direction:column; gap:12px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div class="slot" style="width:52px; height:52px;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ede9df" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4.5 20 3l-1.5 5.5L8 19l-3-3z"/><path d="M5 16l-2 2M8 19l-2 2M12 12l3 3"/></svg></div>
+          <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="font-weight:600; font-size:16px;">Iron Sword</span>
+            <span style="font-size:13px; color:#7fb8a4;">2 dmg · equipped</span>
+          </div>
+        </div>
+        <div class="btn disabled" style="height:38px; font-size:14px;">Owned</div>
+      </div>
+      
+      <div style="border-radius:10px; border:1px solid #e8763a; background:rgba(255,255,255,0.03); padding:16px; display:flex; flex-direction:column; gap:12px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div class="slot" style="width:52px; height:52px;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ede9df" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4.5 20 3l-1.5 5.5L8 19l-3-3z"/><path d="M5 16l-2 2M8 19l-2 2M12 12l3 3"/></svg></div>
+          <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="font-weight:600; font-size:16px;">Steel Sword</span>
+            <span style="font-size:13px; color:#7fb8a4;">+2 dmg  →  4 dmg</span>
+          </div>
+        </div>
+        <div class="btn primary" style="height:38px; font-size:14px;">Buy · <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1b0f08" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M9.5 10.5h3.5a1.5 1.5 0 0 1 0 3H9.5"/></svg> 120</div>
+      </div>
+      
+      <div style="border-radius:10px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.03); padding:16px; display:flex; flex-direction:column; gap:12px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div class="slot" style="width:52px; height:52px;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ede9df" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4.5 20 3l-1.5 5.5L8 19l-3-3z"/><path d="M5 16l-2 2M8 19l-2 2M12 12l3 3"/></svg></div>
+          <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="font-weight:600; font-size:16px;">Ember Blade</span>
+            <span style="font-size:13px; color:#7fb8a4;">+4 dmg · needs 2 shards</span>
+          </div>
+        </div>
+        <div class="btn disabled" style="height:38px; font-size:14px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6f756c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M9.5 10.5h3.5a1.5 1.5 0 0 1 0 3H9.5"/></svg> 340 · need 198 more</div>
+      </div>
+      
+      <div style="border-radius:10px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.03); padding:16px; display:flex; flex-direction:column; gap:12px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div class="slot" style="width:52px; height:52px;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ede9df" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg></div>
+          <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="font-weight:600; font-size:16px;">Leather Armor</span>
+            <span style="font-size:13px; color:#7fb8a4;">equipped</span>
+          </div>
+        </div>
+        <div class="btn disabled" style="height:38px; font-size:14px;">Owned</div>
+      </div>
+      
+      <div style="border-radius:10px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.03); padding:16px; display:flex; flex-direction:column; gap:12px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div class="slot" style="width:52px; height:52px;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ede9df" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg></div>
+          <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="font-weight:600; font-size:16px;">Chain Armor</span>
+            <span style="font-size:13px; color:#7fb8a4;">−½ heart per hit</span>
+          </div>
+        </div>
+        <div class="btn disabled" style="height:38px; font-size:14px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6f756c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M9.5 10.5h3.5a1.5 1.5 0 0 1 0 3H9.5"/></svg> 220 · need 78 more</div>
+      </div>
+      
+      <div style="border-radius:10px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.03); padding:16px; display:flex; flex-direction:column; gap:12px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div class="slot" style="width:52px; height:52px;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ede9df" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></div>
+          <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="font-weight:600; font-size:16px;">Heart Container</span>
+            <span style="font-size:13px; color:#7fb8a4;">+1 max heart</span>
+          </div>
+        </div>
+        <div class="btn disabled" style="height:38px; font-size:14px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6f756c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M9.5 10.5h3.5a1.5 1.5 0 0 1 0 3H9.5"/></svg> 300 · need 158 more</div>
+      </div>
+    </div>
+    <div style="margin-top:auto; display:flex; justify-content:space-between; align-items:flex-end;">
+      <p class="muted" style="margin:0; font-size:14px; max-width:60ch; line-height:1.5;">"Steel holds an edge the iron never will. Bring me a shard and I'll show you what a real forge can do."</p>
+      <span class="muted" style="font-size:13px;"><span class="kbd">←</span> <span class="kbd">→</span> browse · <span class="kbd">E</span> buy</span>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

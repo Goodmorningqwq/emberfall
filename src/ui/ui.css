@@ -1,0 +1,27 @@
+:root {
+  --ink: #ede9df;
+  --muted: #a8aa9c;
+  --ember: #e8763a;
+  --gold: #e2b24a;
+  --panel: rgba(16, 19, 17, 0.88);
+  --line: rgba(255, 255, 255, 0.1);
+}
+html, body { margin: 0; height: 100%; background: #0f110f; color: var(--ink); font-family: "IBM Plex Sans", system-ui, sans-serif; overflow: hidden; }
+#app { position: relative; width: 100vw; height: 100vh; }
+#game { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+#game canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
+#ui { position: absolute; inset: 0; pointer-events: none; }
+#ui * { pointer-events: auto; }
+
+.px { font-family: "Pixelify Sans", monospace; }
+.hud { position: absolute; left: 28px; top: 24px; display: flex; flex-direction: column; gap: 10px; }
+.hearts { display: flex; gap: 4px; }
+.stat-row { display: flex; gap: 14px; align-items: center; }
+.stat { display: flex; align-items: center; gap: 6px; font-family: "Pixelify Sans", monospace; font-size: 20px; font-variant-numeric: tabular-nums; }
+.hint { position: absolute; right: 28px; bottom: 24px; display: flex; gap: 12px; color: var(--muted); font-size: 13px; align-items: center; }
+.kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 4px; background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.16); color: #cfd2c6; font-family: "Pixelify Sans", monospace; font-size: 14px; }
+.namecard { position: absolute; left: 0; right: 0; bottom: 96px; display: flex; flex-direction: column; align-items: center; gap: 2px; pointer-events: none; animation: namecard 4s ease-out forwards; }
+.namecard .eyebrow { font-family: "Pixelify Sans", monospace; font-size: 14px; letter-spacing: .1em; text-transform: uppercase; color: var(--ember); }
+.namecard .title { font-family: "Pixelify Sans", monospace; font-size: 22px; text-shadow: 0 2px 0 rgba(0,0,0,.6); }
+@keyframes namecard { 0% { opacity: 0; transform: translateY(6px); } 12% { opacity: 1; transform: none; } 75% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .namecard { animation: none; } }
