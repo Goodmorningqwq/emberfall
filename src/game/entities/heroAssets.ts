@@ -2,7 +2,7 @@ import Phaser from "phaser";
 import { SWORD } from "./weapons";
 
 export type Dir = "south" | "north" | "east" | "west";
-export type Clip = "idle" | "walk" | "run" | "attack" | "attack-out" | "roll";
+export type Clip = "idle" | "walk" | "run" | "attack" | "attack-out" | "roll" | "hurt" | "death";
 
 const DIRS: Dir[] = ["south", "north", "east", "west"];
 
@@ -15,6 +15,8 @@ const DIRS: Dir[] = ["south", "north", "east", "west"];
  * is wind-up in-betweens + the swing itself.
  */
 type Src = { folder: string; index: number; ms: number };
+const HURT_FRAMES = 4;
+const DEATH_FRAMES = 6;
 
 function seq(folder: string, count: number, ms: number, start = 0): Src[] {
   return Array.from({ length: count }, (_, i) => ({ folder, index: start + i, ms }));
@@ -33,7 +35,12 @@ const CLIPS: Record<Clip, { frames: Src[]; loop: boolean }> = {
   attack: { frames: swing, loop: false },
   "attack-out": { frames: recover, loop: false },
   roll: { frames: seq("roll", 6, 52, 1), loop: false },
+  // PixelLab templates: taking-punch (flinch) and falling-back-death; frame counts set by tools/fetch_wren.py
+  hurt: { frames: seq("hurt", HURT_FRAMES, 60, 1), loop: false },
+  death: { frames: seq("death", DEATH_FRAMES, 110, 1), loop: false },
 };
+export const HURT_MS = HURT_FRAMES * 60;
+export const DEATH_MS = DEATH_FRAMES * 110;
 
 export const HERO = {
   /** shared frame canvas (px) and the row her feet stand on */

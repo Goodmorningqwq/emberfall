@@ -79,7 +79,7 @@ interface GameState {
   gold: number;
   keys: number;
   facing: Facing;
-  action: "idle" | "walk" | "sprint" | "attack" | "recover" | "dash" | "dead";
+  action: "idle" | "walk" | "sprint" | "attack" | "recover" | "dash" | "hurt" | "dead";
   items: Item[];
   /** persistent world state: "chest:<dungeon>/<room>/<n>", "door:<room>:<dir>", "cleared:<room>", "solved:<room>", "boss:<dungeon>" */
   flags: string[];

@@ -196,7 +196,7 @@ export function HUD() {
     <div className="frame" style={frame as React.CSSProperties}>
       <div className="scrim" />
       <div className="hud">
-        <div className="hearts">{heartStates.map((st, i) => <div key={i} className={`heart ${st}`} />)}</div>
+        <div className={`hearts${hearts <= 2 ? " low" : ""}`}>{heartStates.map((st, i) => <div key={i} className={`heart ${st}`} />)}</div>
         <div className="stat-row t-title shadowed">
           <span className="stat gold"><Icon name="coin" />{gold}</span>
           <span className="stat"><Icon name="key" />x{keys}</span>

@@ -54,6 +54,10 @@ html, body { margin: 0; height: 100%; background: #0f110f; color: var(--ink); ov
 .heart.full  { background-position: 0 0; }
 .heart.half  { background-position: calc(-16px * var(--s)) 0; }
 .heart.empty { background-position: calc(-32px * var(--s)) 0; }
+/* one heart left: it beats */
+.hearts.low .heart.full, .hearts.low .heart.half { animation: heartbeat .9s ease-in-out infinite; }
+@keyframes heartbeat { 0%, 100% { transform: scale(1); } 30% { transform: scale(1.18); } 45% { transform: scale(1); } 60% { transform: scale(1.12); } }
+@media (prefers-reduced-motion: reduce) { .hearts.low .heart { animation: none; } }
 .stat-row { display: flex; gap: calc(8px * var(--s)); align-items: center; }
 .stat { display: inline-flex; align-items: center; gap: calc(3px * var(--s)); }
 .stat img { width: calc(16px * var(--s)); height: calc(16px * var(--s)); }

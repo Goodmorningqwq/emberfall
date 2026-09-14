@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { HERO, type Clip, type Dir } from "./heroAssets";
+import { HERO, HURT_MS, DEATH_MS, type Clip, type Dir } from "./heroAssets";
 import { SWORD, SWORD_MS, SWORD_RECOVER_MS } from "./weapons";
 import { useGame, type Facing } from "../../ui/store";
 import type { DungeonScene } from "../scenes/DungeonScene";
@@ -13,7 +13,7 @@ const SPRINT_HOLD_MS = 180; // …hold Shift past this and the dash flows into a
 const HURT_IFRAMES_MS = 700;
 const HURT_KNOCKBACK = 150;
 
-type State = "idle" | "walk" | "sprint" | "attack" | "recover" | "dash" | "dead";
+type State = "idle" | "walk" | "sprint" | "attack" | "recover" | "dash" | "hurt" | "dead";
 
 export class Player {
   readonly sprite: Phaser.Physics.Arcade.Sprite;
@@ -124,6 +124,11 @@ export class Player {
     if (shiftPressed) this.shiftDownAt = now;
 
     // ---- committed states
+    if (this.state === "hurt") {
+      if (now < this.stateUntil) return this.syncDepth();
+      this.enter("idle", 0);
+      this.sprite.setVelocity(0, 0);
+    }
     if (this.state === "attack") {
       const t = SWORD_MS - (this.stateUntil - now);
       this.attackActive = t >= SWORD.activeFrom && t <= SWORD.activeTo;
@@ -204,6 +209,13 @@ export class Player {
     const away = new Phaser.Math.Vector2(this.sprite.x - fromX, this.sprite.y - fromY).normalize();
     this.sprite.setVelocity(away.x * HURT_KNOCKBACK, away.y * HURT_KNOCKBACK);
     this.scene.time.delayedCall(110, () => this.state !== "dash" && this.sprite.setVelocity(0, 0));
+    // the flinch clip owns her for a beat (cancels a swing in progress; that's the cost of getting hit)
+    if (this.scene.anims.exists(HERO.animKey("hurt", this.facing))) {
+      this.attackActive = false;
+      this.facing = this.dirFrom(new Phaser.Math.Vector2(fromX - this.sprite.x, fromY - this.sprite.y));
+      this.enter("hurt", now + Math.min(HURT_MS, 260));
+      this.play("hurt", true);
+    }
     this.sprite.setTint(0xff6b5a).setTintMode(Phaser.TintModes.FILL);
     this.scene.time.delayedCall(70, () => this.sprite.clearTint().setTintMode(Phaser.TintModes.MULTIPLY));
     // restart the blink cleanly so overlapping hurts can't leave her stuck translucent
@@ -222,10 +234,17 @@ export class Player {
     this.scene.cameras.main.shake(260, 0.01);
     s.setTint(0xff6b5a).setTintMode(Phaser.TintModes.FILL);
     this.scene.time.delayedCall(120, () => s.clearTint().setTintMode(Phaser.TintModes.MULTIPLY));
-    this.play("idle");
-    // spin down and fade, then the death screen takes over
-    this.scene.tweens.add({ targets: s, angle: 360 * 2, duration: 900, ease: "Quad.easeIn" });
-    this.scene.tweens.add({ targets: s, scale: 0.4, alpha: 0, duration: 900, delay: 200, ease: "Quad.easeIn", onComplete: () => useGame.getState().die() });
+    this.scene.tweens.killTweensOf(s);
+    s.setAlpha(1).setScale(1);
+    if (this.scene.anims.exists(HERO.animKey("death", this.facing))) {
+      // the collapse clip plays out, holds on the last frame, then the death screen takes over
+      this.play("death", true);
+      this.scene.time.delayedCall(DEATH_MS + 700, () => useGame.getState().die());
+    } else {
+      this.play("idle");
+      this.scene.tweens.add({ targets: s, angle: 360 * 2, duration: 900, ease: "Quad.easeIn" });
+      this.scene.tweens.add({ targets: s, scale: 0.4, alpha: 0, duration: 900, delay: 200, ease: "Quad.easeIn", onComplete: () => useGame.getState().die() });
+    }
     this.syncStore();
   }
 
