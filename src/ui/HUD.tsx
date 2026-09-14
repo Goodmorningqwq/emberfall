@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useGame, type ItemId } from "./store";
 import { uiScale, useCanvasRect } from "./useCanvasRect";
+import { Title } from "./Title";
 
 /** PixelLab icon set at public/assets/ui/icons/<name>.png (24x24). */
 type IconName = ItemId | "coin" | "bag" | "boomerang" | "shard" | "bosskey" | "grapple";
@@ -19,13 +20,14 @@ function Slot({ icon, keyHint, qty, selected, empty }: { icon?: IconName; keyHin
 }
 
 export function HUD() {
-  const { hearts, maxHearts, gold, keys, items, bagOpen, toggleBag, paused, togglePause } = useGame();
+  const { screen, hearts, maxHearts, gold, keys, items, bagOpen, toggleBag, paused, togglePause, quitToTitle } = useGame();
   const rect = useCanvasRect();
   const s = uiScale(rect);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const st = useGame.getState();
+      if (st.screen !== "game") return;
       if (e.key === "Tab") {
         e.preventDefault();
         if (!st.paused) toggleBag();
@@ -48,6 +50,14 @@ export function HUD() {
   const frame = rect
     ? { left: rect.left, top: rect.top, width: rect.width, height: rect.height, "--s": s }
     : { left: 0, top: 0, width: "100%", height: "100%", "--s": 2 };
+
+  if (screen === "title") {
+    return (
+      <div className="frame" style={frame as React.CSSProperties}>
+        <Title />
+      </div>
+    );
+  }
 
   return (
     <div className="frame" style={frame as React.CSSProperties}>
@@ -91,7 +101,10 @@ export function HUD() {
               <div><span className="kbd">Tab</span><span>Bag</span></div>
               <div><span className="kbd">Esc</span><span>Pause / resume</span></div>
             </div>
-            <button className="pxbtn pxslot" onClick={() => togglePause(false)}>Resume</button>
+            <div className="pause-actions">
+              <button className="pxbtn pxslot" onClick={quitToTitle}>Quit to title</button>
+              <button className="pxbtn pxslot" onClick={() => togglePause(false)} autoFocus>Resume</button>
+            </div>
           </div>
         </div>
       )}

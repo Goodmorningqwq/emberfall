@@ -43,12 +43,12 @@ export class DemoScene extends Phaser.Scene {
     // the React bag / pause panels freeze the world while open. Not
     // scene.pause(): in Phaser 4 that stops rendering too and the canvas
     // clears to black; freezing the systems keeps the last frame on screen.
+    const shouldFreeze = (s: ReturnType<typeof useGame.getState>) => s.bagOpen || s.paused || s.screen !== "game";
     const unsub = useGame.subscribe((s, prev) => {
-      const was = prev.bagOpen || prev.paused;
-      const now = s.bagOpen || s.paused;
-      if (was === now) return;
-      this.setFrozen(now);
+      if (shouldFreeze(s) === shouldFreeze(prev)) return;
+      this.setFrozen(shouldFreeze(s));
     });
+    this.setFrozen(shouldFreeze(useGame.getState()));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, unsub);
   }
 
