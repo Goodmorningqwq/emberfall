@@ -218,7 +218,7 @@ export class Player {
     useGame.getState().damage(1);
     if (useGame.getState().hearts <= 0) return this.die(fromX, fromY);
     this.scene.onPlayerHurt();
-    this.scene.cameras.main.shake(120, 0.006);
+    this.scene.shake(120, 0.006);
     // separate from the attacker so a second touch isn't instant
     const away = new Phaser.Math.Vector2(this.sprite.x - fromX, this.sprite.y - fromY).normalize();
     this.sprite.setVelocity(away.x * HURT_KNOCKBACK, away.y * HURT_KNOCKBACK);
@@ -245,7 +245,7 @@ export class Player {
     const away = new Phaser.Math.Vector2(s.x - fromX, s.y - fromY).normalize();
     s.setVelocity(away.x * 120, away.y * 120);
     this.scene.time.delayedCall(140, () => s.setVelocity(0, 0));
-    this.scene.cameras.main.shake(260, 0.01);
+    this.scene.shake(260, 0.01);
     s.setTint(0xff6b5a).setTintMode(Phaser.TintModes.FILL);
     this.scene.time.delayedCall(120, () => s.clearTint().setTintMode(Phaser.TintModes.MULTIPLY));
     this.scene.tweens.killTweensOf(s);

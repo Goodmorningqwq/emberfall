@@ -10,6 +10,19 @@ export interface Item {
   hint?: string;
 }
 
+/** Player preferences, persisted on their own (survive New game). */
+export interface Settings {
+  shake: 0 | 0.5 | 1;
+}
+const SETTINGS_KEY = "emberfall.settings";
+export function readSettings(): Settings {
+  try {
+    return { shake: 1, ...(JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}") as Partial<Settings>) };
+  } catch {
+    return { shake: 1 };
+  }
+}
+
 /** Transient "You got X" / boss / room-name plate shown by the HUD. */
 export interface Banner {
   kind: "item" | "boss" | "room";
@@ -97,6 +110,7 @@ interface GameState {
   dialogue: Dialogue | null;
   /** narrator caption (room lore) — shows without holding the game */
   narration: string | null;
+  settings: Settings;
   playtimeMs: number;
   sessionStart: number;
   damage: (halfHearts: number) => void;
@@ -118,6 +132,7 @@ interface GameState {
   setTag: (t: WorldTag | null) => void;
   setDialogue: (d: Dialogue | null) => void;
   setNarration: (t: string | null) => void;
+  setSettings: (s: Partial<Settings>) => void;
   addMaxHearts: (halfHearts: number) => void;
   toggleBag: (open?: boolean) => void;
   togglePause: (on?: boolean) => void;
@@ -190,6 +205,7 @@ export const useGame = create<GameState>((set, get) => ({
   tag: null,
   dialogue: null,
   narration: null,
+  settings: readSettings(),
   sessionStart: 0,
   damage: (n) => set((s) => ({ hearts: Math.max(0, s.hearts - n) })),
   heal: (n) => set((s) => ({ hearts: Math.min(s.maxHearts, s.hearts + n) })),
@@ -222,6 +238,16 @@ export const useGame = create<GameState>((set, get) => ({
   setTag: (tag) => set({ tag }),
   setDialogue: (dialogue) => set({ dialogue }),
   setNarration: (narration) => set({ narration }),
+  setSettings: (patch) =>
+    set((s) => {
+      const settings = { ...s.settings, ...patch };
+      try {
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+      } catch {
+        /* fine */
+      }
+      return { settings };
+    }),
   addMaxHearts: (n) => set((s) => ({ maxHearts: s.maxHearts + n, hearts: s.maxHearts + n })),
   toggleBag: (open) => set((s) => ({ bagOpen: open ?? !s.bagOpen })),
   togglePause: (on) => set((s) => ({ paused: on ?? !s.paused })),

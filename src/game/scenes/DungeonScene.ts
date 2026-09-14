@@ -300,7 +300,7 @@ export class DungeonScene extends Phaser.Scene {
     this.rebuildWalls();
     this.tweens.add({ targets: c.decal, alpha: 0, y: "+=6", duration: 200, onComplete: () => c.decal.destroy() });
     this.puff(c.cx, c.cy, 0x9a8a72, 18);
-    this.cameras.main.shake(120, 0.006);
+    this.shake(120, 0.006);
     // a passage cracked from both sides: the neighbour room's half goes too
     for (const o of [...this.cracks]) {
       const touches = o.tiles.some((a) => c.tiles.some((b) => Math.abs(a.tx - b.tx) <= 1 && Math.abs(a.ty - b.ty) <= 1));
@@ -505,7 +505,7 @@ export class DungeonScene extends Phaser.Scene {
     c.image.setScale(0.2).setAlpha(0);
     this.tweens.add({ targets: c.image, scale: 1, alpha: 1, duration: 260, ease: "Back.easeOut" });
     this.puff(p.tx * TILE + 16, p.ty * TILE + 16, 0xfff2b0, 16);
-    this.cameras.main.shake(60, 0.002);
+    this.shake(60, 0.002);
   }
 
   private addBlock(tx: number, ty: number) {
@@ -629,7 +629,7 @@ export class DungeonScene extends Phaser.Scene {
     const died = e.takeHit(this.player.sprite.x, this.player.sprite.y, 1);
     this.finishLesson("attack");
     // feedback bundle: hit-stop, shake, damage number (flash + knockback are in takeHit)
-    this.cameras.main.shake(80, 0.004);
+    this.shake(80, 0.004);
     this.hitStop(60);
     if (!(wasStunnedBoss && !(e as Treant).isStunned)) this.damageNumber(s.x, s.y - s.displayHeight, 1);
     if (e instanceof Treant && !died) useGame.getState().setBoss({ name: "Elder Treant", hp: Math.max(0, e.hp), max: TREANT_HP, status: useGame.getState().boss?.status ?? "" });
@@ -664,8 +664,14 @@ export class DungeonScene extends Phaser.Scene {
     const st = useGame.getState();
     if (st.hasFlag(`solved:${room.id}`)) return;
     st.setFlag(`solved:${room.id}`);
-    this.cameras.main.shake(80, 0.003);
+    this.shake(80, 0.003);
     this.time.delayedCall(300, () => this.room === room && room.solveReward && this.revealHiddenChest(room.solveReward));
+  }
+
+  /** Camera shake scaled by the player's setting (Off / Low / Full). */
+  shake(ms: number, intensity: number) {
+    const k = useGame.getState().settings.shake;
+    if (k > 0) this.cameras.main.shake(ms, intensity * k);
   }
 
   hitStop(ms: number) {
@@ -755,7 +761,7 @@ export class DungeonScene extends Phaser.Scene {
   /** Root spikes rise in the boss room's south doorway and block it. */
   private sealDoorway(room: Room) {
     this.unsealDoorway();
-    this.cameras.main.shake(200, 0.006);
+    this.shake(200, 0.006);
     for (const tx of [9, 10]) {
       const x = room.x + tx * TILE + 16;
       const y = room.y + 11 * TILE + 30;
@@ -782,7 +788,7 @@ export class DungeonScene extends Phaser.Scene {
   bossPhase2() {
     const st = useGame.getState();
     if (st.boss) st.setBoss({ ...st.boss, status: "IT DIGS IN DEEPER" });
-    this.cameras.main.shake(250, 0.008);
+    this.shake(250, 0.008);
     this.time.delayedCall(1600, () => useGame.getState().boss?.status === "IT DIGS IN DEEPER" && useGame.getState().setBoss({ ...useGame.getState().boss!, status: "" }));
   }
 
@@ -808,7 +814,7 @@ export class DungeonScene extends Phaser.Scene {
     st.setFlag(`boss:${this.dungeon.def.id}`);
     st.setFlag(`cleared:${this.room.id}`);
     st.setBoss(null);
-    this.cameras.main.shake(500, 0.01);
+    this.shake(500, 0.01);
     this.hitStop(120);
     // the summoned sprites die with their master
     for (const e of this.enemies) if (e !== t && !e.isDead) e.takeHit(e.sprite.x, e.sprite.y + 1, 99);
@@ -857,7 +863,7 @@ export class DungeonScene extends Phaser.Scene {
       this.tweens.add({ targets: door.image, alpha: 0, y: "-=10", duration: 320, delay: 80, ease: "Quad.easeIn", onComplete: () => door.image.destroy() });
     }
     this.puff(door.image.x + 32, door.image.y + 24, 0xfff2b0, 12);
-    this.cameras.main.shake(70, 0.003);
+    this.shake(70, 0.003);
   }
 
   private lastToastAt = 0;
@@ -1080,7 +1086,7 @@ export class DungeonScene extends Phaser.Scene {
         const plate = this.plates.find((pl) => pl.tx === tx && pl.ty === ty);
         if (plate) {
           plate.image.setTint(0x9adf9a);
-          this.cameras.main.shake(60, 0.002);
+          this.shake(60, 0.002);
           this.solveRoom();
         }
       },
@@ -1163,7 +1169,7 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   onExplosion(x: number, y: number, r: number) {
-    this.cameras.main.shake(180, 0.008);
+    this.shake(180, 0.008);
     this.hitStop(50);
     for (const e of [...this.enemies]) {
       if (e.isDead) continue;

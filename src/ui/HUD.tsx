@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useGame, type ItemId, type LessonId } from "./store";
 import { uiScale, useCanvasRect } from "./useCanvasRect";
 import { Title } from "./Title";
@@ -236,10 +236,28 @@ function Minimap() {
   );
 }
 
+/** Adds a class for `ms` whenever `value` changes in the given direction — the HUD's little "something happened" pops. */
+function useFlash(value: number, dir: "up" | "any" = "any", ms = 450) {
+  const [on, setOn] = useState(false);
+  const prev = useRef(value);
+  useEffect(() => {
+    const was = prev.current;
+    prev.current = value;
+    if (value === was || (dir === "up" && value < was)) return;
+    setOn(true);
+    const t = window.setTimeout(() => setOn(false), ms);
+    return () => window.clearTimeout(t);
+  }, [value, dir, ms]);
+  return on;
+}
+
 export function HUD() {
-  const { screen, hearts, maxHearts, gold, keys, items, bagOpen, toggleBag, paused, togglePause, quitToTitle, banner, boss, respawn, dialogue, tag, flags } = useGame();
+  const { screen, hearts, maxHearts, gold, keys, items, bagOpen, toggleBag, paused, togglePause, quitToTitle, banner, boss, respawn, dialogue, tag, flags, settings, setSettings } = useGame();
   const rect = useCanvasRect();
   const s = uiScale(rect);
+  const healFlash = useFlash(hearts, "up");
+  const keyFlash = useFlash(keys);
+  const goldFlash = useFlash(gold, "up", 300);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -314,11 +332,12 @@ export function HUD() {
   return (
     <div className="frame" style={frame as React.CSSProperties}>
       <div className="scrim" />
+      {hearts <= 2 && <div className="vignette" />}
       <div className="hud">
-        <div className={`hearts${hearts <= 2 ? " low" : ""}`}>{heartStates.map((st, i) => <div key={i} className={`heart ${st}`} />)}</div>
+        <div className={`hearts${hearts <= 2 ? " low" : ""}${healFlash ? " gain" : ""}`}>{heartStates.map((st, i) => <div key={i} className={`heart ${st}`} />)}</div>
         <div className="stat-row t-title shadowed">
-          <span className="stat gold"><Icon name="coin" />{gold}</span>
-          <span className="stat"><Icon name="key" />x{keys}</span>
+          <span className={`stat gold${goldFlash ? " flash" : ""}`}><Icon name="coin" />{gold}</span>
+          <span className={`stat${keyFlash ? " flash" : ""}`}><Icon name="key" />x{keys}</span>
         </div>
       </div>
 
@@ -377,6 +396,12 @@ export function HUD() {
               <div><span className="kbd">2</span><span>Drop bomb</span></div>
               <div><span className="kbd">Tab</span><span>Bag</span></div>
               <div><span className="kbd">Esc</span><span>Pause / resume</span></div>
+            </div>
+            <div className="pause-settings">
+              <span className="muted t-small">Screen shake</span>
+              <button className="pxbtn pxslot" onClick={() => setSettings({ shake: settings.shake === 1 ? 0.5 : settings.shake === 0.5 ? 0 : 1 })}>
+                {settings.shake === 1 ? "Full" : settings.shake === 0.5 ? "Low" : "Off"}
+              </button>
             </div>
             <div className="pause-actions">
               <button className="pxbtn pxslot" onClick={quitToTitle}>Quit to title</button>

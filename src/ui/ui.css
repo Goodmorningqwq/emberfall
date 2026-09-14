@@ -54,6 +54,16 @@ html, body { margin: 0; height: 100%; background: #0f110f; color: var(--ink); ov
 .heart.full  { background-position: 0 0; }
 .heart.half  { background-position: calc(-16px * var(--s)) 0; }
 .heart.empty { background-position: calc(-32px * var(--s)) 0; }
+/* hearts pop when healed; stats flash when they change */
+.hearts.gain .heart { animation: heartpop .45s ease-out; }
+@keyframes heartpop { 0% { transform: scale(1); } 35% { transform: scale(1.3); filter: brightness(1.6); } 100% { transform: scale(1); } }
+.stat.flash { animation: statflash .45s ease-out; }
+@keyframes statflash { 0% { transform: scale(1); } 30% { transform: scale(1.25); color: #fff2b0; } 100% { transform: scale(1); } }
+/* low HP: the edges bleed red, slowly */
+.vignette { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, rgba(120,20,20,0) 55%, rgba(120,20,20,.45) 100%); animation: vignette 1.4s ease-in-out infinite alternate; }
+@keyframes vignette { from { opacity: .55; } to { opacity: 1; } }
+/* pause: settings row */
+.pause-settings { display: flex; align-items: center; gap: calc(6px * var(--s)); align-self: stretch; justify-content: space-between; }
 /* one heart left: it beats */
 .hearts.low .heart.full, .hearts.low .heart.half { animation: heartbeat .9s ease-in-out infinite; }
 @keyframes heartbeat { 0%, 100% { transform: scale(1); } 30% { transform: scale(1.18); } 45% { transform: scale(1); } 60% { transform: scale(1.12); } }

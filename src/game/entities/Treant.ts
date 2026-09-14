@@ -133,7 +133,7 @@ export class Treant extends Enemy {
       if (this.isDead || this.state !== "windup") return;
       this.restTint();
       this.scene.tweens.add({ targets: s, scaleY: 1, scaleX: 1, duration: 140, ease: "Back.easeOut" });
-      this.scene.cameras.main.shake(160, 0.006);
+      this.scene.shake(160, 0.006);
       this.state = "slam";
       const count = this.phase2 ? 5 : 3;
       const gap = this.phase2 ? 300 : 380;
