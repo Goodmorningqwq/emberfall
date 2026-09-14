@@ -69,6 +69,9 @@ Small (~40x30 tiles). Starts half-ruined and rebuilds visually as shards are rec
 
 Room design rules:
 - Rooms are screen-sized (20x12 tiles at 32px = 640x384 world, zoomed) with smooth camera scroll between rooms.
+- Rooms are authored as 20x12 ASCII maps in `src/game/data/<dungeon>.json` (legend in the file; `#` is the wall footprint, doorways are 2-tile gaps, `L`/`Z`/`W` mark locked/boss/cracked doors). `tools/render_map.py` draws the overview (`docs/mockup/whisperwood-map.png`). Top wall is 3 tiles thick so door props have somewhere to sit; side walls 1 tile.
+- One scene runs the whole dungeon on one stitched tile grid (`src/game/dungeon.ts`); entering a room = parking the camera + spawning that room's placements. Persistent state is a flat flag list in the store (`cleared:<room>`, `solved:<room>`, `chest:<room>:<n>`, `door:<room>:<kind>:<n>`, `crack:<room>`, `boss:<dungeon>`, `shard:<dungeon>`).
+- Whisperwood Hollow layout (critical path): R1 Mossy Antechamber → R2 Slime Warren (clear → key) → R3 Rootbound Cellar (block on plate → key) → R4 Crossroads → R5 Mossback's Den (mini-boss → Boomerang) → R6 Whispering Gallery (boomerang the crystal → Boss Key) → R7 Heart of the Hollow (Elder Treant → Ember Shard). R8 Forgotten Larder is optional behind a bomb-cracked wall in R6 (heart container + gold).
 - Each room has one purpose: fight, puzzle, key, or reward. Locked doors need small keys; boss door needs the big key.
 - Every dungeon has a mini-boss halfway that guards the dungeon tool; the second half requires the tool.
 
@@ -166,8 +169,8 @@ game/
 |---|---|---|
 | **M0** ✅ 2026-09-14 | Project setup | Live at https://emberfall-alpha.vercel.app/ (Vercel, auto-deploy from `main`), title + save, pixel UI |
 | **M1** ✅ 2026-09-14 | Feel prototype | Wren + slimes in one room; mouse attack with wind-up, dash/sprint, telegraphed enemies, hit-stop/shake/numbers. Passed playtest. |
-| **M2** | Dungeon 1 vertical slice | 8 rooms in Tiled, doors/keys, 3 enemy types, boomerang, Elder Treant, HUD + pause + death screen |
-| **M3** | Hub + persistence | Town, blacksmith, apothecary, elder dialogue, save/load, title screen, inventory & shop UI |
+| **M2** ✅ 2026-09-14 | Dungeon 1 vertical slice | 8 rooms (code/JSON, not Tiled), scroll transitions, doors/keys/chests/push blocks/plates/crystal switch, bombs + cracked wall, boomerang, slime/sprite/mushroom/Mossback, Elder Treant, death screen, save v2. Needs a balance playtest. |
+| **M3** | Hub + persistence | Town, blacksmith, apothecary, elder dialogue, dungeon entrance/exit, inventory & shop UI, minimap |
 | **M4** | Dungeons 2 & 3 | Grapple + gauntlet mechanics, 6 more enemies, 2 bosses, town rebuild states |
 | **M5** | Polish | Audio, settings, minimap, transitions, gamepad, balance pass, side content |
 | **M6** | Ship v1 | Bug bash, perf check, final deploy, itch.io page |
