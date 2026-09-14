@@ -152,6 +152,8 @@ html, body { margin: 0; height: 100%; background: #0f110f; color: var(--ink); ov
 .title-continue-head { display: flex; justify-content: space-between; align-items: center; width: 100%; }
 .title-continue-meta { display: flex; align-items: center; gap: calc(6px * var(--s)); font-size: 16px; }
 .title-continue-meta .heart { display: inline-block; }
+.title-continue-meta .stat img { width: calc(16px * var(--s)); height: calc(16px * var(--s)); }
+.title-continue-meta .hearts { flex-wrap: wrap; max-width: calc(120px * var(--s)); }
 .title-version { margin-top: auto; font-size: 16px; opacity: .6; }
 
 /* item / boss banners: same spot as the name card, hold longer */

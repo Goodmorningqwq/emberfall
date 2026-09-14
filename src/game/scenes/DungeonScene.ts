@@ -182,17 +182,21 @@ export class DungeonScene extends Phaser.Scene {
 
     // React panels freeze the world while open. Not scene.pause(): in Phaser 4
     // that stops rendering too and the canvas clears to black.
-    const shouldFreeze = (s: ReturnType<typeof useGame.getState>) => s.bagOpen || s.paused || s.screen !== "game";
+    // the title/intro screens keep the world alive behind them (attract mode); only the menus freeze it
+    const shouldFreeze = (s: ReturnType<typeof useGame.getState>) => s.bagOpen || s.paused || s.screen === "dead" || s.screen === "complete";
     this.unsub = useGame.subscribe((s, prev) => {
       if (shouldFreeze(s) !== shouldFreeze(prev)) this.setFrozen(shouldFreeze(s));
       // new game / continue / respawn: start over from the entrance with the store's flags
       // (only once we're running: a restart mid-preload wedges the loader)
       if (s.screen === "game" && prev.screen !== "game" && prev.screen !== "complete" && this.scene.isActive()) this.time.delayedCall(0, () => this.scene.restart());
+      // back to the title: reset to the entrance in attract mode so nothing can hurt her behind the menu
+      if (s.screen === "title" && prev.screen !== "title" && this.scene.isActive()) this.time.delayedCall(0, () => this.scene.restart());
       // closing a sign's dialogue hands control back
       if (!s.dialogue && prev.dialogue) this.player.hold(0);
     });
     this.time.delayedCall(400, () => this.startLesson("move"));
     this.setFrozen(shouldFreeze(st));
+    if (st.screen === "title" || st.screen === "intro") this.attractMode(entRoom);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.unsub?.();
       this.enemies.forEach((e) => e.destroy());
@@ -1211,6 +1215,28 @@ export class DungeonScene extends Phaser.Scene {
         this.transitioning = false;
       },
     });
+  }
+
+  /** Title screen: Wren waits at the entrance while the camera drifts and embers rise. Ends with the restart on New game. */
+  private attractMode(room: Room) {
+    this.player.hold(99999);
+    const cam = this.cameras.main;
+    cam.setZoom(1.15);
+    cam.centerOn(room.x + 300, room.y + 200);
+    this.tweens.add({ targets: cam, scrollX: cam.scrollX + 70, scrollY: cam.scrollY + 26, duration: 11000, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+    const embers = this.add.particles(0, 0, "spore", {
+      x: { min: room.x + 16, max: room.x + room.w - 16 },
+      y: room.y + room.h - 20,
+      lifespan: { min: 4500, max: 7500 },
+      speedY: { min: -14, max: -34 },
+      speedX: { min: -8, max: 8 },
+      scale: { start: 0.75, end: 0 },
+      alpha: { start: 0.9, end: 0 },
+      tint: [0xd1541f, 0xe8763a, 0xffb060, 0xfff2b0],
+      frequency: 110,
+      blendMode: Phaser.BlendModes.ADD,
+    }).setDepth(5000);
+    this.roomStuff.push(embers);
   }
 
   /** Playtest helper (console): __game.scene.getScene("Dungeon").goto("boss") */
