@@ -311,6 +311,11 @@ export class DungeonScene extends Phaser.Scene {
   // ------------------------------------------------------------------ rooms
 
   private clearRoomStuff() {
+    // situational lessons don't follow her out of the room; they re-trigger where they apply
+    const l = useGame.getState().lesson;
+    if (l && (l.id === "attack" || l.id === "bomb" || l.id === "potion")) useGame.getState().setLesson(null);
+    this.pendingLessons = this.pendingLessons.filter((id) => id !== "attack" && id !== "bomb" && id !== "potion");
+    useGame.getState().setNarration(null);
     for (const e of this.enemies) e.destroy();
     this.enemies = [];
     this.treant = undefined;
@@ -426,12 +431,26 @@ export class DungeonScene extends Phaser.Scene {
       this.time.delayedCall(spawnAt, () => {
         if (this.room !== room) return;
         for (const sp of spawns) this.spawnEnemy(sp.kind, sp.x, sp.y, { puff: true });
-        this.startLesson("attack");
+        // the strike lesson only when something will actually come at her (mushrooms just sit there)
+        if (spawns.some((sp) => sp.kind !== "mushroom")) this.startLesson("attack");
+      });
+    }
+    // consumables unlock where they first matter: potions in the first fight, bombs by the cracked wall
+    if (room.id === "west-fight" && !st.hasFlag("unlock:potion")) st.setFlag("unlock:potion");
+    if (room.id === "east-crystal" && !st.hasFlag("unlock:bomb")) st.setFlag("unlock:bomb");
+    // the room's lore, read aloud once, after the plate has gone (signs stay bumpable for a re-read)
+    const lore = room.signs?.[0];
+    if (lore && !st.hasFlag(`narrated:${room.id}`) && !bossHere) {
+      st.setFlag(`narrated:${room.id}`);
+      this.time.delayedCall(spawnAt + 700, () => {
+        if (this.room !== room) return;
+        useGame.getState().setNarration(lore);
+        this.time.delayedCall(6500, () => useGame.getState().narration === lore && useGame.getState().setNarration(null));
       });
     }
     // puzzle targets pulse once so the eye finds them
     for (const pl of this.plates) if (!solved) this.tweens.add({ targets: pl.image, scaleX: 1.12, scaleY: 1.12, duration: 260, yoyo: true, repeat: 2, delay: spawnAt });
-    if (this.cracks.some((c) => c.tiles.some((t) => this.dungeon.roomAtWorld(t.tx * TILE, t.ty * TILE) === room))) this.startLesson("bomb");
+    if (this.cracks.some((c) => c.tiles.some((t) => this.dungeon.roomAtWorld(t.tx * TILE, t.ty * TILE) === room))) this.time.delayedCall(spawnAt + 200, () => this.room === room && this.startLesson("bomb"));
     // free-placed objects (the boss)
     for (const o of room.objects ?? []) {
       if (o.kind === "treant" && bossHere) {
@@ -882,7 +901,8 @@ export class DungeonScene extends Phaser.Scene {
     const st = useGame.getState();
     if (st.lessons.includes(id) || this.pendingLessons.includes(id) || st.lesson?.id === id) return;
     if (id === "throw" && !st.hasItem("boomerang")) return;
-    if (id === "bomb" && !st.hasItem("bomb")) return;
+    if (id === "bomb" && (!st.hasItem("bomb") || !st.hasFlag("unlock:bomb"))) return;
+    if (id === "potion" && (!st.hasItem("potion") || !st.hasFlag("unlock:potion"))) return;
     if (st.lesson) {
       this.pendingLessons.push(id);
       return;
@@ -1106,8 +1126,18 @@ export class DungeonScene extends Phaser.Scene {
     return true;
   }
 
+  /** Wren just took damage: the potion lesson fires the first time it would help. */
+  onPlayerHurt() {
+    const st = useGame.getState();
+    if (st.hasFlag("unlock:potion") && st.hearts > 0 && st.hearts < st.maxHearts) this.startLesson("potion");
+  }
+
   placeBomb() {
     const st = useGame.getState();
+    if (!st.hasFlag("unlock:bomb")) {
+      this.toast("icon-bomb", "Nothing here needs a bomb yet", true);
+      return false;
+    }
     if (!st.useItem("bomb")) return false;
     const p = this.player.sprite;
     this.bombs.push(new Bomb(this, p.x, p.y + 2));
@@ -1117,12 +1147,17 @@ export class DungeonScene extends Phaser.Scene {
 
   drinkPotion() {
     const st = useGame.getState();
+    if (!st.hasFlag("unlock:potion")) {
+      this.toast("icon-potion", "Save it for a real fight", true);
+      return false;
+    }
     if (st.hearts >= st.maxHearts) {
       this.toast("icon-potion", "Already full", true);
       return false;
     }
     if (!st.useItem("potion")) return false;
     st.heal(6);
+    this.finishLesson("potion");
     this.puff(this.player.sprite.x, this.player.sprite.y - 20, 0xff8090, 10);
     return true;
   }

@@ -18,7 +18,7 @@ export interface Banner {
   icon?: ItemId | "heart";
 }
 
-export type LessonId = "move" | "dash" | "attack" | "throw" | "bomb";
+export type LessonId = "move" | "dash" | "attack" | "potion" | "throw" | "bomb";
 /** The contextual tutorial tag beside Wren. `keys` = which of W/A/S/D are still to press. */
 export interface Lesson {
   id: LessonId;
@@ -95,6 +95,8 @@ interface GameState {
   lesson: Lesson | null; // the one showing now
   tag: WorldTag | null;
   dialogue: Dialogue | null;
+  /** narrator caption (room lore) — shows without holding the game */
+  narration: string | null;
   playtimeMs: number;
   sessionStart: number;
   damage: (halfHearts: number) => void;
@@ -115,6 +117,7 @@ interface GameState {
   finishLesson: (id: LessonId) => void;
   setTag: (t: WorldTag | null) => void;
   setDialogue: (d: Dialogue | null) => void;
+  setNarration: (t: string | null) => void;
   addMaxHearts: (halfHearts: number) => void;
   toggleBag: (open?: boolean) => void;
   togglePause: (on?: boolean) => void;
@@ -186,6 +189,7 @@ export const useGame = create<GameState>((set, get) => ({
   lesson: null,
   tag: null,
   dialogue: null,
+  narration: null,
   sessionStart: 0,
   damage: (n) => set((s) => ({ hearts: Math.max(0, s.hearts - n) })),
   heal: (n) => set((s) => ({ hearts: Math.min(s.maxHearts, s.hearts + n) })),
@@ -217,6 +221,7 @@ export const useGame = create<GameState>((set, get) => ({
   finishLesson: (id) => set((s) => ({ lessons: s.lessons.includes(id) ? s.lessons : [...s.lessons, id], lesson: s.lesson?.id === id ? null : s.lesson })),
   setTag: (tag) => set({ tag }),
   setDialogue: (dialogue) => set({ dialogue }),
+  setNarration: (narration) => set({ narration }),
   addMaxHearts: (n) => set((s) => ({ maxHearts: s.maxHearts + n, hearts: s.maxHearts + n })),
   toggleBag: (open) => set((s) => ({ bagOpen: open ?? !s.bagOpen })),
   togglePause: (on) => set((s) => ({ paused: on ?? !s.paused })),

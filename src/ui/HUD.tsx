@@ -10,12 +10,31 @@ function Icon({ name, alt = "" }: { name: IconName; alt?: string }) {
   return <img src={`/assets/ui/icons/${name}.png`} alt={alt} draggable={false} />;
 }
 
-function Slot({ icon, keyHint, qty, selected, empty }: { icon?: IconName; keyHint: string; qty?: number; selected?: boolean; empty?: boolean }) {
+function Slot({ icon, keyHint, qty, selected, empty, locked }: { icon?: IconName; keyHint: string; qty?: number; selected?: boolean; empty?: boolean; locked?: boolean }) {
   return (
-    <div className={`slot pxslot${selected ? " sel" : ""}${empty ? " empty" : ""}`}>
+    <div className={`slot pxslot${selected ? " sel" : ""}${empty || locked ? " empty" : ""}${locked ? " locked" : ""}`}>
       {icon && <Icon name={icon} />}
-      {qty !== undefined && qty > 1 && <span className="qty">x{qty}</span>}
-      {keyHint && <span className="kbd key">{keyHint}</span>}
+      {qty !== undefined && qty > 1 && !locked && <span className="qty">x{qty}</span>}
+      {keyHint && !locked && <span className="kbd key">{keyHint}</span>}
+      {locked && <img className="lock" src="/assets/ui/lock.png" alt="locked" />}
+    </div>
+  );
+}
+
+/** Room lore read aloud on entry — a caption, never a hold. */
+function Narrator() {
+  const text = useGame((s) => s.narration);
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    setShown(0);
+    if (!text) return;
+    const id = window.setInterval(() => setShown((n) => (n >= text.length ? n : n + 1)), 28);
+    return () => window.clearInterval(id);
+  }, [text]);
+  if (!text) return null;
+  return (
+    <div className="narrator" key={text}>
+      <span className="narrator-text">{text.slice(0, shown)}{shown < text.length && <span className="caret">_</span>}</span>
     </div>
   );
 }
@@ -23,7 +42,8 @@ function Slot({ icon, keyHint, qty, selected, empty }: { icon?: IconName; keyHin
 const LESSON_TEXT: Record<LessonId, { key: string; text: string }> = {
   move: { key: "WASD", text: "Move" },
   dash: { key: "Shift", text: "Dash" },
-  attack: { key: "LMB", text: "Strike toward the cursor" },
+  attack: { key: "LMB", text: "Aim with the mouse, click to strike" },
+  potion: { key: "1", text: "Drink a potion to heal" },
   throw: { key: "RMB", text: "Throw the boomerang" },
   bomb: { key: "2", text: "Drop a bomb by the cracked wall" },
 };
@@ -179,29 +199,45 @@ function Complete() {
   );
 }
 
-/** Dungeon minimap: rooms revealed as visited, current one lit. Room name sits under it. */
+/**
+ * Dungeon minimap, drawn from pixel tiles (public/assets/ui/minimap.png, tools/draw_minimap.py):
+ * rooms revealed as visited, current one lit, doorways drawn between rooms you've seen.
+ * Room name sits under it.
+ */
 function Minimap() {
   const { room, roomName, flags } = useGame();
   const d = whisperwood;
   const cells: (typeof d.rooms)[number][] = d.rooms;
+  const at = (gx: number, gy: number) => cells.find((c) => c.gx === gx && c.gy === gy);
+  const seen = (r?: (typeof cells)[number]) => !!r && (flags.includes(`visited:${r.id}`) || r.id === room);
+  // a doorway exists where the ASCII map has floor in the wall: east = rows 6-7 at col 19, south = row 11 at cols 9-10
+  const eastDoor = (r: (typeof cells)[number]) => r.map[6][19] !== "#";
+  const southDoor = (r: (typeof cells)[number]) => r.map[11][9] !== "#";
+  const W = 14, H = 10, G = 4; // cell size + gap, in UI px
+  const items: React.ReactNode[] = [];
+  for (let gy = 0; gy < d.rows; gy++) {
+    for (let gx = 0; gx < d.cols; gx++) {
+      const r = at(gx, gy);
+      const x = gx * (W + G), y = gy * (H + G);
+      const state = !r ? "none" : r.id === room ? "here" : seen(r) ? "seen" : "unknown";
+      items.push(<span key={`c${gx}${gy}`} className={`mm ${state}${r?.purpose === "boss" && seen(r) ? " boss" : ""}`} style={{ left: `calc(${x}px * var(--s))`, top: `calc(${y}px * var(--s))` }} />);
+      if (!r) continue;
+      const e = at(gx + 1, gy);
+      if (e && eastDoor(r) && (seen(r) || seen(e))) items.push(<span key={`e${gx}${gy}`} className="mm-link h" style={{ left: `calc(${x + W}px * var(--s))`, top: `calc(${y + H / 2 - 1}px * var(--s))` }} />);
+      const s = at(gx, gy + 1);
+      if (s && southDoor(r) && (seen(r) || seen(s))) items.push(<span key={`s${gx}${gy}`} className="mm-link v" style={{ left: `calc(${x + W / 2 - 1}px * var(--s))`, top: `calc(${y + H}px * var(--s))` }} />);
+    }
+  }
   return (
     <div className="minimap-wrap">
-      <div className="minimap pxslot" style={{ gridTemplateColumns: `repeat(${d.cols}, calc(12px * var(--s)))` }}>
-        {Array.from({ length: d.rows * d.cols }, (_, i) => {
-          const gx = i % d.cols, gy = Math.floor(i / d.cols);
-          const r = cells.find((c) => c.gx === gx && c.gy === gy);
-          const visited = r && flags.includes(`visited:${r.id}`);
-          const cls = !r ? "none" : r.id === room ? "here" : visited ? "seen" : "unknown";
-          return <span key={i} className={`mm ${cls}${r?.purpose === "boss" && visited ? " boss" : ""}`} />;
-        })}
-      </div>
+      <div className="minimap pxslot" style={{ width: `calc(${d.cols * (W + G) - G}px * var(--s))`, height: `calc(${d.rows * (H + G) - G}px * var(--s))` }}>{items}</div>
       <span className="minimap-name">{roomName}</span>
     </div>
   );
 }
 
 export function HUD() {
-  const { screen, hearts, maxHearts, gold, keys, items, bagOpen, toggleBag, paused, togglePause, quitToTitle, banner, boss, respawn, dialogue, tag } = useGame();
+  const { screen, hearts, maxHearts, gold, keys, items, bagOpen, toggleBag, paused, togglePause, quitToTitle, banner, boss, respawn, dialogue, tag, flags } = useGame();
   const rect = useCanvasRect();
   const s = uiScale(rect);
 
@@ -291,8 +327,8 @@ export function HUD() {
       <div className="hotbar pxpanel">
         <Slot icon="sword" keyHint="LMB" selected />
         <div className="divider" />
-        <Slot icon="potion" keyHint="1" qty={item("potion")?.qty ?? 0} empty={!item("potion")} />
-        <Slot icon="bomb" keyHint="2" qty={item("bomb")?.qty ?? 0} empty={!item("bomb")} />
+        <Slot icon="potion" keyHint="1" qty={item("potion")?.qty ?? 0} empty={!item("potion")} locked={!flags.includes("unlock:potion")} />
+        <Slot icon="bomb" keyHint="2" qty={item("bomb")?.qty ?? 0} empty={!item("bomb")} locked={!flags.includes("unlock:bomb")} />
         <Slot icon={item("boomerang") ? "boomerang" : undefined} keyHint="RMB" empty={!item("boomerang")} />
         {item("bosskey") && <Slot icon="bosskey" keyHint="" />}
         <div className="divider" />
@@ -326,6 +362,7 @@ export function HUD() {
       )}
 
       <DialogueBox />
+      {!dialogue && !banner && <Narrator />}
 
       {paused && (
         <div className="bag-backdrop" onClick={() => togglePause(false)}>

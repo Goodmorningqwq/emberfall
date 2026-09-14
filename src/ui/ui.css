@@ -75,15 +75,28 @@ html, body { margin: 0; height: 100%; background: #0f110f; color: var(--ink); ov
 @container (min-width: 1100px) { .slot .key { font-size: 16px; height: calc(10px * var(--s)); } }
 
 
-/* minimap, top-right in the wall band, room name under it */
+/* minimap, top-right in the wall band, room name under it. Cells are pixel tiles from ui/minimap.png (14x10 each). */
 .minimap-wrap { position: absolute; right: calc(10px * var(--s)); top: calc(8px * var(--s)); display: flex; flex-direction: column; align-items: flex-end; gap: calc(3px * var(--s)); }
-.minimap { display: grid; gap: calc(1px * var(--s)); padding: calc(1px * var(--s)); }
-.mm { display: block; width: calc(12px * var(--s)); height: calc(8px * var(--s)); box-sizing: border-box; }
-.mm.none { background: transparent; }
-.mm.unknown { background: #1b201b; }
-.mm.seen { background: #5b665b; }
-.mm.here { background: var(--ember); box-shadow: inset 0 0 0 var(--px) #fff2b0; }
-.mm.boss { background-image: linear-gradient(#e05a4a, #e05a4a); background-size: calc(4px * var(--s)) calc(4px * var(--s)); background-repeat: no-repeat; background-position: center; }
+.minimap { position: relative; box-sizing: content-box; padding: calc(2px * var(--s)); }
+.minimap > * { position: absolute; margin: calc(2px * var(--s)); }
+.mm { display: block; width: calc(14px * var(--s)); height: calc(10px * var(--s)); background: url("/assets/ui/minimap.png") no-repeat; background-size: calc(70px * var(--s)) calc(10px * var(--s)); image-rendering: pixelated; }
+.mm.none { background-position: 0 0; }
+.mm.unknown { background-position: calc(-14px * var(--s)) 0; }
+.mm.seen { background-position: calc(-28px * var(--s)) 0; }
+.mm.here { background-position: calc(-42px * var(--s)) 0; animation: mmhere 1.2s ease-in-out infinite alternate; }
+.mm.boss { background-position: calc(-56px * var(--s)) 0; }
+.mm.boss.here { background-position: calc(-42px * var(--s)) 0; }
+.mm-link { display: block; background: #a8aa9c; }
+.mm-link.h { width: calc(4px * var(--s)); height: calc(2px * var(--s)); }
+.mm-link.v { width: calc(2px * var(--s)); height: calc(4px * var(--s)); }
+@keyframes mmhere { from { filter: brightness(1); } to { filter: brightness(1.35); } }
+/* locked hotbar slots */
+.slot.locked img:not(.lock) { opacity: .25; filter: grayscale(1); }
+.slot .lock { position: absolute; right: calc(-2px * var(--s)); bottom: calc(-3px * var(--s)); width: calc(8px * var(--s)); height: calc(8px * var(--s)); opacity: 1; }
+/* narrator caption: bottom, above the hotbar, no chrome — reads like a voice */
+.narrator { position: absolute; left: 50%; bottom: calc(58px * var(--sh) + 14px * var(--s)); transform: translateX(-50%); max-width: calc(300px * var(--s)); text-align: center; animation: narr 6.5s ease-out forwards; pointer-events: none; }
+.narrator-text { font-size: calc(16px * max(1, var(--s) - 1)); line-height: 1.35; color: #fff2b0; text-shadow: 0 var(--px) 0 var(--shadow), var(--px) 0 0 var(--shadow), calc(-1 * var(--px)) 0 0 var(--shadow), 0 calc(-1 * var(--px)) 0 var(--shadow), var(--px) var(--px) 0 var(--shadow); }
+@keyframes narr { 0% { opacity: 0; transform: translate(-50%, calc(3px * var(--s))); } 6% { opacity: 1; transform: translate(-50%, 0); } 88% { opacity: 1; } 100% { opacity: 0; } }
 .minimap-name { font-size: 16px; color: var(--ink); text-shadow: 0 var(--px) 0 var(--shadow), var(--px) 0 0 var(--shadow), calc(-1 * var(--px)) 0 0 var(--shadow), 0 calc(-1 * var(--px)) 0 var(--shadow); }
 @container (min-width: 1100px) { .minimap-name { font-size: calc(16px * max(1, var(--s) - 1)); } }
 

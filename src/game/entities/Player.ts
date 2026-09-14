@@ -217,6 +217,7 @@ export class Player {
     this.invulnerableUntil = now + HURT_IFRAMES_MS;
     useGame.getState().damage(1);
     if (useGame.getState().hearts <= 0) return this.die(fromX, fromY);
+    this.scene.onPlayerHurt();
     this.scene.cameras.main.shake(120, 0.006);
     // separate from the attacker so a second touch isn't instant
     const away = new Phaser.Math.Vector2(this.sprite.x - fromX, this.sprite.y - fromY).normalize();
