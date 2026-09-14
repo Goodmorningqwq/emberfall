@@ -398,7 +398,7 @@ export class DungeonScene extends Phaser.Scene {
         st.setBoss({ name: "Elder Treant", hp: TREANT_HP, max: TREANT_HP, status: "" });
         st.showBanner({ kind: "boss", title: "ELDER TREANT", sub: "Warden of the Hollow" });
         this.time.delayedCall(2200, () => useGame.getState().banner?.kind === "boss" && useGame.getState().showBanner(null));
-        this.setAnchor("boss", this.treant.sprite.x, this.treant.sprite.y - 96);
+        this.setAnchor("boss", this.treant.sprite.x, this.treant.sprite.y - 62);
       } else if (o.kind === "treant" && st.hasFlag(`boss:${this.dungeon.def.id}`) && !st.hasFlag(`shard:${this.dungeon.def.id}`)) {
         this.spawnPickup("shard", room.x + o.x * TILE, room.y + o.y * TILE);
       }
@@ -713,8 +713,17 @@ export class DungeonScene extends Phaser.Scene {
     if (!this.frameEl || !this.frameEl.isConnected) this.frameEl = document.querySelector("#ui .frame");
     if (!this.frameEl) return;
     const cam = this.cameras.main;
-    this.frameEl.style.setProperty(`--${name}-x`, String(((wx - cam.scrollX) / cam.width) * 100));
-    this.frameEl.style.setProperty(`--${name}-y`, String(((wy - cam.scrollY) / cam.height) * 100));
+    const px = ((wx - cam.scrollX) / cam.width) * 100;
+    const py = ((wy - cam.scrollY) / cam.height) * 100;
+    this.frameEl.style.setProperty(`--${name}-x`, String(px));
+    this.frameEl.style.setProperty(`--${name}-y`, String(py));
+    // tags hang to the right by default; flip them near the right edge so they stay on screen
+    this.frameEl.classList.toggle(`${name}-right`, px > 62);
+    if (name === "wren") {
+      // ghost the hotbar while she walks under it (the south doorway sits behind it)
+      const under = py > 78 && Math.abs(px - 50) < 22;
+      this.frameEl.classList.toggle("hotbar-ghost", under);
+    }
   }
 
   // ---------------------------------------------------------------- lessons

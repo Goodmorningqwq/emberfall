@@ -56,12 +56,15 @@ function Coach() {
 function WorldTag() {
   const tag = useGame((s) => s.tag);
   if (!tag) return null;
-  return (
-    <div className={`wtag pxslot ${tag.kind ?? "info"}`} style={{ left: `${(tag.x / 640) * 100}%`, top: `${(tag.y / 384) * 100}%` }} key={tag.text + tag.x}>
+    // keep it inside the frame and off the HUD corners: x within 12–88%, y below the wall-band HUD
+    const x = Math.min(88, Math.max(12, (tag.x / 640) * 100));
+    const y = Math.min(80, Math.max(16, (tag.y / 384) * 100));
+    return (
+    <div className={`wtag pxslot ${tag.kind ?? "info"}`} style={{ left: `${x}%`, top: `${y}%` }} key={tag.text + tag.x}>
       {tag.icon && <img src={tag.icon} alt="" />}
       <span>{tag.text}</span>
     </div>
-  );
+    );
 }
 
 /** Sign / NPC dialogue: bottom panel, typewriter, any key or click to close. */
@@ -131,7 +134,7 @@ function Minimap() {
 }
 
 export function HUD() {
-  const { screen, hearts, maxHearts, gold, keys, items, bagOpen, toggleBag, paused, togglePause, quitToTitle, banner, boss, respawn, dialogue } = useGame();
+  const { screen, hearts, maxHearts, gold, keys, items, bagOpen, toggleBag, paused, togglePause, quitToTitle, banner, boss, respawn, dialogue, tag } = useGame();
   const rect = useCanvasRect();
   const s = uiScale(rect);
 
@@ -213,7 +216,7 @@ export function HUD() {
         <Slot icon="bag" keyHint="Tab" />
       </div>
 
-      {!bagOpen && !dialogue && <Coach />}
+      {!bagOpen && !dialogue && !banner && !tag && <Coach />}
       <WorldTag />
 
       {banner && (

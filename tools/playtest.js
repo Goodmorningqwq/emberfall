@@ -40,3 +40,17 @@ window.__vhold = async (code, keyCode, ms) => {
   const kev = (type) => new KeyboardEvent(type, { code, key: code.replace("Key", "").toLowerCase(), keyCode, which: keyCode, bubbles: true });
   window.dispatchEvent(kev("keydown")); await window.__run(ms); window.dispatchEvent(kev("keyup")); await window.__run(32);
 };
+
+// HUD overlap QA: returns pairs of HUD elements whose boxes intersect, plus anything outside the frame.
+window.__hudOverlaps = () => {
+  const frame = document.querySelector('#ui .frame'); if (!frame) return ['no frame'];
+  const F = frame.getBoundingClientRect();
+  const sel = ['.hud', '.minimap-wrap', '.hotbar', '.coach', '.wtag', '.banner .card', '.bossbar', '.bossstatus', '.dialogue'];
+  const boxes = [];
+  for (const s of sel) for (const el of frame.querySelectorAll(s)) { const r = el.getBoundingClientRect(); if (r.width && r.height) boxes.push({ s, r }); }
+  const out = [];
+  const hit = (a, b) => a.left < b.right - 1 && a.right > b.left + 1 && a.top < b.bottom - 1 && a.bottom > b.top + 1;
+  for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) if (hit(boxes[i].r, boxes[j].r)) out.push(`${boxes[i].s} x ${boxes[j].s}`);
+  for (const b of boxes) if (b.r.left < F.left - 1 || b.r.right > F.right + 1 || b.r.top < F.top - 1 || b.r.bottom > F.bottom + 1) out.push(`${b.s} outside frame`);
+  return out;
+};
