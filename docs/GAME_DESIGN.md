@@ -164,8 +164,8 @@ game/
 
 | M | Goal | Done when |
 |---|---|---|
-| **M0** | Project setup | Vite+Phaser+React running, placeholder square moves, deployed to Vercel, git initialized |
-| **M1** | Feel prototype | One room. Player walk/attack/roll with PixelLab hero. 1 slime. Hit-stop, shake, damage numbers. **Playtest: does hitting a slime feel good?** |
+| **M0** ✅ 2026-09-14 | Project setup | Live at https://emberfall-alpha.vercel.app/ (Vercel, auto-deploy from `main`), title + save, pixel UI |
+| **M1** ✅ 2026-09-14 | Feel prototype | Wren + slimes in one room; mouse attack with wind-up, dash/sprint, telegraphed enemies, hit-stop/shake/numbers. Passed playtest. |
 | **M2** | Dungeon 1 vertical slice | 8 rooms in Tiled, doors/keys, 3 enemy types, boomerang, Elder Treant, HUD + pause + death screen |
 | **M3** | Hub + persistence | Town, blacksmith, apothecary, elder dialogue, save/load, title screen, inventory & shop UI |
 | **M4** | Dungeons 2 & 3 | Grapple + gauntlet mechanics, 6 more enemies, 2 bosses, town rebuild states |

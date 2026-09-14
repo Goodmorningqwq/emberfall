@@ -2,6 +2,9 @@
 
 Top-down action RPG. Phaser 4 + React + Vite + TypeScript. Pixel art via PixelLab.
 
+**Play:** https://emberfall-alpha.vercel.app/ (auto-deploys from `main`)  
+**Repo:** https://github.com/Goodmorningqwq/emberfall
+
 - Design doc: `docs/GAME_DESIGN.md`
 - Look mockup: `docs/mockup/` (design canvas source)
 - Character concept: `docs/concept/`
