@@ -38,7 +38,8 @@ export class Slime extends Enemy {
     const s = this.sprite;
     s.setScale(this.opts.scale);
     s.body!.setSize(s.width * 0.7, s.height * 0.5).setOffset(s.width * 0.15, s.height * 0.5);
-    this.startBreathing();
+    if (scene.anims.exists("slime-hop-loop")) s.play("slime-hop-loop");
+    else this.startBreathing();
   }
 
   get isAttacking() {
@@ -63,6 +64,7 @@ export class Slime extends Enemy {
           // the tell: squash down + red glints
           s.setVelocity(0, 0);
           this.breathe?.pause();
+          if (s.anims.isPlaying) s.anims.pause(s.anims.currentAnim!.frames[0]);
           this.scene.tweens.add({ targets: s, scaleX: 1.25 * k, scaleY: 0.7 * k, duration: TELEGRAPH_MS * 0.8, ease: "Quad.easeIn" });
           this.glint();
         } else if (d > 24) {
@@ -85,6 +87,7 @@ export class Slime extends Enemy {
           this.enter("recover", now + RECOVER_MS);
           s.setVelocity(0, 0);
           this.breathe?.resume();
+          if (s.anims.isPaused) s.anims.resume();
         }
         break;
       case "recover":
@@ -98,6 +101,7 @@ export class Slime extends Enemy {
     this.enter("stunned", this.scene.time.now + STUN_MS);
     this.scene.tweens.killTweensOf(this.sprite);
     this.breathe?.resume();
+    if (this.sprite.anims.isPaused) this.sprite.anims.resume();
     this.sprite.setScale(this.opts.scale);
   }
 
@@ -109,10 +113,11 @@ export class Slime extends Enemy {
   }
 
   protected onDeath() {
+    // the burst frames play under the base shrink-and-fade (the clip alone reads as a wobble)
+    if (this.scene.anims.exists("slime-splat")) this.sprite.play("slime-splat");
     if (!this.opts.split) return;
-    const s = this.sprite;
     for (const dx of [-14, 14]) {
-      this.scene.spawnEnemy("slime", s.x + dx, s.y, { fromSplit: true });
+      this.scene.spawnEnemy("slime", this.sprite.x + dx, this.sprite.y, { fromSplit: true });
     }
   }
 

@@ -52,16 +52,17 @@ export class Mushroom extends Enemy {
         if (d < TRIGGER_DIST) {
           this.state = "telegraph";
           this.stateUntil = now + TELEGRAPH_MS;
-          // shudder + swell
+          // shudder + swell (the spore clip, when present, covers telegraph + puff: 8 frames over ~1.1s)
           this.scene.tweens.add({ targets: s, x: "+=1.5", duration: 40, yoyo: true, repeat: Math.floor(TELEGRAPH_MS / 80) });
-          this.scene.tweens.add({ targets: s, scaleX: 1.15, scaleY: 1.12, duration: TELEGRAPH_MS, ease: "Quad.easeIn" });
+          if (this.scene.anims.exists("mushroom-spore")) s.play("mushroom-spore");
+          else this.scene.tweens.add({ targets: s, scaleX: 1.15, scaleY: 1.12, duration: TELEGRAPH_MS, ease: "Quad.easeIn" });
         }
         break;
       case "telegraph":
         if (now >= this.stateUntil) {
           this.state = "spore";
           this.stateUntil = now + SPORE_MS;
-          this.scene.tweens.add({ targets: s, scaleX: 1, scaleY: 1, duration: 120, ease: "Back.easeOut" });
+          if (!this.scene.anims.exists("mushroom-spore")) this.scene.tweens.add({ targets: s, scaleX: 1, scaleY: 1, duration: 120, ease: "Back.easeOut" });
           this.puff();
         }
         break;
@@ -103,6 +104,8 @@ export class Mushroom extends Enemy {
       // interrupting the wind-up is the reward for aggression
       this.scene.tweens.killTweensOf(this.sprite);
       this.sprite.setScale(1);
+      this.sprite.stop();
+      this.sprite.setTexture("mushroom");
       this.state = "recover";
       this.stateUntil = this.scene.time.now + 500;
     }

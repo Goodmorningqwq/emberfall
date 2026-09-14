@@ -15,6 +15,10 @@ import { useGame, type ItemId, type LessonId } from "../../ui/store";
 import whisperwood from "../data/whisperwood.json";
 
 type Dir = "north" | "south" | "east" | "west";
+
+/** clip name -> frame count. "-loop" suffix loops. */
+const ENEMY_CLIPS: Record<string, number> = { "slime-hop-loop": 6, "slime-splat": 6, "sprite-hover-loop": 6, "mushroom-spore": 8 };
+const ENEMY_FPS: Record<string, number> = { "slime-hop-loop": 9, "slime-splat": 14, "sprite-hover-loop": 12, "mushroom-spore": 7.3 };
 const DIRS: Record<Dir, { dx: number; dy: number }> = { north: { dx: 0, dy: -1 }, south: { dx: 0, dy: 1 }, east: { dx: 1, dy: 0 }, west: { dx: -1, dy: 0 } };
 
 interface Door {
@@ -98,6 +102,8 @@ export class DungeonScene extends Phaser.Scene {
       this.load.image(p, `assets/sprites/props/${p}.png`);
     }
     for (const i of ["key", "boomerang", "bomb", "shard", "potion", "coin", "bosskey"]) this.load.image(`icon-${i}`, `assets/ui/icons/${i}.png`);
+    // enemy clips: one PNG per frame under assets/sprites/props/anim/<clip>/<i>.png (PixelLab animate_object)
+    for (const [clip, n] of Object.entries(ENEMY_CLIPS)) for (let i = 0; i < n; i++) this.load.image(`${clip}-${i}`, `assets/sprites/props/anim/${clip}/${i}.png`);
     this.load.spritesheet("hearts", "assets/ui/hearts.png", { frameWidth: 16, frameHeight: 16 });
     HERO.preload(this);
   }
@@ -126,6 +132,11 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   create() {
+    for (const [clip, n] of Object.entries(ENEMY_CLIPS)) {
+      if (this.anims.exists(clip)) continue;
+      const frames = Array.from({ length: n }, (_, i) => `${clip}-${i}`).filter((k) => this.textures.exists(k)).map((key) => ({ key }));
+      if (frames.length) this.anims.create({ key: clip, frames, frameRate: ENEMY_FPS[clip] ?? 8, repeat: clip.endsWith("-loop") ? -1 : 0 });
+    }
     // a tiny soft dot for particles (spores, smoke, sparkles)
     if (!this.textures.exists("spore")) {
       const g = this.add.graphics();
