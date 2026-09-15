@@ -52,8 +52,10 @@ for x, y in [(11, 8), (20, 8), (11, 15), (20, 15)]:
 put(20, 5, "w")
 put(27, 7, "c")
 put(27, 9, "c")
-for x, y in [(3, 8), (10, 6), (21, 3), (28, 3), (3, 15), (10, 17), (22, 17), (27, 15), (12, 20), (20, 20), (9, 13), (22, 9)]:
+for x, y in [(3, 8), (10, 6), (21, 3), (3, 15), (22, 17), (12, 20), (9, 13), (22, 9)]:
     put(x, y, "u")
+for x, y in [(28, 3), (10, 17), (27, 15), (20, 20)]:
+    put(x, y, "s")
 for x, y in [(9, 19), (23, 20), (3, 18)]:
     put(x, y, "r")
 for x, y in [(3, 5), (11, 3), (12, 5), (28, 6), (3, 20), (26, 21), (28, 19), (13, 21), (19, 21), (29, 15), (2, 15), (13, 7), (19, 3), (28, 9), (21, 7)]:
@@ -72,7 +74,7 @@ data = {
         "E": "house-elder", "F": "house-forge", "A": "house-apothecary", "S": "shrine", "P": "plinth",
         "1": "gate-whisperwood", "2": "gate-crypt", "3": "gate-cinder",
         "b": "npc-blacksmith", "a": "npc-apothecary", "e": "npc-elder", "@": "spawn",
-        "l": "lantern", "w": "well", "c": "crates", "u": "bush", "r": "ruin-wall",
+        "l": "lantern", "w": "well", "c": "crates", "u": "bush", "s": "stone", "r": "ruin-wall",
     },
     "map": rows,
     "npcs": {
@@ -87,7 +89,7 @@ json.dump(data, open("src/game/data/emberfall-town.json", "w", encoding="utf-8")
 T = 10
 im = Image.new("RGB", (W * T + 260, H * T + 40), (22, 24, 22))
 d = ImageDraw.Draw(im)
-COL = {".": (96, 140, 80), "=": (150, 140, 110), "T": (40, 78, 48), "E": (200, 160, 60), "F": (200, 110, 60), "A": (120, 200, 120), "S": (110, 200, 240), "P": (240, 120, 60), "1": (230, 190, 80), "2": (90, 90, 120), "3": (120, 60, 60), "b": (240, 240, 240), "a": (240, 240, 240), "e": (240, 240, 240), "@": (255, 255, 255), "l": (255, 200, 90), "w": (120, 130, 140), "c": (160, 110, 70), "u": (70, 120, 60), "r": (130, 130, 120)}
+COL = {".": (96, 140, 80), "=": (150, 140, 110), "T": (40, 78, 48), "E": (200, 160, 60), "F": (200, 110, 60), "A": (120, 200, 120), "S": (110, 200, 240), "P": (240, 120, 60), "1": (230, 190, 80), "2": (90, 90, 120), "3": (120, 60, 60), "b": (240, 240, 240), "a": (240, 240, 240), "e": (240, 240, 240), "@": (255, 255, 255), "l": (255, 200, 90), "w": (120, 130, 140), "c": (160, 110, 70), "u": (70, 120, 60), "s": (140, 140, 130), "r": (130, 130, 120)}
 for y, row in enumerate(rows):
     for x, ch in enumerate(row):
         d.rectangle([20 + x * T, 20 + y * T, 20 + x * T + T - 1, 20 + y * T + T - 1], fill=COL.get(ch, (255, 0, 255)))
@@ -95,7 +97,7 @@ try:
     F = ImageFont.truetype("public/assets/fonts/EmberfallPixel.ttf", 16)
 except Exception:
     F = ImageFont.load_default()
-legend = [("E", "Elder's hall"), ("F", "Forge (Orrin)"), ("A", "Apothecary (Maren)"), ("S", "Save shrine"), ("P", "Ember plinth"), ("1", "Gate: Whisperwood"), ("2", "Gate: Crypt (sealed)"), ("3", "Gate: Cinder (sealed)"), ("l", "lantern"), ("w", "well"), ("c", "crates"), ("u", "bush"), ("r", "ruined wall"), ("T", "trees")]
+legend = [("E", "Elder's hall"), ("F", "Forge (Orrin)"), ("A", "Apothecary (Maren)"), ("S", "Save shrine"), ("P", "Ember plinth"), ("1", "Gate: Whisperwood"), ("2", "Gate: Crypt (sealed)"), ("3", "Gate: Cinder (sealed)"), ("l", "lantern"), ("w", "well"), ("c", "crates"), ("u", "bush"), ("s", "stone"), ("r", "ruined wall"), ("T", "trees")]
 for i, (ch, name) in enumerate(legend):
     y = 24 + i * 16
     d.rectangle([W * T + 30, y, W * T + 42, y + 12], fill=COL[ch])

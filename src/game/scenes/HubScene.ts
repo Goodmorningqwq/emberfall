@@ -34,6 +34,7 @@ const PROPS: Record<string, { tex: string; w: number; h: number; foot: [number, 
   well: { tex: "well", w: 48, h: 48, foot: [0.1, 0.6, 1.3, 0.9] },
   crates: { tex: "crates", w: 32, h: 32, foot: [0, 0.3, 1, 0.7] },
   bush: { tex: "bush", w: 32, h: 32, foot: [0.1, 0.4, 0.8, 0.6] },
+  stone: { tex: "stone", w: 32, h: 32, foot: [0.1, 0.4, 0.8, 0.6] },
   "ruin-wall": { tex: "ruin-wall", w: 64, h: 32, foot: [0, 0.3, 2, 0.6] },
 };
 
@@ -63,7 +64,9 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
   preload() {
     this.load.spritesheet("town-tiles", "assets/tiles/town.png", { frameWidth: TILE, frameHeight: TILE });
     this.load.json("town-meta", "assets/tiles/town.json");
-    for (const p of ["house-elder", "house-forge", "house-apothecary", "shrine", "plinth", "tree", "gate", "gate-side", "signpost", "lantern", "well", "crates", "bush", "ruin-wall", "root", "block"]) this.load.image(p, `assets/sprites/props/${p}.png`);
+    // the scene restarts on every title/continue: re-fetching a texture that exists makes the loader log
+    // "Failed to process file", so only load what's missing
+    for (const p of ["house-elder", "house-forge", "house-apothecary", "shrine", "plinth", "tree", "gate", "gate-side", "signpost", "lantern", "well", "crates", "bush", "stone", "ruin-wall", "root", "block"]) if (!this.textures.exists(p)) this.load.image(p, `assets/sprites/props/${p}.png`);
     for (const n of ["blacksmith", "apothecary", "elder"]) this.load.image(`npc-${n}`, `assets/sprites/npc/${n}.png`);
     for (const i of ["potion", "bomb", "coin", "key"]) this.load.image(`icon-${i}`, `assets/ui/icons/${i}.png`);
     HERO.preload(this);
@@ -201,6 +204,14 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
       const p = PROPS[a.kind];
       if (p) {
         const img = this.add.image(x, y, p.tex).setOrigin(0).setDepth(y + p.h - 6);
+        if (a.kind === "tree") {
+          // one tree sprite would read as a clipped hedge: vary flip, size and shade per tree (seeded by position)
+          const h = ((a.tx * 73 + a.ty * 151) % 97) / 97;
+          img.setFlipX(h > 0.5).setScale(0.94 + ((a.tx * 31 + a.ty * 17) % 7) * 0.02);
+          const shade = [0xffffff, 0xeaf2e4, 0xd8e6d0, 0xf4f0dc][(a.tx + a.ty * 3) % 4];
+          img.setTint(shade).setTintMode(Phaser.TintModes.MULTIPLY);
+          img.setPosition(x + (((a.tx * 5 + a.ty * 11) % 5) - 2), y + (((a.tx * 3 + a.ty * 7) % 5) - 2));
+        }
         if (a.kind.startsWith("gate")) {
           const sealed = !this.gateOpen(a.kind);
           const side = p.tex === "gate-side"; // posts top and bottom, road gap between (y 34..62 of the sprite)
