@@ -8,7 +8,10 @@ import type { LessonId } from "../../ui/store";
 /** What a scene must provide for Wren to live in it (the dungeon and the town both do). */
 export type PlayerHost = Phaser.Scene & {
   resetSwingHits(): void;
+  /** RMB: fire whichever tool is in hand (boomerang, grapple) */
   throwBoomerang(dir: Phaser.Math.Vector2): boolean;
+  /** Q: next tool */
+  swapTool(): void;
   placeBomb(): boolean;
   drinkPotion(): boolean;
   lessonKey(key: string): void;
@@ -36,7 +39,7 @@ export class Player {
   moveDir = new Phaser.Math.Vector2(0, 0);
 
   private scene: PlayerHost;
-  private keys: Record<"up" | "down" | "left" | "right" | "attackAlt" | "dashAlt" | "throwAlt" | "potion" | "bomb", Phaser.Input.Keyboard.Key>;
+  private keys: Record<"up" | "down" | "left" | "right" | "attackAlt" | "dashAlt" | "throwAlt" | "potion" | "bomb" | "swap", Phaser.Input.Keyboard.Key>;
   private arrows: Phaser.Types.Input.Keyboard.CursorKeys;
   private shift: Phaser.Input.Keyboard.Key;
   private facing: Dir = "south";
@@ -51,6 +54,7 @@ export class Player {
   private wantAttack = false;
   private wantThrow = false;
   private holdUntil = 0;
+  private scripted = false;
 
   constructor(scene: PlayerHost, x: number, y: number) {
     this.scene = scene;
@@ -81,6 +85,7 @@ export class Player {
       throwAlt: kb.addKey(K.L),
       potion: kb.addKey(K.ONE),
       bomb: kb.addKey(K.TWO),
+      swap: kb.addKey(K.Q),
     };
     this.arrows = kb.createCursorKeys();
     this.shift = kb.addKey(K.SHIFT);
@@ -98,6 +103,7 @@ export class Player {
 
   /** Scripted walk (room scroll): face a direction and play the walk clip while the scene moves her. */
   walkScripted(dir: Dir | null) {
+    this.scripted = !!dir;
     if (dir) {
       this.facing = dir;
       this.play("walk");
@@ -124,6 +130,11 @@ export class Player {
     if (this.state === "dead") return;
     if (now < this.holdUntil) {
       this.wantAttack = this.wantThrow = false;
+      if (this.scripted) {
+        // the scene is walking her (room scroll, grapple reel): keep the walk clip going
+        this.play("walk");
+        return this.syncDepth();
+      }
       if (this.state !== "attack" && this.state !== "dash") {
         this.sprite.setVelocity(0, 0);
         this.play("idle");
@@ -144,6 +155,7 @@ export class Player {
     if (Phaser.Input.Keyboard.JustDown(this.keys.attackAlt)) this.wantAttack = true;
     if (Phaser.Input.Keyboard.JustDown(this.keys.throwAlt)) this.wantThrow = true;
     if (Phaser.Input.Keyboard.JustDown(this.keys.potion)) this.scene.drinkPotion();
+    if (Phaser.Input.Keyboard.JustDown(this.keys.swap)) this.scene.swapTool();
     if (Phaser.Input.Keyboard.JustDown(this.keys.bomb)) this.scene.placeBomb();
     const shiftHeld = this.shift.isDown || this.keys.dashAlt.isDown;
     const shiftPressed = Phaser.Input.Keyboard.JustDown(this.shift) || Phaser.Input.Keyboard.JustDown(this.keys.dashAlt);
@@ -186,7 +198,7 @@ export class Player {
     // ---- new actions
     if (this.wantThrow) {
       this.wantThrow = false;
-      if (useGame.getState().hasItem("boomerang")) {
+      if (useGame.getState().hasItem(useGame.getState().tool)) {
         const dir = this.vecToPointer();
         if (this.scene.throwBoomerang(dir)) {
           this.facing = this.dirFrom(dir);

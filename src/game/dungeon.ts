@@ -36,6 +36,7 @@ export interface DungeonDef {
   entrance: { room: string; tx: number; ty: number };
   legend: Record<string, string>;
   rooms: RoomDef[];
+  tileset?: string;
 }
 
 /** A thing placed by a legend character: enemy, prop, pickup spot… */
@@ -115,6 +116,13 @@ export class Dungeon {
   isWall(tx: number, ty: number): boolean {
     if (tx < 0 || ty < 0 || tx >= this.widthTiles || ty >= this.heightTiles) return true;
     return WALLISH.has(this.tiles[ty][tx]);
+  }
+
+  /** legend kind of a tile ("floor", "water", "wall"...), or undefined off-grid */
+  kindAt(tx: number, ty: number): string | undefined {
+    if (tx < 0 || ty < 0 || tx >= this.widthTiles || ty >= this.heightTiles) return undefined;
+    const ch = this.tiles[ty][tx];
+    return this.def.legend[ch] ?? (ch === "#" ? "wall" : ch === "." ? "floor" : undefined);
   }
 
   setTile(tx: number, ty: number, ch: string) {

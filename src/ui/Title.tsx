@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { readSave, useGame } from "./store";
-import whisperwood from "../game/data/whisperwood.json";
+import { dungeonFor } from "../game/data/dungeons";
 
 function fmtTime(ms: number) {
   const m = Math.floor(ms / 60000);
@@ -13,7 +13,7 @@ export function Title() {
   const hearts = save ? Array.from({ length: save.maxHearts / 2 }, (_, i) => (save.hearts - i * 2 >= 2 ? "full" : save.hearts - i * 2 === 1 ? "half" : "empty")) : [];
   const shards = save?.items.find((i) => i.id === "shard")?.qty ?? 0;
   const inTown = save?.place === "hub";
-  const roomName = save ? (inTown ? "Town square" : whisperwood.rooms.find((r) => r.id === save.room)?.name ?? "") : "";
+  const roomName = save ? (inTown ? "Town square" : dungeonFor(save.place).def.rooms.find((r) => r.id === save.room)?.name ?? "") : "";
 
   return (
     <div className="title-backdrop">
@@ -31,7 +31,7 @@ export function Title() {
               </span>
               <span className="title-continue-meta">
                 <span className="stat"><img src="/assets/ui/icons/shard.png" alt="" />{shards}/3</span>
-                <span className="muted">{inTown ? "Emberfall" : whisperwood.name} · {roomName}</span>
+                <span className="muted">{inTown ? "Emberfall" : dungeonFor(save!.place).def.name} · {roomName}</span>
               </span>
             </button>
           )}

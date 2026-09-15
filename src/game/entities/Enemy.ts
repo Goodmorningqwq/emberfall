@@ -12,6 +12,10 @@ export abstract class Enemy {
   hitThisSwing = false;
   /** gold dropped on death */
   bounty = 3;
+  /** bosses drive the boss bar and shrug off the boomerang's turn-back */
+  isBoss = false;
+  /** wades through water tiles instead of being fenced by them */
+  swims = false;
   protected scene: DungeonScene;
   protected stunnedUntil = 0;
   protected dead = false;
@@ -39,6 +43,25 @@ export abstract class Enemy {
   }
   get isStunned() {
     return this.scene.time.now < this.stunnedUntil;
+  }
+  /** True when a sword hit right now would be turned away (bark, a raised shield): clang, no number. */
+  get blocksNow() {
+    return false;
+  }
+  /** Bosses: hold the first attack back while the intro plays. */
+  delayStart(_ms: number) {}
+  /** The grapple hook latched on. Default: yanked toward the player and stunned. */
+  grappled(px: number, py: number) {
+    if (this.dead) return;
+    const s = this.sprite;
+    const v = new Phaser.Math.Vector2(px - s.x, py - s.y);
+    const d = v.length();
+    if (d > 40) {
+      v.normalize().scale(Math.min(d - 30, 120) / 0.25);
+      s.setVelocity(v.x, v.y);
+      this.scene.time.delayedCall(250, () => s.active && s.setVelocity(0, 0));
+    }
+    this.scene.time.delayedCall(260, () => this.stun(1400));
   }
 
   /** Sword connected. Returns true if it died. */

@@ -23,6 +23,8 @@ export interface SlimeOptions {
   hp?: number;
   split?: boolean;
   bounty?: number;
+  /** "slime" (default) or "blueslime": the crypt's swimmer, same machine, wades through water */
+  texture?: string;
 }
 
 export class Slime extends Enemy {
@@ -32,13 +34,15 @@ export class Slime extends Enemy {
   private opts: Required<SlimeOptions>;
 
   constructor(scene: DungeonScene, group: Phaser.Physics.Arcade.Group, x: number, y: number, opts: SlimeOptions = {}) {
-    super(scene, group, x, y, "slime", opts.hp ?? 2);
-    this.opts = { scale: opts.scale ?? 1, hp: opts.hp ?? 2, split: opts.split ?? false, bounty: opts.bounty ?? 3 };
+    const texture = opts.texture ?? "slime";
+    super(scene, group, x, y, texture, opts.hp ?? 2);
+    this.opts = { scale: opts.scale ?? 1, hp: opts.hp ?? 2, split: opts.split ?? false, bounty: opts.bounty ?? 3, texture };
+    this.swims = texture === "blueslime";
     this.bounty = this.opts.bounty;
     const s = this.sprite;
     s.setScale(this.opts.scale);
     s.body!.setSize(s.width * 0.7, s.height * 0.5).setOffset(s.width * 0.15, s.height * 0.5);
-    if (scene.anims.exists("slime-hop-loop")) s.play("slime-hop-loop");
+    if (scene.anims.exists(`${texture}-hop-loop`)) s.play(`${texture}-hop-loop`);
     else this.startBreathing();
   }
 
@@ -114,10 +118,10 @@ export class Slime extends Enemy {
 
   protected onDeath() {
     // the burst frames play under the base shrink-and-fade (the clip alone reads as a wobble)
-    if (this.scene.anims.exists("slime-splat")) this.sprite.play("slime-splat");
+    if (this.scene.anims.exists(`${this.opts.texture}-splat`)) this.sprite.play(`${this.opts.texture}-splat`);
     if (!this.opts.split) return;
     for (const dx of [-14, 14]) {
-      this.scene.spawnEnemy("slime", this.sprite.x + dx, this.sprite.y, { fromSplit: true });
+      this.scene.spawnEnemy(this.opts.texture, this.sprite.x + dx, this.sprite.y, { fromSplit: true });
     }
   }
 

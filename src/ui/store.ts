@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { SHOPS } from "./shop";
 
 export type Facing = "south" | "north" | "east" | "west";
-export type ItemId = "sword" | "potion" | "bomb" | "key" | "boomerang" | "bosskey" | "shard";
+export type ItemId = "sword" | "potion" | "bomb" | "key" | "boomerang" | "grapple" | "bosskey" | "shard";
 
 export interface Item {
   id: ItemId;
@@ -33,7 +33,7 @@ export interface Banner {
   icon?: ItemId | "heart";
 }
 
-export type LessonId = "move" | "dash" | "attack" | "potion" | "throw" | "bomb";
+export type LessonId = "move" | "dash" | "attack" | "potion" | "throw" | "bomb" | "grapple";
 /** The contextual tutorial tag beside Wren. `keys` = which of W/A/S/D are still to press. */
 export interface Lesson {
   id: LessonId;
@@ -72,7 +72,8 @@ export interface SaveData {
 }
 const SAVE_KEY = "emberfall.save.1";
 const SAVE_VERSION = 5;
-export type Place = "hub" | "whisperwood";
+export type Place = "hub" | "whisperwood" | "crypt";
+export type ToolId = "boomerang" | "grapple";
 
 const START_ITEMS: Item[] = [
   { id: "sword", name: "Iron Sword", qty: 1, hint: "1 dmg · equipped" },
@@ -86,6 +87,7 @@ export const ITEM_META: Record<ItemId, { name: string; hint: string }> = {
   bomb: { name: "Bomb", hint: "Breaks cracked walls" },
   key: { name: "Small Key", hint: "Opens a locked door" },
   boomerang: { name: "Boomerang", hint: "RMB · stuns, fetches, rings crystals" },
+  grapple: { name: "Grapple Hook", hint: "RMB · pulls you to anchors, pulls foes to you" },
   bosskey: { name: "Boss Key", hint: "Opens the way to the Heart of the Hollow" },
   shard: { name: "Ember Shard", hint: "One of three. Bring the flame home." },
 };
@@ -104,6 +106,8 @@ interface GameState {
   room: string; // current room id
   place: Place; // which scene the save lives in
   swordTier: number; // 1..3 = damage per strike
+  /** which RMB tool is in hand (Q cycles) */
+  tool: ToolId;
   shop: { vendor: keyof typeof SHOPS; bought?: string } | null;
   roomName: string;
   dungeonName: string;
@@ -134,6 +138,7 @@ interface GameState {
   hasFlag: (f: string) => boolean;
   setRoom: (id: string, name: string, dungeonName: string) => void;
   setPlace: (p: Place) => void;
+  setTool: (t: ToolId) => void;
   openShop: (vendor: keyof typeof SHOPS) => void;
   closeShop: () => void;
   /** returns why it failed, or null on success */
@@ -204,6 +209,7 @@ const fresh = () => ({
   room: "entrance",
   place: "hub" as Place,
   swordTier: 1,
+  tool: "boomerang" as ToolId,
   shop: null,
   playtimeMs: 0,
 });
@@ -237,7 +243,7 @@ export const useGame = create<GameState>((set, get) => ({
       const it = items.find((i) => i.id === id);
       if (it) it.qty += qty;
       else items.push({ id, qty, ...ITEM_META[id] });
-      return { items };
+      return { items, tool: id === "grapple" || id === "boomerang" ? id : s.tool };
     }),
   useItem: (id, qty = 1) => {
     const it = get().items.find((i) => i.id === id);
@@ -250,6 +256,7 @@ export const useGame = create<GameState>((set, get) => ({
   hasFlag: (f) => get().flags.includes(f),
   setRoom: (room, roomName, dungeonName) => set({ room, roomName, dungeonName }),
   setPlace: (place) => set({ place }),
+  setTool: (tool) => set({ tool }),
   openShop: (vendor) => set({ shop: { vendor } }),
   closeShop: () => set({ shop: null }),
   buy: (entryId) => {
@@ -314,6 +321,7 @@ export const useGame = create<GameState>((set, get) => ({
       room: d.room,
       place: d.place ?? "hub",
       swordTier: d.swordTier ?? 1,
+      tool: d.items.some((i) => i.id === "grapple") ? "grapple" : "boomerang",
       shop: null,
       playtimeMs: d.playtimeMs,
       sessionStart: Date.now(),
@@ -327,7 +335,7 @@ export const useGame = create<GameState>((set, get) => ({
     });
   },
   die: () => set({ screen: "dead", bagOpen: false, paused: false, boss: null, banner: null, lesson: null, tag: null, dialogue: null }),
-  respawn: () => set((s) => ({ screen: "game", hearts: s.maxHearts, room: "entrance", place: "whisperwood" })),
+  respawn: () => set((s) => ({ screen: "game", hearts: s.maxHearts, room: "entrance", place: s.place === "hub" ? "whisperwood" : s.place })),
   quitToTitle: () => {
     writeSave(get());
     set({ screen: "title", paused: false, bagOpen: false, boss: null, banner: null, lesson: null, tag: null, dialogue: null });

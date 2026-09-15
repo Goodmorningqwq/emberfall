@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useGame, type ItemId, type LessonId } from "./store";
 import { uiScale, useCanvasRect } from "./useCanvasRect";
 import { Title } from "./Title";
-import whisperwood from "../game/data/whisperwood.json";
+import { dungeonFor } from "../game/data/dungeons";
 import { sfx } from "../game/audio";
 import { SHOPS } from "./shop";
 
@@ -47,6 +47,7 @@ const LESSON_TEXT: Record<LessonId, { key: string; text: string }> = {
   attack: { key: "LMB", text: "Aim with the mouse, click to strike" },
   potion: { key: "1", text: "Drink a potion to heal" },
   throw: { key: "RMB", text: "Throw the boomerang" },
+  grapple: { key: "RMB", text: "Fire the hook at an anchor post" },
   bomb: { key: "2", text: "Drop a bomb by the cracked wall" },
 };
 
@@ -176,12 +177,13 @@ function fmtTime(ms: number) {
 
 /** Dungeon cleared: shard tally and a way back. */
 function Complete() {
-  const { keepExploring, quitToTitle, gold, playtimeMs, sessionStart, items } = useGame();
+  const { keepExploring, quitToTitle, gold, playtimeMs, sessionStart, items, place } = useGame();
   const shards = items.find((i) => i.id === "shard")?.qty ?? 0;
+  const meta = dungeonFor(place);
   return (
     <div className="bag-backdrop intro">
       <div className="pause pxpanel intro-plate complete">
-        <span className="eyebrow">WHISPERWOOD HOLLOW</span>
+        <span className="eyebrow">{meta.completeEyebrow}</span>
         <span className="t-title">Cleansed</span>
         <div className="complete-row">
           <img src="/assets/ui/icons/shard.png" alt="" />
@@ -191,7 +193,7 @@ function Complete() {
           <span className="t-title">{gold}</span>
           <span className="muted t-small">gold · {fmtTime(playtimeMs + (Date.now() - sessionStart))}</span>
         </div>
-        <span className="muted t-small">The Sunken Crypt waits beyond the marsh. The road there is not built yet.</span>
+        <span className="muted t-small">{meta.completeNext}</span>
         <div className="pause-actions">
           <button className="pxbtn pxslot" onClick={quitToTitle}>Return to title</button>
           <button className="pxbtn pxslot" onClick={keepExploring} autoFocus>Keep exploring</button>
@@ -207,8 +209,8 @@ function Complete() {
  * Room name sits under it.
  */
 function Minimap() {
-  const { room, roomName, flags } = useGame();
-  const d = whisperwood;
+  const { room, roomName, flags, place } = useGame();
+  const d = dungeonFor(place).def;
   const cells: (typeof d.rooms)[number][] = d.rooms;
   const at = (gx: number, gy: number) => cells.find((c) => c.gx === gx && c.gy === gy);
   const seen = (r?: (typeof cells)[number]) => !!r && (flags.includes(`visited:${r.id}`) || r.id === room);
@@ -336,7 +338,7 @@ function useFlash(value: number, dir: "up" | "any" = "any", ms = 450) {
 }
 
 export function HUD() {
-  const { screen, hearts, maxHearts, gold, keys, items, bagOpen, toggleBag, paused, togglePause, quitToTitle, banner, boss, respawn, dialogue, tag, flags, settings, setSettings, place } = useGame();
+  const { screen, hearts, maxHearts, gold, keys, items, bagOpen, toggleBag, paused, togglePause, quitToTitle, banner, boss, respawn, dialogue, tag, flags, settings, setSettings, place, tool } = useGame();
   const rect = useCanvasRect();
   const s = uiScale(rect);
   const healFlash = useFlash(hearts, "up");
@@ -434,7 +436,7 @@ export function HUD() {
         <div className="divider" />
         <Slot icon="potion" keyHint="1" qty={item("potion")?.qty ?? 0} empty={!item("potion")} locked={!flags.includes("unlock:potion")} />
         <Slot icon="bomb" keyHint="2" qty={item("bomb")?.qty ?? 0} empty={!item("bomb")} locked={!flags.includes("unlock:bomb")} />
-        <Slot icon={item("boomerang") ? "boomerang" : undefined} keyHint="RMB" empty={!item("boomerang")} />
+        <Slot icon={item(tool) ? tool : item("boomerang") ? "boomerang" : item("grapple") ? "grapple" : undefined} keyHint={item("boomerang") && item("grapple") ? "RMB · Q" : "RMB"} empty={!item("boomerang") && !item("grapple")} />
         {item("bosskey") && <Slot icon="bosskey" keyHint="" />}
         <div className="divider" />
         <Slot icon="bag" keyHint="Tab" />
@@ -481,7 +483,8 @@ export function HUD() {
               <div><span className="kbd">WASD</span><span>Move</span></div>
               <div><span className="kbd">LMB</span><span>Attack toward cursor</span></div>
               <div><span className="kbd">Shift</span><span>Tap: dash · Hold: sprint</span></div>
-              <div><span className="kbd">RMB</span><span>Throw boomerang</span></div>
+              <div><span className="kbd">RMB</span><span>Use tool (boomerang / hook)</span></div>
+              <div><span className="kbd">Q</span><span>Swap tool</span></div>
               <div><span className="kbd">1</span><span>Drink potion</span></div>
               <div><span className="kbd">2</span><span>Drop bomb</span></div>
               <div><span className="kbd">Tab</span><span>Bag</span></div>

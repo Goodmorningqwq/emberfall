@@ -6,6 +6,7 @@ import { HERO } from "../entities/heroAssets";
 import { useGame, type LessonId } from "../../ui/store";
 import { sfx } from "../audio";
 import town from "../data/emberfall-town.json";
+import { DUNGEONS } from "../data/dungeons";
 
 interface TownDef {
   id: string;
@@ -107,7 +108,8 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
     if (data.from) {
       const g = anchors.find((a) => a.kind === data.from);
       if (g) {
-        sx = g.tx * TILE - 24;
+        // just inside the gate, on the town side of it
+        sx = g.tx * TILE + (data.from === "gate-crypt" ? 88 : -24);
         sy = g.ty * TILE + 40;
       }
     }
@@ -198,7 +200,7 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
       if (p) {
         const img = this.add.image(x, y, p.tex).setOrigin(0).setDepth(y + p.h - 6);
         if (a.kind.startsWith("gate")) {
-          const sealed = a.kind !== "gate-whisperwood";
+          const sealed = !this.gateOpen(a.kind);
           if (sealed) {
             img.setTint(0x9a9aa6);
             // barred: roots choke the marsh gate, fallen stone blocks the mountain lane
@@ -262,6 +264,7 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
     for (const g of this.gateZones) {
       if (!touch(g.zone)) continue;
       if (g.kind === "gate-whisperwood") return this.leaveFor("whisperwood");
+      if (g.kind === "gate-crypt" && this.gateOpen(g.kind)) return this.leaveFor("crypt");
       if (!this.latched) {
         this.latched = true;
         this.toast(g.kind === "gate-crypt" ? "The marsh road is flooded. Not yet." : "Smoke on the mountain road. Not yet.");
@@ -299,17 +302,25 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
     if (!touching) this.latched = false;
   }
 
-  private leaveFor(place: "whisperwood") {
+  /** Whisperwood is always open; the crypt road drains once its shard is home; the mountain waits. */
+  private gateOpen(kind: string) {
+    if (kind === "gate-whisperwood") return true;
+    if (kind === "gate-crypt") return useGame.getState().hasFlag("shard:whisperwood");
+    return false;
+  }
+
+  private leaveFor(place: "whisperwood" | "crypt") {
     this.leaving = true;
     this.player.hold(99999);
     this.player.sprite.setVelocity(0, 0);
-    this.player.walkScripted("east");
+    const dir = DUNGEONS[place].gateDir;
+    this.player.walkScripted(dir);
     sfx("door");
     const st = useGame.getState();
     st.setPlace(place);
     const cam = this.cameras.main;
     cam.fadeOut(450, 8, 10, 8);
-    this.tweens.add({ targets: this.player.sprite, x: this.player.sprite.x + 40, duration: 500 });
+    this.tweens.add({ targets: this.player.sprite, x: this.player.sprite.x + (dir === "west" ? -40 : dir === "east" ? 40 : 0), y: this.player.sprite.y + (dir === "south" ? 40 : 0), duration: 500 });
     this.time.delayedCall(520, () => this.scene.start("Dungeon"));
   }
 
@@ -357,6 +368,7 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
   // --------------------------------------------------------- PlayerHost
 
   resetSwingHits() {}
+  swapTool() {}
   throwBoomerang() {
     return false;
   }
