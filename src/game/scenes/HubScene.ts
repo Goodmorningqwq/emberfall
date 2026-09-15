@@ -7,7 +7,7 @@ import { useGame, type LessonId } from "../../ui/store";
 import { sfx, setAmbient, speak } from "../audio";
 import { setMusic } from "../music";
 import { GuideDrawer, announceQuest, questStateOf } from "../guide";
-import { questStep } from "../quests";
+import { questStep, SIDE_QUESTS, sideState } from "../quests";
 import town from "../data/emberfall-town.json";
 import { DUNGEONS } from "../data/dungeons";
 
@@ -348,6 +348,24 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
       this.player.hold(99999);
       this.player.sprite.setVelocity(0, 0);
       const st = useGame.getState();
+      // a side quest to hand out or turn in comes before the stall
+      const side = SIDE_QUESTS.find((q) => q.giver === n.key && ["offer", "ready"].includes(sideState(q, questStateOf())));
+      if (side) {
+        const state = sideState(side, questStateOf());
+        if (state === "offer") {
+          st.setFlag(`side:${side.id}:on`);
+          st.setDialogue({ title: `${npc.title} · ${npc.name}`, text: side.offer });
+          this.time.delayedCall(300, () => useGame.getState().showBanner({ kind: "quest", title: side.title, sub: side.objective }));
+          this.time.delayedCall(2900, () => useGame.getState().banner?.title === side.title && useGame.getState().showBanner(null));
+        } else {
+          st.setFlag(`side:${side.id}:done`);
+          st.addGold(side.reward.gold);
+          if (side.reward.item) st.giveItem(side.reward.item as "potion");
+          sfx("chest");
+          st.setDialogue({ title: `${npc.title} · ${npc.name}`, text: side.thanks + ` (+${side.reward.gold} gold${side.reward.item ? ", +1 " + side.reward.item : ""})` });
+        }
+        break;
+      }
       if (n.key === "npc-apothecary" || n.key === "npc-blacksmith") {
         sfx("ui");
         st.openShop(n.key === "npc-apothecary" ? "apothecary" : "blacksmith");

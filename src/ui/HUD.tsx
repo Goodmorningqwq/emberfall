@@ -3,7 +3,7 @@ import { useGame, type ItemId, type LessonId } from "./store";
 import { uiScale, useCanvasRect } from "./useCanvasRect";
 import { Title } from "./Title";
 import { dungeonFor } from "../game/data/dungeons";
-import { QUEST, questIndex } from "../game/quests";
+import { QUEST, questIndex, SIDE_QUESTS, sideState, sideProgress } from "../game/quests";
 import { sfx } from "../game/audio";
 import { SHOPS } from "./shop";
 
@@ -347,8 +347,10 @@ function useFlash(value: number, dir: "up" | "any" = "any", ms = 450) {
 }
 
 export function HUD() {
-  const { screen, hearts, maxHearts, gold, keys, items, bagOpen, toggleBag, paused, togglePause, quitToTitle, banner, boss, respawn, dialogue, tag, flags, settings, setSettings, place, tool, journalOpen, toggleJournal, guide, questNote, inputMode } = useGame();
-  const qState = { flags, place, has: (id: string) => items.some((i) => i.id === id && i.qty > 0), shards: items.find((i) => i.id === "shard")?.qty ?? 0 };
+  const { screen, hearts, maxHearts, gold, keys, items, bagOpen, toggleBag, paused, togglePause, quitToTitle, banner, boss, respawn, dialogue, tag, flags, settings, setSettings, place, tool, journalOpen, toggleJournal, guide, questNote, inputMode, counters } = useGame();
+  const qState = { flags, place, has: (id: string) => items.some((i) => i.id === id && i.qty > 0), shards: items.find((i) => i.id === "shard")?.qty ?? 0, counters };
+  const sides = SIDE_QUESTS.map((q) => ({ q, state: sideState(q, qState), n: sideProgress(q, qState) }));
+  const sideLive = sides.find((x) => x.state === "active" || x.state === "ready");
   const qi = questIndex(qState);
   const step = QUEST[qi] ?? null;
   // a step just completed: the tracker shows the old objective struck through for a beat
@@ -475,6 +477,7 @@ export function HUD() {
           <span className="quest-obj">{step.objective}</span>
           {questNote && <span className="quest-note">{questNote}</span>}
           {guide && whereText && <span className="quest-where"><i className="quest-mark" />{whereText}</span>}
+          {sideLive && <span className={`quest-side${sideLive.state === "ready" ? " ready" : ""}`}>{sideLive.q.title} · {sideLive.n}/{sideLive.q.need}{sideLive.state === "ready" ? " · return" : ""}</span>}
         </div>
       )}
       </div>
@@ -579,6 +582,20 @@ export function HUD() {
               <span className="t-title">Journal</span>
               <span className="muted"><span className="kbd">M</span> close</span>
             </div>
+            {sides.some((x) => x.state !== "hidden") && (
+              <div className="journal-list journal-side">
+                <span className="eyebrow">SIDE QUESTS</span>
+                {sides.filter((x) => x.state !== "hidden").map(({ q, state, n }) => (
+                  <div key={q.id} className={`journal-step ${state === "done" ? "done" : state === "offer" ? "later" : "now"}`}>
+                    <span className="journal-mark">{state === "done" ? "✓" : state === "ready" ? "!" : state === "offer" ? "?" : "▶"}</span>
+                    <div className="journal-text">
+                      <span className="journal-title">{q.title}</span>
+                      <span className="muted journal-obj">{state === "offer" ? `Ask ${q.giver === "npc-elder" ? "Tam" : q.giver === "npc-apothecary" ? "Maren" : "Orrin"}` : state === "done" ? "Done" : `${q.objective} · ${n}/${q.need}${state === "ready" ? " · return to the giver" : ""}`}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="journal-list">
               {QUEST.map((q, i) => {
                 const state = i < qi ? "done" : i === qi ? "now" : "later";

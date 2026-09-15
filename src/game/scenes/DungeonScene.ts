@@ -580,8 +580,9 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
         case "magmaslime":
         case "firebat":
         case "cinderling":
-          // every room stays cleared once you've cleared it (saved), not just the reward rooms
-          if (!cleared) spawns.push({ kind: p.kind, x: x + 16, y: y + 30 });
+          // every room stays cleared once you've cleared it (saved), not just the reward rooms;
+          // mushrooms are plants and grow back (Maren's caps depend on it)
+          if (!cleared || p.kind === "mushroom") spawns.push({ kind: p.kind, x: x + 16, y: y + 30 });
           break;
       }
     }
@@ -876,8 +877,21 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
     sfx(e instanceof ForestSprite ? "sprite" : e instanceof Skeleton ? "bones" : "slime");
     const st = useGame.getState();
     st.addGold(e.bounty);
+    // side-quest tallies: only while the quest is on, so the count reads from when it was asked for
+    if (e instanceof Mushroom && st.hasFlag("side:caps:on") && !st.hasFlag("side:caps:done")) this.tally("caps", 4, "cap");
+    if (e instanceof Skeleton && e.sprite.texture.key === "cinderling" && st.hasFlag("side:slag:on") && !st.hasFlag("side:slag:done")) this.tally("slag", 5, "slag chip");
     if (!e.isBoss && Math.random() < 0.2 && st.hearts < st.maxHearts) this.spawnPickup("heart", e.sprite.x, e.sprite.y);
     this.checkRoomCleared();
+  }
+
+  /** One more for a side quest: a small tag by Wren with the running count. */
+  private tally(counter: string, need: number, what: string) {
+    const st = useGame.getState();
+    if ((st.counters[counter] ?? 0) >= need) return;
+    st.bump(counter);
+    const n = useGame.getState().counters[counter];
+    sfx("pickup");
+    this.toast("icon-coin", `${what} ${n}/${need}`);
   }
 
   private checkRoomCleared() {
@@ -1383,6 +1397,11 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
       this.player.hold(99999);
       this.player.sprite.setVelocity(0, 0);
       useGame.getState().setDialogue({ title: this.meta.signTitle, text: s.text });
+      // Tam's side quest: three different signs in the Hollow
+      if (this.meta.id === "whisperwood" && useGame.getState().hasFlag("side:signs:on") && !useGame.getState().hasFlag("side:signs:done") && !useGame.getState().hasFlag(`read:${this.room.id}`)) {
+        useGame.getState().setFlag(`read:${this.room.id}`);
+        this.tally("signs", 3, "sign");
+      }
       break;
     }
     if (!touchingAny) this.signLatched = false;

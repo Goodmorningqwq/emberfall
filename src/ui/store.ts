@@ -77,6 +77,8 @@ export interface SaveData {
   items: Item[];
   flags: string[];
   lessons: string[];
+  /** tallies the side quests read (mushroom caps, slag chips...) */
+  counters: Record<string, number>;
   room: string;
   place: Place;
   swordTier: number;
@@ -140,6 +142,7 @@ interface GameState {
   /** boss HP while a boss fight is on, else null */
   boss: { name: string; hp: number; max: number; status: string; sub?: string; intro?: boolean } | null;
   lessons: string[]; // completed tutorial lessons (saved)
+  counters: Record<string, number>;
   lesson: Lesson | null; // the one showing now
   tag: WorldTag | null;
   dialogue: Dialogue | null;
@@ -179,6 +182,7 @@ interface GameState {
   toggleJournal: (open?: boolean) => void;
   setGuide: (g: Guide | null) => void;
   setQuestNote: (n: string | null) => void;
+  bump: (counter: string, n?: number) => void;
   setInputMode: (m: "kb" | "pad") => void;
   togglePause: (on?: boolean) => void;
   newGame: () => void;
@@ -213,6 +217,7 @@ function writeSave(s: GameState) {
       items: s.items,
       flags: s.flags,
       lessons: s.lessons,
+      counters: s.counters,
       room: s.room,
       place: s.place,
       swordTier: s.swordTier,
@@ -234,6 +239,7 @@ const fresh = () => ({
   items: START_ITEMS.map((i) => ({ ...i })),
   flags: [] as string[],
   lessons: [] as string[],
+  counters: {} as Record<string, number>,
   room: "entrance",
   place: "hub" as Place,
   swordTier: 1,
@@ -343,6 +349,7 @@ export const useGame = create<GameState>((set, get) => ({
   toggleBag: (open) => set((s) => ({ bagOpen: open ?? !s.bagOpen, journalOpen: false })),
   toggleJournal: (open) => set((s) => ({ journalOpen: open ?? !s.journalOpen, bagOpen: false })),
   setQuestNote: (questNote) => set((s) => (s.questNote === questNote ? {} : { questNote })),
+  bump: (counter, n = 1) => set((s) => ({ counters: { ...s.counters, [counter]: (s.counters[counter] ?? 0) + n } })),
   setInputMode: (inputMode) => set((s) => (s.inputMode === inputMode ? {} : { inputMode })),
   setGuide: (guide) => set((s) => (s.guide === guide || (s.guide && guide && s.guide.angle === guide.angle && s.guide.tiles === guide.tiles && s.guide.roomId === guide.roomId && s.guide.where === guide.where) ? {} : { guide })),
   togglePause: (on) => set((s) => ({ paused: on ?? !s.paused })),
@@ -362,6 +369,7 @@ export const useGame = create<GameState>((set, get) => ({
       items: d.items,
       flags: d.flags,
       lessons: d.lessons ?? [],
+      counters: d.counters ?? {},
       room: d.room,
       place: d.place ?? "hub",
       swordTier: d.swordTier ?? 1,
@@ -391,7 +399,7 @@ export const useGame = create<GameState>((set, get) => ({
 let saveTimer: number | undefined;
 useGame.subscribe((s, prev) => {
   if (s.screen !== "game" && s.screen !== "complete") return;
-  if (s.hearts === prev.hearts && s.gold === prev.gold && s.keys === prev.keys && s.items === prev.items && s.flags === prev.flags && s.room === prev.room && s.lessons === prev.lessons && s.place === prev.place && s.swordTier === prev.swordTier && s.armorTier === prev.armorTier) return;
+  if (s.hearts === prev.hearts && s.gold === prev.gold && s.keys === prev.keys && s.items === prev.items && s.flags === prev.flags && s.room === prev.room && s.lessons === prev.lessons && s.counters === prev.counters && s.place === prev.place && s.swordTier === prev.swordTier && s.armorTier === prev.armorTier) return;
   window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => writeSave(useGame.getState()), 300);
 });

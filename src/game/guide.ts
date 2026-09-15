@@ -6,7 +6,7 @@ import { TILE } from "./room";
 /** The store, read the way the quest wants it. */
 export function questStateOf(): QuestState {
   const st = useGame.getState();
-  return { flags: st.flags, place: st.place, has: (id) => st.items.some((i) => i.id === id && i.qty > 0), shards: st.items.find((i) => i.id === "shard")?.qty ?? 0 };
+  return { flags: st.flags, place: st.place, has: (id) => st.items.some((i) => i.id === id && i.qty > 0), shards: st.items.find((i) => i.id === "shard")?.qty ?? 0, counters: st.counters };
 }
 
 /**

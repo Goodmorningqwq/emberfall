@@ -32,6 +32,74 @@ export interface QuestState {
   place: string;
   has: (item: string) => boolean;
   shards: number;
+  counters?: Record<string, number>;
+}
+
+/**
+ * Side quests: an NPC asks for something, the world tallies it, the NPC pays. Offered when its
+ * `available` holds (talk to the giver), tracked under the main objective, turned in by talking again.
+ */
+export interface SideQuest {
+  id: string;
+  giver: "npc-apothecary" | "npc-blacksmith" | "npc-elder";
+  title: string;
+  objective: string;
+  /** what the giver says when handing it out, and when it's turned in */
+  offer: string;
+  thanks: string;
+  counter: string;
+  need: number;
+  available: (s: QuestState) => boolean;
+  reward: { gold: number; item?: string };
+}
+
+export const SIDE_QUESTS: SideQuest[] = [
+  {
+    id: "caps",
+    giver: "npc-apothecary",
+    title: "Maren's Caps",
+    objective: "Cut down mushrooms in Whisperwood Hollow",
+    offer: "The Hollow's mushrooms - the big ones that puff spores. Bring me the caps of four and I'll make it worth the walk.",
+    thanks: "Four caps. These will steep for a month. Here - and take a potion for the trouble.",
+    counter: "caps",
+    need: 4,
+    available: (s) => s.flags.includes("talked:elder"),
+    reward: { gold: 60, item: "potion" },
+  },
+  {
+    id: "signs",
+    giver: "npc-elder",
+    title: "What the Wardens Wrote",
+    objective: "Read the moss-carved signs in Whisperwood Hollow",
+    offer: "The wardens carved what they knew into the Hollow's signs. Read me three of them when you're back; my eyes are done with small letters.",
+    thanks: "So that's what they wrote. Old words, but they still hold. Take this for the walking.",
+    counter: "signs",
+    need: 3,
+    available: (s) => s.flags.includes("shard:whisperwood"),
+    reward: { gold: 80 },
+  },
+  {
+    id: "slag",
+    giver: "npc-blacksmith",
+    title: "Orrin's Slag",
+    objective: "Break cinderlings in the Cinder Depths for their slag",
+    offer: "Those slag brutes under the mountain - their shells hold a metal I can't get anywhere else. Crack five and bring me what falls off.",
+    thanks: "Look at that shine. I'll be at the forge all week. This is yours.",
+    counter: "slag",
+    need: 5,
+    available: (s) => s.flags.includes("shard:crypt"),
+    reward: { gold: 120 },
+  },
+];
+
+export function sideState(q: SideQuest, s: QuestState): "hidden" | "offer" | "active" | "ready" | "done" {
+  if (s.flags.includes(`side:${q.id}:done`)) return "done";
+  if (!s.flags.includes(`side:${q.id}:on`)) return q.available(s) ? "offer" : "hidden";
+  return (s.counters?.[q.counter] ?? 0) >= q.need ? "ready" : "active";
+}
+
+export function sideProgress(q: SideQuest, s: QuestState): number {
+  return Math.min(q.need, s.counters?.[q.counter] ?? 0);
 }
 
 const flag = (f: string) => (s: QuestState) => s.flags.includes(f);

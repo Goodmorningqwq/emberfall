@@ -31,6 +31,14 @@ than intrusive guidance annoys. Genshin's beam only appears past ~50 m; its "Nav
   2 rooms away / the east gate", strike-through flash on completion, journal (M) with done/current/next and every story
   line, minimap marker on the objective room. Pause: "Quest guide: Arrow on / Tracker only".
 
+## Side quests
+`SIDE_QUESTS` in `quests.ts`: `{id, giver, title, objective, offer, thanks, counter, need, available, reward}`.
+State is derived: `side:<id>:on` / `side:<id>:done` flags + `store.counters[counter]` (saved). The Hub offers on
+bump when `available` holds (plate + offer line), turns in on the next bump when the count is met (thanks +
+reward), and only then opens the giver's stall. The world tallies with `DungeonScene.tally()` only while the quest
+is on. Anything counted must be re-obtainable (mushrooms regrow in cleared rooms; signs are re-readable) — a side
+quest the player can strand themselves on is worse than none.
+
 ## Writing objectives
 Imperative, one action, with the place: "Ring the crystals east of the crossroads for the Boss Key". Name what
 the player sees (a room name, a gate, a person), not a flag. Title = the chapter (2–4 words). Story = one line the

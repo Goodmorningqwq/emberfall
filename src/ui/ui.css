@@ -287,3 +287,8 @@ html, body { margin: 0; height: 100%; background: #0f110f; color: var(--ink); ov
 .quest-note { font-size: 16px; color: var(--ember); }
 @container (min-width: 1100px) { .quest-note { font-size: calc(16px * max(1, var(--s) - 1)); } }
 .journal-step.done .journal-story { color: var(--muted); }
+.quest-side { font-size: 16px; color: var(--muted); margin-top: calc(2px * var(--s)); }
+.quest-side.ready { color: var(--ember); }
+@container (min-width: 1100px) { .quest-side { font-size: calc(16px * max(1, var(--s) - 1)); } }
+.journal-side { margin-bottom: calc(6px * var(--s)); padding-bottom: calc(6px * var(--s)); border-bottom: var(--px) solid var(--shadow); }
+.journal-side .eyebrow { font-size: 16px; color: var(--ember); letter-spacing: .05em; }
