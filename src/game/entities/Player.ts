@@ -55,6 +55,7 @@ export class Player {
   private wantThrow = false;
   private holdUntil = 0;
   private scripted = false;
+  private hitsTaken = 0;
 
   constructor(scene: PlayerHost, x: number, y: number) {
     this.scene = scene;
@@ -239,6 +240,18 @@ export class Player {
   hurt(fromX: number, fromY: number) {
     const now = this.scene.time.now;
     if (now < this.invulnerableUntil || this.state === "dash" || this.state === "dead") return;
+    // armour: every 3rd (leather) or 2nd (iron) hit glances off - a clang, a short grace, no damage
+    const armor = useGame.getState().armorTier;
+    if (armor > 0 && ++this.hitsTaken % (armor >= 2 ? 2 : 3) === 0) {
+      this.invulnerableUntil = now + 500;
+      sfx("clang");
+      this.sprite.setTint(0xc8d0e0).setTintMode(Phaser.TintModes.FILL);
+      this.scene.time.delayedCall(60, () => this.sprite.clearTint().setTintMode(Phaser.TintModes.MULTIPLY));
+      const cam = this.scene.cameras.main;
+      useGame.getState().setTag({ text: "Armour held", x: this.sprite.x - cam.scrollX, y: this.sprite.y - 44 - cam.scrollY, icon: "/assets/ui/icons/armor.png", kind: "info" });
+      this.scene.time.delayedCall(900, () => useGame.getState().tag?.text === "Armour held" && useGame.getState().setTag(null));
+      return;
+    }
     this.invulnerableUntil = now + HURT_IFRAMES_MS;
     sfx("hurt");
     useGame.getState().damage(1);

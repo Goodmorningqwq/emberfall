@@ -4,12 +4,12 @@ import type { ItemId } from "./store";
 export interface ShopEntry {
   id: string;
   name: string;
-  icon: ItemId | "heart" | "sword2" | "sword3";
+  icon: ItemId | "heart" | "sword2" | "sword3" | "armor1" | "armor2";
   price: number;
   effect: string; // the delta the card shows
   /** an item to add, or an upgrade flag */
   give?: { item: ItemId; qty: number; max: number };
-  upgrade?: "sword2" | "sword3" | "heart";
+  upgrade?: "sword2" | "sword3" | "heart" | "armor1" | "armor2";
 }
 
 export const SHOPS: Record<"apothecary" | "blacksmith", { title: string; greeting: string; entries: ShopEntry[] }> = {
@@ -28,6 +28,8 @@ export const SHOPS: Record<"apothecary" | "blacksmith", { title: string; greetin
     entries: [
       { id: "sword2", name: "Tempered Sword", icon: "sword2", price: 80, effect: "2 dmg per strike", upgrade: "sword2" },
       { id: "sword3", name: "Ember-forged Sword", icon: "sword3", price: 200, effect: "3 dmg per strike", upgrade: "sword3" },
+      { id: "armor1", name: "Leather Jerkin", icon: "armor1", price: 60, effect: "Every 3rd hit glances off", upgrade: "armor1" },
+      { id: "armor2", name: "Iron Cuirass", icon: "armor2", price: 160, effect: "Every 2nd hit glances off", upgrade: "armor2" },
     ],
   },
 };

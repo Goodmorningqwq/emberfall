@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { SHOPS } from "./shop";
 
 export type Facing = "south" | "north" | "east" | "west";
-export type ItemId = "sword" | "potion" | "bomb" | "key" | "boomerang" | "grapple" | "bosskey" | "shard";
+export type ItemId = "sword" | "potion" | "bomb" | "key" | "boomerang" | "grapple" | "bosskey" | "shard" | "armor";
 
 export interface Item {
   id: ItemId;
@@ -67,6 +67,7 @@ export interface SaveData {
   room: string;
   place: Place;
   swordTier: number;
+  armorTier: number;
   playtimeMs: number;
   savedAt: number;
 }
@@ -90,6 +91,7 @@ export const ITEM_META: Record<ItemId, { name: string; hint: string }> = {
   grapple: { name: "Grapple Hook", hint: "RMB · pulls you to anchors, pulls foes to you" },
   bosskey: { name: "Boss Key", hint: "Opens the way to the Heart of the Hollow" },
   shard: { name: "Ember Shard", hint: "One of three. Bring the flame home." },
+  armor: { name: "Leather Jerkin", hint: "Every 3rd hit glances off · worn" },
 };
 
 interface GameState {
@@ -106,6 +108,7 @@ interface GameState {
   room: string; // current room id
   place: Place; // which scene the save lives in
   swordTier: number; // 1..3 = damage per strike
+  armorTier: number; // 0..2 = every 3rd / 2nd hit glances off
   /** which RMB tool is in hand (Q cycles) */
   tool: ToolId;
   shop: { vendor: keyof typeof SHOPS; bought?: string } | null;
@@ -189,6 +192,7 @@ function writeSave(s: GameState) {
       room: s.room,
       place: s.place,
       swordTier: s.swordTier,
+      armorTier: s.armorTier,
       playtimeMs: s.playtimeMs + (s.sessionStart ? Date.now() - s.sessionStart : 0),
       savedAt: Date.now(),
     };
@@ -209,6 +213,7 @@ const fresh = () => ({
   room: "entrance",
   place: "hub" as Place,
   swordTier: 1,
+  armorTier: 0,
   tool: "boomerang" as ToolId,
   shop: null,
   playtimeMs: 0,
@@ -271,6 +276,8 @@ export const useGame = create<GameState>((set, get) => ({
     if (entry.upgrade === "sword2" && s.swordTier >= 2) return "Already forged";
     if (entry.upgrade === "sword3" && (s.swordTier >= 3 || s.swordTier < 2)) return s.swordTier >= 3 ? "Already forged" : "Temper it first";
     if (entry.upgrade === "heart" && s.hasFlag("bought:heart")) return "Only had the one";
+    if (entry.upgrade === "armor1" && s.armorTier >= 1) return "Already wearing it";
+    if (entry.upgrade === "armor2" && (s.armorTier >= 2 || s.armorTier < 1)) return s.armorTier >= 2 ? "Already wearing it" : "Leather first";
     if (s.gold < entry.price) return "Not enough gold";
     set({ gold: s.gold - entry.price, shop: { ...s.shop, bought: entryId } });
     if (entry.give) get().giveItem(entry.give.item, entry.give.qty);
@@ -280,6 +287,11 @@ export const useGame = create<GameState>((set, get) => ({
       get().setFlag("bought:heart");
       get().addMaxHearts(2);
     }
+    if (entry.upgrade === "armor1") {
+      set({ armorTier: 1 });
+      get().giveItem("armor");
+    }
+    if (entry.upgrade === "armor2") set({ armorTier: 2, items: get().items.map((i) => (i.id === "armor" ? { ...i, name: "Iron Cuirass", hint: "Every 2nd hit glances off · worn" } : i)) });
     return null;
   },
   showBanner: (banner) => set({ banner }),
@@ -321,6 +333,7 @@ export const useGame = create<GameState>((set, get) => ({
       room: d.room,
       place: d.place ?? "hub",
       swordTier: d.swordTier ?? 1,
+      armorTier: d.armorTier ?? 0,
       tool: d.items.some((i) => i.id === "grapple") ? "grapple" : "boomerang",
       shop: null,
       playtimeMs: d.playtimeMs,
@@ -346,7 +359,7 @@ export const useGame = create<GameState>((set, get) => ({
 let saveTimer: number | undefined;
 useGame.subscribe((s, prev) => {
   if (s.screen !== "game" && s.screen !== "complete") return;
-  if (s.hearts === prev.hearts && s.gold === prev.gold && s.keys === prev.keys && s.items === prev.items && s.flags === prev.flags && s.room === prev.room && s.lessons === prev.lessons && s.place === prev.place && s.swordTier === prev.swordTier) return;
+  if (s.hearts === prev.hearts && s.gold === prev.gold && s.keys === prev.keys && s.items === prev.items && s.flags === prev.flags && s.room === prev.room && s.lessons === prev.lessons && s.place === prev.place && s.swordTier === prev.swordTier && s.armorTier === prev.armorTier) return;
   window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => writeSave(useGame.getState()), 300);
 });

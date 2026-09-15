@@ -277,13 +277,13 @@ function BossBar({ name, hp, max }: { name: string; hp: number; max: number }) {
 
 /** Vendor panel: cards with price and the delta they give; Esc/click-out closes. */
 function ShopPanel() {
-  const { shop, gold, items, swordTier, flags, buy, closeShop } = useGame();
+  const { shop, gold, items, swordTier, armorTier, flags, buy, closeShop } = useGame();
   const [msg, setMsg] = useState<string | null>(null);
   useEffect(() => setMsg(null), [shop?.vendor]);
   if (!shop) return null;
   const def = SHOPS[shop.vendor];
   const qty = (id: string) => items.find((i) => i.id === id)?.qty ?? 0;
-  const iconSrc = (icon: string) => (icon === "heart" ? "/assets/sprites/props/heart-container.png" : icon.startsWith("sword") ? "/assets/ui/icons/sword.png" : `/assets/ui/icons/${icon}.png`);
+  const iconSrc = (icon: string) => (icon === "heart" ? "/assets/sprites/props/heart-container.png" : icon.startsWith("sword") ? "/assets/ui/icons/sword.png" : icon === "armor1" ? "/assets/ui/icons/helmet.png" : icon === "armor2" ? "/assets/ui/icons/shield-crest.png" : `/assets/ui/icons/${icon}.png`);
   return (
     <div className="bag-backdrop" onClick={closeShop}>
       <div className="shop pxpanel" onClick={(e) => e.stopPropagation()}>
@@ -294,12 +294,12 @@ function ShopPanel() {
         <span className="t-small shop-greeting">{def.greeting}</span>
         <div className="shop-grid">
           {def.entries.map((e) => {
-            const owned = e.upgrade === "sword2" ? swordTier >= 2 : e.upgrade === "sword3" ? swordTier >= 3 : e.upgrade === "heart" ? flags.includes("bought:heart") : false;
-            const locked = e.upgrade === "sword3" && swordTier < 2;
+            const owned = e.upgrade === "sword2" ? swordTier >= 2 : e.upgrade === "sword3" ? swordTier >= 3 : e.upgrade === "heart" ? flags.includes("bought:heart") : e.upgrade === "armor1" ? armorTier >= 1 : e.upgrade === "armor2" ? armorTier >= 2 : false;
+            const locked = (e.upgrade === "sword3" && swordTier < 2) || (e.upgrade === "armor2" && armorTier < 1);
             const full = !!e.give && qty(e.give.item) >= e.give.max;
             const canAfford = gold >= e.price;
             const disabled = owned || locked || full || !canAfford;
-            const label = owned ? "Owned" : locked ? "Temper first" : full ? "Full" : `${e.price}`;
+            const label = owned ? "Owned" : locked ? (e.upgrade === "armor2" ? "Leather first" : "Temper first") : full ? "Full" : `${e.price}`;
             return (
               <div key={e.id} className={`shop-card pxslot${disabled ? " off" : ""}${shop.bought === e.id ? " bought" : ""}`}>
                 <img src={iconSrc(e.icon)} alt="" />
