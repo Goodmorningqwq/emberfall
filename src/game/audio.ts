@@ -321,9 +321,11 @@ export type VoiceLine = keyof typeof CUES | "hurt2" | "hello-elder" | "shard" | 
 function loadClip(name: string) {
   if (!ctx || clips.has(name) || clipLoads.has(name)) return;
   const c = ctx;
+  // Wren's cues live in voice/wren/<cue>.mp3; a townsperson's line is "npc/<who>/<hash>" (see speakNpc)
+  const url = name.startsWith("npc/") ? `/assets/voice/${name}.mp3` : `/assets/voice/wren/${name}.mp3`;
   clipLoads.set(
     name,
-    fetch(`/assets/voice/wren/${name}.mp3`)
+    fetch(url)
       .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
       .then((b) => c.decodeAudioData(b))
       .then((buf) => void clips.set(name, buf))
@@ -333,6 +335,53 @@ function loadClip(name: string) {
 /** Warm the cache on the first gesture so the first "ah!" isn't late. */
 export function preloadVoice() {
   for (const n of ["hurt", "hurt2", "dash", "effort", "hm", "yell", "potion", "death", "hello-elder", "shard", "lowhp", "boss"]) loadClip(n);
+}
+/** FNV-1a of the line text: the file name tools/make_npc_voice.py wrote the clip under. */
+function fnv1a(text: string) {
+  let h = 0x811c9dc5;
+  for (const b of new TextEncoder().encode(text)) {
+    h ^= b;
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(16).padStart(8, "0");
+}
+let npcSource: AudioBufferSourceNode | null = null;
+/**
+ * A townsperson speaks the line the dialogue box is about to show. The clip is found by hashing the
+ * text, so a line with no recording is simply silent; one voice at a time (a new line cuts the last),
+ * and the box closing cuts it too (stopNpc).
+ */
+export function speakNpc(who: "elder" | "apothecary" | "blacksmith", text: string) {
+  if (!ensure() || !ctx || !master) return;
+  if (ctx.state === "suspended") void ctx.resume();
+  stopNpc();
+  if (vol() <= 0) return;
+  const name = `npc/${who}/${fnv1a(text)}`;
+  const buf = clips.get(name);
+  if (buf === undefined) {
+    loadClip(name);
+    // first time: play as soon as the fetch lands, if the box is still open
+    clipLoads.get(name)?.then(() => useGame.getState().dialogue?.text === text && speakNpc(who, text));
+    return;
+  }
+  if (!buf) return;
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  const g = ctx.createGain();
+  g.gain.value = 0.9 * vol() * 2;
+  src.connect(g).connect(master);
+  src.start(ctx.currentTime + 0.12);
+  src.onended = () => npcSource === src && (npcSource = null);
+  npcSource = src;
+}
+export function stopNpc() {
+  if (!npcSource) return;
+  try {
+    npcSource.stop();
+  } catch {
+    /* already ended */
+  }
+  npcSource = null;
 }
 let lastLineAt = 0;
 /** A spoken line (not a grunt): rate-limited so lines don't stack. */

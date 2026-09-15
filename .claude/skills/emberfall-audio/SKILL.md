@@ -38,5 +38,9 @@ No audio files except Wren's voice clips. Everything else is synthesized at play
 - Level check without ears: `renderSfxPreview(names, 1.6)` then per-sound peak/RMS in the console. Reference peaks
   at preview volume: hit 0.23, bomb 0.38, crack 0.29, crystal 0.13, stun 0.11, whoosh 0.03. A hazard tell that
   repeats (vents) should sit around 0.1; a boss impact near 0.3–0.4. Preview WAV: `docs/audio-review/sfx-cinder.wav`.
+- Townsfolk lines: `tools/make_npc_voice.py` gathers every NPC line (town JSON, Tam's shard lines in HubScene,
+  side-quest offer/thanks in quests.ts) and writes `voice/npc/<who>/<fnv1a(text)>.mp3` + manifest.json. The game
+  plays by hashing the line (`speakNpc(who, text)`), so **rerun the script after editing any NPC line** or it goes
+  silent; pass the bare line (not the "(+60 gold)" decorated one). `stopNpc()` on dialogue close.
 - The Voice Lab artifact (https://claude.ai/artifact/6j6SoJ4fyAF18YEWpYd426) mirrors `say()`; a pasted preset
   maps 1:1 onto `WREN`.

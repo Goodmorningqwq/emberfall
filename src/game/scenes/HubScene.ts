@@ -4,7 +4,7 @@ import { TILE } from "../room";
 import { Player, type PlayerHost } from "../entities/Player";
 import { HERO } from "../entities/heroAssets";
 import { useGame, type LessonId } from "../../ui/store";
-import { sfx, setAmbient, speak } from "../audio";
+import { sfx, setAmbient, speak, speakNpc } from "../audio";
 import { preloadPropAtlas, registerPropAtlas } from "../propAtlas";
 import { setMusic } from "../music";
 import { GuideDrawer, announceQuest, questStateOf } from "../guide";
@@ -360,6 +360,7 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
         break;
       }
       const npc = this.def.npcs[n.key];
+      const who = n.key.replace("npc-", "") as "elder" | "apothecary" | "blacksmith";
       if (!npc) break;
       this.player.hold(99999);
       this.player.sprite.setVelocity(0, 0);
@@ -374,6 +375,7 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
         if (state === "offer") {
           st.setFlag(`side:${side.id}:on`);
           st.setDialogue({ title: `${npc.title} · ${npc.name}`, text: side.offer });
+          speakNpc(who, side.offer);
           this.time.delayedCall(300, () => useGame.getState().showBanner({ kind: "quest", title: side.title, sub: side.objective }));
           this.time.delayedCall(2900, () => useGame.getState().banner?.title === side.title && useGame.getState().showBanner(null));
         } else {
@@ -382,6 +384,7 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
           if (side.reward.item) st.giveItem(side.reward.item as "potion");
           sfx("chest");
           st.setDialogue({ title: `${npc.title} · ${npc.name}`, text: side.thanks + ` (+${side.reward.gold} gold${side.reward.item ? ", +1 " + side.reward.item : ""})` });
+          speakNpc(who, side.thanks);
         }
         break;
       }
@@ -406,6 +409,7 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
         if (shards >= 3 && !st.hasFlag("finale")) this.finalePending = true;
       }
       st.setDialogue({ title: `${npc.title} · ${npc.name}`, text: line });
+      speakNpc(who, line);
       break;
     }
     if (!touching) this.latched = false;

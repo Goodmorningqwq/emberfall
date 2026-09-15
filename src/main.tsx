@@ -3,6 +3,7 @@ import { HUD } from "./ui/HUD";
 import { createGame } from "./game/config";
 import { unlockAudio } from "./game/audio";
 import { resumeMusic, setMusic, stopMusic, duckMusic } from "./game/music";
+import { stopNpc } from "./game/audio";
 import { useGame } from "./ui/store";
 
 if (import.meta.env.DEV) {
@@ -21,6 +22,8 @@ useGame.subscribe((s, prev) => {
   const quiet = s.paused || s.bagOpen || s.journalOpen || !!s.shop || !!s.dialogue || s.screen === "complete";
   const wasQuiet = prev.paused || prev.bagOpen || prev.journalOpen || !!prev.shop || !!prev.dialogue || prev.screen === "complete";
   if (quiet !== wasQuiet) duckMusic(quiet);
+  // closing the box cuts the townsperson off mid-line
+  if (!s.dialogue && prev.dialogue) stopNpc();
 });
 if (useGame.getState().screen === "title") setMusic("title");
 createRoot(document.getElementById("ui")!).render(<HUD />);
