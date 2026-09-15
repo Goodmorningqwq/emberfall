@@ -29,7 +29,10 @@ window.__regress = async (opts = {}) => {
         await swingFrom(d, e, e.sprite.x - e.facing.x * 30, e.sprite.y - 6 - e.facing.y * 30);
       } else await swing(d, e);
       if (st().hearts <= 2) heal(); } await run(900); return n; };
-  const openChests = async (d) => { for (const c of [...d.chests]) { if (c.opened) continue; tp(c.image.x + 16, c.image.y + 46); await window.__vhold("KeyW", 87, 260); await run(1600); } };
+  const openChests = async (d) => {
+    for (let t = 0; t < 4000 && !d.chests.some((c) => !c.opened); t += 200) await run(200); // reveals land on a delay
+    for (const c of [...d.chests]) { for (let tries = 0; tries < 3 && !c.opened; tries++) { tp(c.image.x + 16, c.image.y + 46 + tries * 4); await run(80); await window.__vhold("KeyW", 87, 300); await run(1600); } }
+  };
   const pickup = async (d, kind, ms = 6000) => { for (let t = 0; t < ms; t += 150) { const it = d.pickupGroup.getChildren().find((c) => c.getData("pickup") === kind); if (it) { tp(it.x, it.y + 2); await run(kind === "shard" ? 3600 : 500); return true; } await run(150); } return false; };
   const talk = async (hub, kind) => { const a = hub.anchorList.find((z) => z.kind === kind); const p = hub.player.sprite; for (let tries = 0; tries < 3 && !st().dialogue; tries++) { p.setPosition(a.tx * 32 + 16, a.ty * 32 + 60 + tries * 6); p.body.reset(p.x, p.y); await run(120); await window.__vhold("KeyW", 87, 700); await run(250); } return !!st().dialogue; };
   const waitBoss = async () => { for (let t = 0; t < 8000 && !st().boss; t += 200) await run(200); await run(800); };

@@ -19,6 +19,7 @@ import { HERO } from "../entities/heroAssets";
 import { useGame, type ItemId, type LessonId } from "../../ui/store";
 import { DUNGEONS, dungeonFor, type DungeonMeta } from "../data/dungeons";
 import { sfx, setAmbient, speak } from "../audio";
+import { preloadPropAtlas, registerPropAtlas } from "../propAtlas";
 import { setMusic } from "../music";
 import { GuideDrawer, announceQuest, questStateOf } from "../guide";
 import { questStep, thingTile } from "../quests";
@@ -124,13 +125,15 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
   }
 
   preload() {
+    preloadPropAtlas(this);
     // every dungeon's tileset: the scene is restarted (not re-created) when the place changes
     for (const m of Object.values(DUNGEONS)) {
       this.load.spritesheet(`tiles-${m.tileset}`, `assets/tiles/${m.tileset}.png`, { frameWidth: TILE, frameHeight: TILE });
       this.load.json(`tiles-meta-${m.tileset}`, `assets/tiles/${m.tileset}.json`);
     }
     for (const p of ["door", "torch", "block", "chest", "chest-open", "slime", "blueslime", "sprite", "mushroom", "treant", "root", "door-locked", "door-locked-w", "door-locked-e", "door-boss", "door-boss-w", "door-boss-e", "stump", "crystal", "plate", "crack", "heart-container", "signpost", "bomb", "boomerang", "archway", "skeleton", "bat", "boneknight", "boneknight-noshield", "shield-ground", "sarcophagus", "bones", "anchor", "pit-tile", "hook", "stone", "decor-leaves", "decor-tuft", "decor-shrooms", "decor-puddle", "decor-moss", "decor-rubble", "decor-puddle-dark", "decor-candle", "cinderling", "cindergolem", "magmaslime", "firebat", "brazier", "thorns", "vent", "slag"]) {
-      if (!this.textures.exists(p)) this.load.image(p, `assets/sprites/props/${p}.png`);
+      // the atlas carries all of these (tools/pack_props.py); a prop missing from it renders as the green box
+      void p;
     }
     for (const i of ["key", "boomerang", "bomb", "shard", "potion", "coin", "bosskey", "grapple", "firerod"]) if (!this.textures.exists(`icon-${i}`)) this.load.image(`icon-${i}`, `assets/ui/icons/${i}.png`);
     // enemy clips: one PNG per frame under assets/sprites/props/anim/<clip>/<i>.png (PixelLab animate_object)
@@ -171,6 +174,7 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
   }
 
   create() {
+    registerPropAtlas(this);
     for (const [clip, n] of Object.entries(ENEMY_CLIPS)) {
       if (this.anims.exists(clip)) continue;
       const frames = Array.from({ length: n }, (_, i) => `${clip}-${i}`).filter((k) => this.textures.exists(k)).map((key) => ({ key }));

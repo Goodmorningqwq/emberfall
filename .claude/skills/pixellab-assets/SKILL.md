@@ -47,6 +47,9 @@ seen: 1-dir object 5–6, tileset 3–4, character v3 clip ~1/direction, UI kit 
 - Always build a review strip in `docs/sprite-review/` (x3/x4 NEAREST) and look at it before wiring.
 
 ## Naming / registration
+Props ship as one atlas too: **run `tools/pack_props.py` after fetching any prop** — `src/game/propAtlas.ts`
+registers every atlas frame as a plain texture key at scene create, so `add.image(x, y, "chest")` keeps working
+and nothing is loaded per file. A prop that was fetched but not repacked renders as the green box.
 Prop textures preload from the lists in `DungeonScene.preload` and `HubScene.preload` (both scenes preload
 what they draw; a missing key renders a green box). Icons live in `public/assets/ui/icons/` and load as
 `icon-<name>`. Enemy/door/water clips: `ENEMY_CLIPS` + `ENEMY_FPS` (folder name == clip key, frames `0.png…`).

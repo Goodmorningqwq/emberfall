@@ -5,6 +5,7 @@ import { Player, type PlayerHost } from "../entities/Player";
 import { HERO } from "../entities/heroAssets";
 import { useGame, type LessonId } from "../../ui/store";
 import { sfx, setAmbient, speak } from "../audio";
+import { preloadPropAtlas, registerPropAtlas } from "../propAtlas";
 import { setMusic } from "../music";
 import { GuideDrawer, announceQuest, questStateOf } from "../guide";
 import { questStep, SIDE_QUESTS, sideState } from "../quests";
@@ -73,7 +74,8 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
     this.load.json("town-meta", "assets/tiles/town.json");
     // the scene restarts on every title/continue: re-fetching a texture that exists makes the loader log
     // "Failed to process file", so only load what's missing
-    for (const p of ["house-elder", "house-forge", "house-apothecary", "shrine", "plinth", "tree", "gate", "gate-side", "signpost", "lantern", "well", "crates", "bush", "stone", "ruin-wall", "root", "block"]) if (!this.textures.exists(p)) this.load.image(p, `assets/sprites/props/${p}.png`);
+    preloadPropAtlas(this);
+    // props come from the atlas (tools/pack_props.py)
     for (const n of ["blacksmith", "apothecary", "elder"]) this.load.image(`npc-${n}`, `assets/sprites/npc/${n}.png`);
     for (const i of ["potion", "bomb", "coin", "key"]) this.load.image(`icon-${i}`, `assets/ui/icons/${i}.png`);
     HERO.preload(this);
@@ -88,6 +90,7 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
   }
 
   create(data: { from?: string } = {}) {
+    registerPropAtlas(this);
     setAmbient("town");
     if (useGame.getState().screen === "game") setMusic("town");
     if (!this.textures.exists("spore")) {
