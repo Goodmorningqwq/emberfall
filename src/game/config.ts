@@ -17,6 +17,7 @@ export function createGame(parent: HTMLElement): Phaser.Game {
       autoCenter: Phaser.Scale.CENTER_BOTH,
       zoom: 2,
     },
+    input: { gamepad: true },
     physics: {
       default: "arcade",
       arcade: { debug: false },

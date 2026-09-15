@@ -54,13 +54,15 @@ const LESSON_TEXT: Record<LessonId, { key: string; text: string }> = {
 };
 
 /** The contextual tutorial tag beside Wren. Position comes from --wren-x/--wren-y set by the scene each frame. */
+const PAD_KEYS: Partial<Record<LessonId, string>> = { dash: "B", attack: "A", potion: "Y", throw: "X", bomb: "RB", grapple: "X", firerod: "X" };
 function Coach() {
   const lesson = useGame((s) => s.lesson);
+  const inputMode = useGame((s) => s.inputMode);
   if (!lesson) return null;
-  const l = LESSON_TEXT[lesson.id];
+  const l = { ...LESSON_TEXT[lesson.id], key: inputMode === "pad" ? (lesson.id === "move" ? "Stick" : PAD_KEYS[lesson.id] ?? LESSON_TEXT[lesson.id].key) : LESSON_TEXT[lesson.id].key };
   return (
     <div className="coach pxslot" key={lesson.id}>
-      {lesson.id === "move" ? (
+      {lesson.id === "move" && inputMode !== "pad" ? (
         <div className="keycross">
           <span />
           <span className={`kbd${lesson.keys?.includes("W") ? "" : " done"}`}>W</span>
@@ -345,7 +347,7 @@ function useFlash(value: number, dir: "up" | "any" = "any", ms = 450) {
 }
 
 export function HUD() {
-  const { screen, hearts, maxHearts, gold, keys, items, bagOpen, toggleBag, paused, togglePause, quitToTitle, banner, boss, respawn, dialogue, tag, flags, settings, setSettings, place, tool, journalOpen, toggleJournal, guide, questNote } = useGame();
+  const { screen, hearts, maxHearts, gold, keys, items, bagOpen, toggleBag, paused, togglePause, quitToTitle, banner, boss, respawn, dialogue, tag, flags, settings, setSettings, place, tool, journalOpen, toggleJournal, guide, questNote, inputMode } = useGame();
   const qState = { flags, place, has: (id: string) => items.some((i) => i.id === id && i.qty > 0), shards: items.find((i) => i.id === "shard")?.qty ?? 0 };
   const qi = questIndex(qState);
   const step = QUEST[qi] ?? null;
@@ -366,6 +368,8 @@ export function HUD() {
     prevQi.current = qi;
   }, [qi, screen]);
   const whereText = guide ? (guide.where === "here" ? (guide.tiles <= 6 ? "right here" : "this room") : guide.where) : null;
+  const pad = inputMode === "pad";
+  const K = pad ? { attack: "A", potion: "Y", bomb: "RB", tool: "X", swap: "LB", bag: "Back", journal: "Start", pause: "Start", dash: "B" } : { attack: "LMB", potion: "1", bomb: "2", tool: "RMB", swap: "Q", bag: "Tab", journal: "M", pause: "Esc", dash: "Shift" };
   const rect = useCanvasRect();
   const s = uiScale(rect);
   const healFlash = useFlash(hearts, "up");
@@ -466,7 +470,7 @@ export function HUD() {
       {place !== "hub" && <Minimap />}
       {step && !dialogue && !banner && !boss?.intro && (
         <div className="quest pxslot" title={step.title}>
-          <span className="quest-eyebrow">{step.title.toUpperCase()} · {qi + 1}/{QUEST.length} <span className="kbd">M</span></span>
+          <span className="quest-eyebrow">{step.title.toUpperCase()} · {qi + 1}/{QUEST.length} {!pad && <span className="kbd">M</span>}</span>
           {justDone && <span className="quest-obj done">{justDone}</span>}
           <span className="quest-obj">{step.objective}</span>
           {questNote && <span className="quest-note">{questNote}</span>}
@@ -476,14 +480,14 @@ export function HUD() {
       </div>
 
       <div className="hotbar pxpanel">
-        <Slot icon="sword" keyHint="LMB" selected />
+        <Slot icon="sword" keyHint={K.attack} selected />
         <div className="divider" />
-        <Slot icon="potion" keyHint="1" qty={item("potion")?.qty ?? 0} empty={!item("potion")} locked={!flags.includes("unlock:potion")} />
-        <Slot icon="bomb" keyHint="2" qty={item("bomb")?.qty ?? 0} empty={!item("bomb")} locked={!flags.includes("unlock:bomb")} />
-        <Slot icon={item(tool) ? tool : item("boomerang") ? "boomerang" : item("grapple") ? "grapple" : item("firerod") ? "firerod" : undefined} keyHint={[item("boomerang"), item("grapple"), item("firerod")].filter(Boolean).length > 1 ? "RMB · Q" : "RMB"} empty={!item("boomerang") && !item("grapple") && !item("firerod")} />
+        <Slot icon="potion" keyHint={K.potion} qty={item("potion")?.qty ?? 0} empty={!item("potion")} locked={!flags.includes("unlock:potion")} />
+        <Slot icon="bomb" keyHint={K.bomb} qty={item("bomb")?.qty ?? 0} empty={!item("bomb")} locked={!flags.includes("unlock:bomb")} />
+        <Slot icon={item(tool) ? tool : item("boomerang") ? "boomerang" : item("grapple") ? "grapple" : item("firerod") ? "firerod" : undefined} keyHint={[item("boomerang"), item("grapple"), item("firerod")].filter(Boolean).length > 1 ? `${K.tool} · ${K.swap}` : K.tool} empty={!item("boomerang") && !item("grapple") && !item("firerod")} />
         {item("bosskey") && <Slot icon="bosskey" keyHint="" />}
         <div className="divider" />
-        <Slot icon="bag" keyHint="Tab" />
+        <Slot icon="bag" keyHint={K.bag} />
       </div>
 
       {!bagOpen && !dialogue && !banner && !tag && <Coach />}
@@ -533,6 +537,7 @@ export function HUD() {
               <div><span className="kbd">2</span><span>Drop bomb</span></div>
               <div><span className="kbd">Tab</span><span>Bag</span></div>
               <div><span className="kbd">M</span><span>Quest journal</span></div>
+              <div><span className="kbd">Pad</span><span>Stick move · A strike · B dash · X tool · Y potion · RB bomb · LB swap · Back bag · Start pause</span></div>
               <div><span className="kbd">Esc</span><span>Pause / resume</span></div>
             </div>
             <div className="pause-settings">

@@ -133,6 +133,8 @@ interface GameState {
   guide: Guide | null;
   /** a live sub-count for the current objective ("2 of 4 lit"), set by the scene, cleared on room change */
   questNote: string | null;
+  /** the last device that moved Wren: key hints in the HUD follow it */
+  inputMode: "kb" | "pad";
   paused: boolean;
   banner: Banner | null;
   /** boss HP while a boss fight is on, else null */
@@ -177,6 +179,7 @@ interface GameState {
   toggleJournal: (open?: boolean) => void;
   setGuide: (g: Guide | null) => void;
   setQuestNote: (n: string | null) => void;
+  setInputMode: (m: "kb" | "pad") => void;
   togglePause: (on?: boolean) => void;
   newGame: () => void;
   startGame: () => void; // after the intro plates
@@ -251,6 +254,7 @@ export const useGame = create<GameState>((set, get) => ({
   journalOpen: false,
   guide: null,
   questNote: null,
+  inputMode: "kb" as const,
   paused: false,
   banner: null,
   boss: null,
@@ -339,6 +343,7 @@ export const useGame = create<GameState>((set, get) => ({
   toggleBag: (open) => set((s) => ({ bagOpen: open ?? !s.bagOpen, journalOpen: false })),
   toggleJournal: (open) => set((s) => ({ journalOpen: open ?? !s.journalOpen, bagOpen: false })),
   setQuestNote: (questNote) => set((s) => (s.questNote === questNote ? {} : { questNote })),
+  setInputMode: (inputMode) => set((s) => (s.inputMode === inputMode ? {} : { inputMode })),
   setGuide: (guide) => set((s) => (s.guide === guide || (s.guide && guide && s.guide.angle === guide.angle && s.guide.tiles === guide.tiles && s.guide.roomId === guide.roomId && s.guide.where === guide.where) ? {} : { guide })),
   togglePause: (on) => set((s) => ({ paused: on ?? !s.paused })),
   newGame: () => set({ screen: "intro", ...fresh(), sessionStart: Date.now(), bagOpen: false, paused: false, banner: null, boss: null, lesson: null, tag: null, dialogue: null, shop: null }),

@@ -55,6 +55,9 @@ export class Player {
   private wantThrow = false;
   private holdUntil = 0;
   private scripted = false;
+  /** gamepad edge detection (button index -> was down last frame) */
+  private padWas: Record<number, boolean> = {};
+  private padAim = new Phaser.Math.Vector2(0, 0);
   private hitsTaken = 0;
   private lastLowHpLine = -99999;
   private nextStepAt = 0;
@@ -98,6 +101,7 @@ export class Player {
     // swing or dash queues the next swing instead of being dropped.
     scene.input.mouse?.disableContextMenu();
     scene.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
+      useGame.getState().setInputMode("kb");
       if (p.leftButtonDown()) this.wantAttack = true;
       if (p.rightButtonDown()) this.wantThrow = true;
     });
@@ -161,8 +165,9 @@ export class Player {
     if (Phaser.Input.Keyboard.JustDown(this.keys.potion)) this.scene.drinkPotion();
     if (Phaser.Input.Keyboard.JustDown(this.keys.swap)) this.scene.swapTool();
     if (Phaser.Input.Keyboard.JustDown(this.keys.bomb)) this.scene.placeBomb();
-    const shiftHeld = this.shift.isDown || this.keys.dashAlt.isDown;
-    const shiftPressed = Phaser.Input.Keyboard.JustDown(this.shift) || Phaser.Input.Keyboard.JustDown(this.keys.dashAlt);
+    const padIn = this.readPad();
+    const shiftHeld = this.shift.isDown || this.keys.dashAlt.isDown || padIn.dashHeld;
+    const shiftPressed = Phaser.Input.Keyboard.JustDown(this.shift) || Phaser.Input.Keyboard.JustDown(this.keys.dashAlt) || padIn.dashPressed;
     if (shiftPressed) this.shiftDownAt = now;
 
     // ---- committed states
@@ -316,10 +321,63 @@ export class Player {
   }
 
   private readMove(): Phaser.Math.Vector2 {
-    return new Phaser.Math.Vector2(
+    const kb = new Phaser.Math.Vector2(
       (this.keys.right.isDown || this.arrows.right.isDown ? 1 : 0) - (this.keys.left.isDown || this.arrows.left.isDown ? 1 : 0),
       (this.keys.down.isDown || this.arrows.down.isDown ? 1 : 0) - (this.keys.up.isDown || this.arrows.up.isDown ? 1 : 0),
     );
+    if (kb.lengthSq() > 0) {
+      useGame.getState().setInputMode("kb");
+      return kb;
+    }
+    const pad = this.pad();
+    if (!pad) return kb;
+    // left stick (dead zone) or the d-pad
+    const v = new Phaser.Math.Vector2(pad.leftStick.x, pad.leftStick.y);
+    if (v.lengthSq() < 0.2 * 0.2) v.set((pad.right ? 1 : 0) - (pad.left ? 1 : 0), (pad.down ? 1 : 0) - (pad.up ? 1 : 0));
+    if (v.lengthSq() > 0) {
+      useGame.getState().setInputMode("pad");
+      if (v.lengthSq() > 1) v.normalize();
+      // the move lesson counts the stick as all four keys
+      if (useGame.getState().lesson?.id === "move") for (const k of ["W", "A", "S", "D"]) this.scene.lessonKey(k);
+    }
+    return v;
+  }
+
+  private pad(): Phaser.Input.Gamepad.Gamepad | undefined {
+    const gp = this.scene.input.gamepad;
+    if (!gp || gp.total === 0) return undefined;
+    return gp.getPad(0) ?? gp.pad1;
+  }
+
+  /** A press this frame (edge) on a standard-mapping button index. */
+  private padPressed(pad: Phaser.Input.Gamepad.Gamepad, index: number) {
+    const down = pad.buttons[index]?.pressed ?? false;
+    const was = this.padWas[index] ?? false;
+    this.padWas[index] = down;
+    return down && !was;
+  }
+
+  /**
+   * Gamepad, standard mapping: A attack, B dash/sprint, X tool, Y potion, RB bomb, LB swap tool,
+   * Start pause, Back bag, right stick aims (else the left stick, else facing).
+   */
+  private readPad() {
+    const pad = this.pad();
+    if (!pad) return { dashHeld: false, dashPressed: false };
+    const st = useGame.getState();
+    const rs = new Phaser.Math.Vector2(pad.rightStick.x, pad.rightStick.y);
+    if (rs.lengthSq() > 0.3 * 0.3) this.padAim.copy(rs.normalize());
+    else this.padAim.set(0, 0);
+    if (this.padPressed(pad, 0)) { this.wantAttack = true; st.setInputMode("pad"); }
+    if (this.padPressed(pad, 2)) { this.wantThrow = true; st.setInputMode("pad"); }
+    if (this.padPressed(pad, 3)) this.scene.drinkPotion();
+    if (this.padPressed(pad, 5)) this.scene.placeBomb();
+    if (this.padPressed(pad, 4)) this.scene.swapTool();
+    if (this.padPressed(pad, 9)) { st.setInputMode("pad"); st.togglePause(); }
+    if (this.padPressed(pad, 8)) { st.setInputMode("pad"); st.toggleBag(); }
+    const dashHeld = pad.buttons[1]?.pressed ?? false;
+    const dashPressed = this.padPressed(pad, 1);
+    return { dashHeld, dashPressed };
   }
 
   private startAttack() {
@@ -408,6 +466,12 @@ export class Player {
   }
 
   private vecToPointer(): Phaser.Math.Vector2 {
+    // on a pad: the right stick aims; else the way she's moving; else where she faces
+    if (useGame.getState().inputMode === "pad") {
+      if (this.padAim.lengthSq() > 0) return this.padAim.clone();
+      const mv = this.readMove();
+      return mv.lengthSq() > 0 ? mv.normalize() : this.vecFrom(this.facing);
+    }
     const p = this.scene.input.activePointer;
     const wp = p.positionToCamera(this.scene.cameras.main) as Phaser.Math.Vector2;
     const v = new Phaser.Math.Vector2(wp.x - this.sprite.x, wp.y - (this.sprite.y - 18));

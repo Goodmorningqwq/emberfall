@@ -71,6 +71,8 @@ least all three boss fights through their windows) — the crypt work silently l
 auto-save overwrites a save you wrote before a reload), then `quitToTitle()` → `continueGame()`.
 
 ## Traps met while testing
+- Gamepad: standard mapping in `Player.readPad()`; `store.inputMode` flips hints. Not testable headless — assert
+  hints via `setInputMode("pad")` and that keyboard paths still pass the regression.
 - Keyboard map: J/K/L are the keyboard attack/dash/throw keys, Q swaps tools, Tab bag, **M journal**, 1/2
   consumables. A new HUD hotkey on J froze the game mid-test (journal opened, physics paused) — check
   `Player.ts` keys before binding anything.
