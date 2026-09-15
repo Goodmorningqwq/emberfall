@@ -280,3 +280,7 @@ html, body { margin: 0; height: 100%; background: #0f110f; color: var(--ink); ov
 .journal-obj { font-size: 16px; }
 .journal-story { font-size: 16px; color: var(--ink); line-height: 1.2; margin-top: calc(2px * var(--s)); }
 .journal-step.later { opacity: .5; }
+.quest-obj.done { color: var(--muted); text-decoration: line-through; animation: pop .18s ease-out; }
+.quest-note { font-size: 16px; color: var(--ember); }
+@container (min-width: 1100px) { .quest-note { font-size: calc(16px * max(1, var(--s) - 1)); } }
+.journal-step.done .journal-story { color: var(--muted); }

@@ -41,8 +41,11 @@ export class GuideDrawer {
     const tiles = Math.round(dist / TILE);
     // quantised so the HUD only re-renders when the reading actually changes
     useGame.getState().setGuide({ angle: Math.round(angle * 16) / 16, tiles, roomId, where });
-    const near = dist < 28;
-    const on = !near && useGame.getState().screen === "game";
+    // the chevron is the loudest cue there is: only when the thing isn't in plain sight (another room, or
+    // more than a screen-quarter away), and only if the player wants it. The tracker still shows the direction.
+    const st = useGame.getState();
+    const near = where === "here" ? dist < 6 * TILE : dist < 28;
+    const on = !near && st.screen === "game" && st.settings.guide;
     this.arrow.setPosition(px + Math.cos(angle) * 34, py - 16 + Math.sin(angle) * 34).setRotation(angle);
     // the chevron breathes so it reads as "go", not as a prop
     const pulse = 0.85 + 0.15 * Math.sin(this.scene.time.now / 180);
@@ -72,10 +75,19 @@ export class GuideDrawer {
  * When a new step becomes current, announce it once: the objective plate, then the story line
  * as narration. Waits for a quiet moment (no plate, no talk) so it never stacks on a room name.
  */
+let lastIdx = -1;
+let idxChangedAt = 0;
 export function announceQuest(scene: Phaser.Scene, sinceCreateMs: number) {
   const st = useGame.getState();
   if (st.screen !== "game" || sinceCreateMs < 2600) return;
   const idx = questIndex(questStateOf());
+  // a step just completed: let the tracker's strike-through read before the next plate lands
+  if (idx !== lastIdx) {
+    lastIdx = idx;
+    idxChangedAt = scene.time.now;
+    if (sinceCreateMs > 3000) return;
+  }
+  if (scene.time.now - idxChangedAt < 2400 && sinceCreateMs > 3000) return;
   const step = QUEST[idx];
   if (!step || st.hasFlag(`quest:${step.id}`)) return;
   if (st.banner || st.dialogue || st.narration || st.shop || st.boss?.intro) return;

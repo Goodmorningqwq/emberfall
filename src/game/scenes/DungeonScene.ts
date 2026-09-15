@@ -366,6 +366,7 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
     if (l && (l.id === "attack" || l.id === "bomb" || l.id === "potion")) useGame.getState().setLesson(null);
     this.pendingLessons = this.pendingLessons.filter((id) => id !== "attack" && id !== "bomb" && id !== "potion");
     useGame.getState().setNarration(null);
+    useGame.getState().setQuestNote(null);
     for (const e of this.enemies) e.destroy();
     this.enemies = [];
     this.boss = undefined;
@@ -1594,8 +1595,14 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
     sfx("crystal");
     this.puff(b.x, b.y - 4, 0xffb060, 10);
     this.shake(50, 0.002);
-    if (this.braziers.every((x) => x.lit)) this.solveRoom();
-    else this.toast("icon-firerod", `${this.braziers.filter((x) => x.lit).length} of ${this.braziers.length} lit`);
+    const lit = this.braziers.filter((x) => x.lit).length;
+    if (this.braziers.every((x) => x.lit)) {
+      useGame.getState().setQuestNote(null);
+      this.solveRoom();
+    } else {
+      this.toast("icon-firerod", `${lit} of ${this.braziers.length} lit`);
+      useGame.getState().setQuestNote(`${lit} of ${this.braziers.length} braziers lit`);
+    }
   }
 
   private burnThorns() {
@@ -1731,7 +1738,12 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
         this.tweens.add({ targets: c.image, scaleX: 1.2, scaleY: 0.85, duration: 70, yoyo: true });
         this.puff(c.image.x + 16, c.image.y + 10, 0xffd090, 12);
         this.boomerang.turnBack();
-        this.solveRoom();
+        const lit = this.crystals.filter((x) => x.lit).length;
+        if (lit < this.crystals.length) useGame.getState().setQuestNote(`${lit} of ${this.crystals.length} crystals ringing`);
+        else {
+          useGame.getState().setQuestNote(null);
+          this.solveRoom();
+        }
       });
     }
     return true;

@@ -198,6 +198,14 @@ export const QUEST: QuestStep[] = [
     target: { place: "hub", anchor: "npc-elder" },
     done: flag("finale"),
   },
+  {
+    id: "epilogue",
+    title: "Emberfall, Warm",
+    objective: "Rest at the shrine, spend your gold, wander. The roads stay open.",
+    story: "Three shards home. The plinth burns like it did before the marsh rose, and the town is yours.",
+    target: { place: "hub", anchor: "shrine" },
+    done: () => false,
+  },
 ];
 
 /**

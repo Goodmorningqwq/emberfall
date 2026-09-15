@@ -16,13 +16,15 @@ export interface Settings {
   shake: 0 | 0.5 | 1;
   sfx: number; // 0..1
   music: number; // 0..1
+  /** the on-screen chevron + trail (the tracker and minimap marker stay) */
+  guide: boolean;
 }
 const SETTINGS_KEY = "emberfall.settings";
 export function readSettings(): Settings {
   try {
-    return { shake: 1, sfx: 0.8, music: 0.6, ...(JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}") as Partial<Settings>) };
+    return { shake: 1, sfx: 0.8, music: 0.6, guide: true, ...(JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}") as Partial<Settings>) };
   } catch {
-    return { shake: 1, sfx: 0.8, music: 0.6 };
+    return { shake: 1, sfx: 0.8, music: 0.6, guide: true };
   }
 }
 
@@ -129,6 +131,8 @@ interface GameState {
   bagOpen: boolean;
   journalOpen: boolean;
   guide: Guide | null;
+  /** a live sub-count for the current objective ("2 of 4 lit"), set by the scene, cleared on room change */
+  questNote: string | null;
   paused: boolean;
   banner: Banner | null;
   /** boss HP while a boss fight is on, else null */
@@ -172,6 +176,7 @@ interface GameState {
   toggleBag: (open?: boolean) => void;
   toggleJournal: (open?: boolean) => void;
   setGuide: (g: Guide | null) => void;
+  setQuestNote: (n: string | null) => void;
   togglePause: (on?: boolean) => void;
   newGame: () => void;
   startGame: () => void; // after the intro plates
@@ -245,6 +250,7 @@ export const useGame = create<GameState>((set, get) => ({
   bagOpen: false,
   journalOpen: false,
   guide: null,
+  questNote: null,
   paused: false,
   banner: null,
   boss: null,
@@ -332,6 +338,7 @@ export const useGame = create<GameState>((set, get) => ({
   addMaxHearts: (n) => set((s) => ({ maxHearts: s.maxHearts + n, hearts: s.maxHearts + n })),
   toggleBag: (open) => set((s) => ({ bagOpen: open ?? !s.bagOpen, journalOpen: false })),
   toggleJournal: (open) => set((s) => ({ journalOpen: open ?? !s.journalOpen, bagOpen: false })),
+  setQuestNote: (questNote) => set((s) => (s.questNote === questNote ? {} : { questNote })),
   setGuide: (guide) => set((s) => (s.guide === guide || (s.guide && guide && s.guide.angle === guide.angle && s.guide.tiles === guide.tiles && s.guide.roomId === guide.roomId && s.guide.where === guide.where) ? {} : { guide })),
   togglePause: (on) => set((s) => ({ paused: on ?? !s.paused })),
   newGame: () => set({ screen: "intro", ...fresh(), sessionStart: Date.now(), bagOpen: false, paused: false, banner: null, boss: null, lesson: null, tag: null, dialogue: null, shop: null }),

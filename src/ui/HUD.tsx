@@ -345,10 +345,27 @@ function useFlash(value: number, dir: "up" | "any" = "any", ms = 450) {
 }
 
 export function HUD() {
-  const { screen, hearts, maxHearts, gold, keys, items, bagOpen, toggleBag, paused, togglePause, quitToTitle, banner, boss, respawn, dialogue, tag, flags, settings, setSettings, place, tool, journalOpen, toggleJournal, guide } = useGame();
+  const { screen, hearts, maxHearts, gold, keys, items, bagOpen, toggleBag, paused, togglePause, quitToTitle, banner, boss, respawn, dialogue, tag, flags, settings, setSettings, place, tool, journalOpen, toggleJournal, guide, questNote } = useGame();
   const qState = { flags, place, has: (id: string) => items.some((i) => i.id === id && i.qty > 0), shards: items.find((i) => i.id === "shard")?.qty ?? 0 };
   const qi = questIndex(qState);
   const step = QUEST[qi] ?? null;
+  // a step just completed: the tracker shows the old objective struck through for a beat
+  const [justDone, setJustDone] = useState<string | null>(null);
+  const prevQi = useRef(qi);
+  useEffect(() => {
+    if (qi > prevQi.current && screen === "game") {
+      const done = QUEST[prevQi.current];
+      if (done) {
+        setJustDone(done.objective);
+        sfx("lesson");
+        const t = window.setTimeout(() => setJustDone(null), 2200);
+        prevQi.current = qi;
+        return () => window.clearTimeout(t);
+      }
+    }
+    prevQi.current = qi;
+  }, [qi, screen]);
+  const whereText = guide ? (guide.where === "here" ? (guide.tiles <= 6 ? "right here" : "this room") : guide.where) : null;
   const rect = useCanvasRect();
   const s = uiScale(rect);
   const healFlash = useFlash(hearts, "up");
@@ -448,8 +465,10 @@ export function HUD() {
       {step && !dialogue && !banner && !boss?.intro && (
         <div className="quest pxslot" title={step.title}>
           <span className="quest-eyebrow">{step.title.toUpperCase()} · {qi + 1}/{QUEST.length} <span className="kbd">M</span></span>
+          {justDone && <span className="quest-obj done">{justDone}</span>}
           <span className="quest-obj">{step.objective}</span>
-          {guide && <span className="quest-where"><i className="quest-arrow" style={{ transform: `rotate(${guide.angle}rad)` }} />{guide.where === "here" ? `${guide.tiles} tiles` : guide.where}</span>}
+          {questNote && <span className="quest-note">{questNote}</span>}
+          {guide && whereText && <span className="quest-where"><i className="quest-arrow" style={{ transform: `rotate(${guide.angle}rad)` }} />{whereText}</span>}
         </div>
       )}
 
@@ -528,6 +547,12 @@ export function HUD() {
               </button>
             </div>
             <div className="pause-settings">
+              <span className="muted t-small">Quest guide</span>
+              <button className="pxbtn pxslot" onClick={() => { setSettings({ guide: !settings.guide }); sfx("ui"); }}>
+                {settings.guide ? "Arrow on" : "Tracker only"}
+              </button>
+            </div>
+            <div className="pause-settings">
               <span className="muted t-small">Screen shake</span>
               <button className="pxbtn pxslot" onClick={() => setSettings({ shake: settings.shake === 1 ? 0.5 : settings.shake === 0.5 ? 0 : 1 })}>
                 {settings.shake === 1 ? "Full" : settings.shake === 0.5 ? "Low" : "Off"}
@@ -558,7 +583,7 @@ export function HUD() {
                     <div className="journal-text">
                       <span className="journal-title">{state === "later" ? "???" : q.title}</span>
                       {state !== "later" && <span className="muted journal-obj">{q.objective}</span>}
-                      {state === "now" && <span className="journal-story">{q.story}</span>}
+                      {state !== "later" && <span className="journal-story">{q.story}</span>}
                     </div>
                   </div>
                 );
