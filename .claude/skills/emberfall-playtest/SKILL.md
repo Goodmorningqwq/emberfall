@@ -52,6 +52,12 @@ hand: wait for `scene.settings.status === 5` (RUNNING) with **real** sleeps betw
 Prefer `sc.throwBoomerang({x,y})` / `sc.goto(id)` / store actions over key events when you are testing the
 system, and key events when you are testing the input path — both matter, they fail differently.
 
+## Regression rule
+Anything that touches `Enemy`, `DungeonScene`'s boss/hit paths or the store must re-run **both** boss fights
+(Treant with the boomerang, Bone Knight with the hook) — the crypt work silently left the Treant without
+`isBoss`, so its bar stopped updating. Seed the save **after** the page has loaded (the `beforeunload`
+auto-save overwrites a save you wrote before a reload), then `quitToTitle()` → `continueGame()`.
+
 ## Before declaring done
 
 `npx tsc --noEmit -p .` and `npx vite build` pass; the relevant checks above ran on **this** build (HMR of a

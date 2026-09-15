@@ -31,6 +31,7 @@ export class Treant extends Enemy {
 
   constructor(scene: DungeonScene, group: Phaser.Physics.Arcade.Group, x: number, y: number) {
     super(scene, group, x, y, "treant", TREANT_HP);
+    this.isBoss = true;
     this.bounty = 40;
     const s = this.sprite;
     s.body!.setSize(68, 44).setOffset(14, 50);
@@ -68,6 +69,16 @@ export class Treant extends Enemy {
 
   get isStunned() {
     return this.state === "stunned";
+  }
+
+  get blocksNow() {
+    return this.state !== "stunned";
+  }
+
+  /** Rooted: the hook just twangs off the bark. */
+  grappled() {
+    if (this.isDead) return;
+    this.scene.tweens.add({ targets: this.sprite, x: "+=2", duration: 40, yoyo: true, repeat: 2 });
   }
 
   get phase2() {
