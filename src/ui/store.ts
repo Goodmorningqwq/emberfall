@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { SHOPS } from "./shop";
 
 export type Facing = "south" | "north" | "east" | "west";
-export type ItemId = "sword" | "potion" | "bomb" | "key" | "boomerang" | "grapple" | "bosskey" | "shard" | "armor";
+export type ItemId = "sword" | "potion" | "bomb" | "key" | "boomerang" | "grapple" | "firerod" | "bosskey" | "shard" | "armor";
 
 export interface Item {
   id: ItemId;
@@ -34,7 +34,7 @@ export interface Banner {
   icon?: ItemId | "heart";
 }
 
-export type LessonId = "move" | "dash" | "attack" | "potion" | "throw" | "bomb" | "grapple";
+export type LessonId = "move" | "dash" | "attack" | "potion" | "throw" | "bomb" | "grapple" | "firerod";
 /** The contextual tutorial tag beside Wren. `keys` = which of W/A/S/D are still to press. */
 export interface Lesson {
   id: LessonId;
@@ -84,8 +84,8 @@ export interface SaveData {
 }
 const SAVE_KEY = "emberfall.save.1";
 const SAVE_VERSION = 5;
-export type Place = "hub" | "whisperwood" | "crypt";
-export type ToolId = "boomerang" | "grapple";
+export type Place = "hub" | "whisperwood" | "crypt" | "cinder";
+export type ToolId = "boomerang" | "grapple" | "firerod";
 
 const START_ITEMS: Item[] = [
   { id: "sword", name: "Iron Sword", qty: 1, hint: "1 dmg · equipped" },
@@ -100,6 +100,7 @@ export const ITEM_META: Record<ItemId, { name: string; hint: string }> = {
   key: { name: "Small Key", hint: "Opens a locked door" },
   boomerang: { name: "Boomerang", hint: "RMB · stuns, fetches, rings crystals" },
   grapple: { name: "Grapple Hook", hint: "RMB · pulls you to anchors, pulls foes to you" },
+  firerod: { name: "Fire Rod", hint: "RMB · lights braziers, burns thorns, heats slag" },
   bosskey: { name: "Boss Key", hint: "Opens the way to the Heart of the Hollow" },
   shard: { name: "Ember Shard", hint: "One of three. Bring the flame home." },
   armor: { name: "Leather Jerkin", hint: "Every 3rd hit glances off · worn" },
@@ -265,7 +266,7 @@ export const useGame = create<GameState>((set, get) => ({
       const it = items.find((i) => i.id === id);
       if (it) it.qty += qty;
       else items.push({ id, qty, ...ITEM_META[id] });
-      return { items, tool: id === "grapple" || id === "boomerang" ? id : s.tool };
+      return { items, tool: id === "grapple" || id === "boomerang" || id === "firerod" ? id : s.tool };
     }),
   useItem: (id, qty = 1) => {
     const it = get().items.find((i) => i.id === id);
@@ -353,7 +354,7 @@ export const useGame = create<GameState>((set, get) => ({
       place: d.place ?? "hub",
       swordTier: d.swordTier ?? 1,
       armorTier: d.armorTier ?? 0,
-      tool: d.items.some((i) => i.id === "grapple") ? "grapple" : "boomerang",
+      tool: d.items.some((i) => i.id === "firerod") ? "firerod" : d.items.some((i) => i.id === "grapple") ? "grapple" : "boomerang",
       shop: null,
       playtimeMs: d.playtimeMs,
       sessionStart: Date.now(),

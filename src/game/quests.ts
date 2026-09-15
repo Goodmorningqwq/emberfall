@@ -8,7 +8,7 @@ import { DUNGEONS } from "./data/dungeons";
  * (a room, an NPC, a gate, an item) so the scenes can draw the guide.
  */
 export interface QuestTarget {
-  place: "hub" | "whisperwood" | "crypt";
+  place: "hub" | "whisperwood" | "crypt" | "cinder";
   /** dungeon room id; the room's own thing (item / boss / plate) is found from the def */
   room?: string;
   /** what in the room: an item id (chest or drop), "boss", "plate", "exit" */
@@ -151,19 +151,64 @@ export const QUEST: QuestStep[] = [
     done: flag("talked:elder:2"),
   },
   {
-    id: "mountain",
+    id: "south-road",
     title: "The Mountain Road",
-    objective: "The Cinder Depths are still sealed - this is where the story stops for now",
-    story: "Smoke on the south road. The last shard is under the mountain, and the road there is not cut yet.",
+    objective: "Take the south gate into the Cinder Depths",
+    story: "Smoke on the south road. The last shard is under the mountain, and the mountain has been burning since it fell.",
     target: { place: "hub", anchor: "gate-cinder" },
-    done: () => false,
+    done: (s) => s.place === "cinder" || s.flags.includes("boss:cinder"),
+  },
+  {
+    id: "firerod",
+    title: "The Smelter's Rod",
+    objective: "Take the Fire Rod from the cinderlings in the Smelter",
+    story: "The miners lit the vents with a rod that never went out. Two of the mountain's own are guarding it.",
+    target: { place: "cinder", room: "smelter", thing: "firerod" },
+    done: item("firerod"),
+  },
+  {
+    id: "cinder-key",
+    title: "Four Braziers",
+    objective: "Light every brazier in the Brazier Vault for the Boss Key",
+    story: "The vault's braziers have been cold for a year. Fire them all and the door remembers.",
+    target: { place: "cinder", room: "brazier-vault", thing: "bosskey" },
+    done: (s) => (s.has("bosskey") && s.place === "cinder") || s.flags.includes("boss:cinder"),
+  },
+  {
+    id: "golem",
+    title: "Heart of the Cinder",
+    objective: "Face the Cinder Golem north of the Crossing",
+    story: "Its crust drinks steel. Fire the rod into the vent on its back, then cut while it glows.",
+    target: { place: "cinder", room: "boss", thing: "boss" },
+    done: flag("boss:cinder"),
+  },
+  {
+    id: "shard3",
+    title: "The Last Shard",
+    objective: "Take the Ember Shard",
+    story: "Three of three.",
+    target: { place: "cinder", room: "boss", thing: "shard" },
+    done: flag("shard:cinder"),
+  },
+  {
+    id: "home3",
+    title: "The Ember, Whole",
+    objective: "Bring the last shard to Tam at the plinth",
+    story: "The town will breathe again.",
+    target: { place: "hub", anchor: "npc-elder" },
+    done: flag("finale"),
   },
 ];
 
-/** Index of the first step that isn't done (the whole quest done ⇒ QUEST.length). */
+/**
+ * The step after the furthest one that's done (the whole quest done ⇒ QUEST.length). Furthest,
+ * not first-undone: a later milestone implies the earlier ones, so a save that skipped a
+ * puzzle flag or an old save still lands on the right step.
+ */
 export function questIndex(s: QuestState): number {
-  for (let i = 0; i < QUEST.length; i++) if (!QUEST[i].done(s)) return i;
-  return QUEST.length;
+  let idx = 0;
+  for (let i = 0; i < QUEST.length; i++) if (QUEST[i].done(s)) idx = i + 1;
+  return idx;
 }
 
 export function questStep(s: QuestState): QuestStep | null {
@@ -197,5 +242,5 @@ export function thingTile(def: DungeonDef, roomId: string, thing: string): { tx:
 }
 
 export function dungeonDefFor(place: string): DungeonDef | null {
-  return place === "whisperwood" ? DUNGEONS.whisperwood.def : place === "crypt" ? DUNGEONS.crypt.def : null;
+  return place === "whisperwood" ? DUNGEONS.whisperwood.def : place === "crypt" ? DUNGEONS.crypt.def : place === "cinder" ? DUNGEONS.cinder.def : null;
 }

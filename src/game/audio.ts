@@ -58,7 +58,7 @@ export function unlockAudio() {
 
 // ------------------------------------------------------------------ ambience
 
-export type AmbientName = "town" | "whisperwood" | "crypt";
+export type AmbientName = "town" | "whisperwood" | "crypt" | "cinder";
 interface AmbientRig {
   name: AmbientName;
   gain: GainNode;
@@ -124,7 +124,13 @@ function startAmbient(name: AmbientName) {
   const bedGain = c.createGain();
   const lfo = c.createOscillator();
   const lfoGain = c.createGain();
-  const bed = { town: { type: "bandpass" as BiquadFilterType, freq: 700, q: 0.7, lfo: 0.08, depth: 250, g: 0.5 }, whisperwood: { type: "bandpass" as BiquadFilterType, freq: 420, q: 0.9, lfo: 0.05, depth: 220, g: 0.8 }, crypt: { type: "lowpass" as BiquadFilterType, freq: 160, q: 1.2, lfo: 0.03, depth: 60, g: 0.9 } }[name];
+  const bed = {
+    town: { type: "bandpass" as BiquadFilterType, freq: 700, q: 0.7, lfo: 0.08, depth: 250, g: 0.5 },
+    whisperwood: { type: "bandpass" as BiquadFilterType, freq: 420, q: 0.9, lfo: 0.05, depth: 220, g: 0.8 },
+    crypt: { type: "lowpass" as BiquadFilterType, freq: 160, q: 1.2, lfo: 0.03, depth: 60, g: 0.9 },
+    // a deep furnace rumble
+    cinder: { type: "lowpass" as BiquadFilterType, freq: 110, q: 0.8, lfo: 0.12, depth: 40, g: 1.1 },
+  }[name];
   f.type = bed.type;
   f.frequency.value = bed.freq;
   f.Q.value = bed.q;
@@ -194,6 +200,11 @@ function startAmbient(name: AmbientName) {
     shot(creak, 5000, 12000);
   }
   if (name === "crypt") shot(drip, 1200, 4500);
+  if (name === "cinder") {
+    // hissing vents and the odd rock settling
+    shot((t, o) => { const src = c.createBufferSource(); src.buffer = noiseBuf!; src.loop = true; const bf = c.createBiquadFilter(); bf.type = "bandpass"; bf.frequency.value = 1400; const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.25, t + 0.3); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.4); src.connect(bf).connect(g).connect(o); src.start(t); src.stop(t + 1.5); }, 3000, 8000);
+    shot(creak, 6000, 14000);
+  }
   ambient = { name, gain, nodes, timers };
 }
 

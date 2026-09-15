@@ -8,7 +8,7 @@ import { sfx } from "../game/audio";
 import { SHOPS } from "./shop";
 
 /** PixelLab icon set at public/assets/ui/icons/<name>.png (24x24). */
-type IconName = ItemId | "coin" | "bag" | "boomerang" | "shard" | "bosskey" | "grapple";
+type IconName = ItemId | "coin" | "bag" | "boomerang" | "shard" | "bosskey" | "grapple" | "firerod";
 function Icon({ name, alt = "" }: { name: IconName; alt?: string }) {
   return <img src={`/assets/ui/icons/${name}.png`} alt={alt} draggable={false} />;
 }
@@ -49,6 +49,7 @@ const LESSON_TEXT: Record<LessonId, { key: string; text: string }> = {
   potion: { key: "1", text: "Drink a potion to heal" },
   throw: { key: "RMB", text: "Throw the boomerang" },
   grapple: { key: "RMB", text: "Fire the hook at an anchor post" },
+  firerod: { key: "RMB", text: "Fire the rod at a brazier" },
   bomb: { key: "2", text: "Drop a bomb by the cracked wall" },
 };
 
@@ -178,14 +179,15 @@ function fmtTime(ms: number) {
 
 /** Dungeon cleared: shard tally and a way back. */
 function Complete() {
-  const { keepExploring, quitToTitle, gold, playtimeMs, sessionStart, items, place } = useGame();
+  const { keepExploring, quitToTitle, gold, playtimeMs, sessionStart, items, place, flags } = useGame();
   const shards = items.find((i) => i.id === "shard")?.qty ?? 0;
   const meta = dungeonFor(place);
+  const finale = place === "hub" && flags.includes("finale");
   return (
     <div className="bag-backdrop intro">
       <div className="pause pxpanel intro-plate complete">
-        <span className="eyebrow">{meta.completeEyebrow}</span>
-        <span className="t-title">Cleansed</span>
+        <span className="eyebrow">{finale ? "EMBERFALL" : meta.completeEyebrow}</span>
+        <span className="t-title">{finale ? "The Ember Is Whole" : "Cleansed"}</span>
         <div className="complete-row">
           <img src="/assets/ui/icons/shard.png" alt="" />
           <span className="t-title">{shards}/3</span>
@@ -194,7 +196,7 @@ function Complete() {
           <span className="t-title">{gold}</span>
           <span className="muted t-small">gold · {fmtTime(playtimeMs + (Date.now() - sessionStart))}</span>
         </div>
-        <span className="muted t-small">{meta.completeNext}</span>
+        <span className="muted t-small">{finale ? "Three shards home, three roads walked. Thank you for playing Emberfall - the town is yours to wander, and new roads will open in later builds." : meta.completeNext}</span>
         <div className="pause-actions">
           <button className="pxbtn pxslot" onClick={quitToTitle}>Return to title</button>
           <button className="pxbtn pxslot" onClick={keepExploring} autoFocus>Keep exploring</button>
@@ -250,6 +252,7 @@ function Minimap() {
 const BOSS_BARS: Record<string, { img: string; w: number; h: number; channel: [number, number, number, number]; fill: string; hi: string; lo: string }> = {
   "ELDER TREANT": { img: "/assets/sprites/props/bossbar-treant.png", w: 192, h: 32, channel: [32, 12, 127, 9], fill: "#e8763a", hi: "#ffd090", lo: "#7a2e10" },
   "BONE KNIGHT": { img: "/assets/sprites/props/bossbar-boneknight.png", w: 192, h: 32, channel: [33, 11, 121, 9], fill: "#4fb3c4", hi: "#bfeff5", lo: "#1e4a58" },
+  "CINDER GOLEM": { img: "/assets/sprites/props/bossbar-golem.png", w: 192, h: 32, channel: [35, 11, 123, 8], fill: "#e8763a", hi: "#ffd090", lo: "#5a1e0c" },
 };
 
 /** The boss's own health bar: bespoke frame, fill clipped to its channel, name riding above. */
@@ -359,7 +362,7 @@ export function HUD() {
       if (e.key === "Tab") {
         e.preventDefault();
         if (!st.paused && !st.dialogue && !st.shop) toggleBag();
-      } else if (e.key === "j" || e.key === "J") {
+      } else if (e.key === "m" || e.key === "M") {
         if (!st.paused && !st.dialogue && !st.shop) {
           sfx("ui");
           st.toggleJournal();
@@ -444,7 +447,7 @@ export function HUD() {
 
       {step && !dialogue && !banner && !boss?.intro && (
         <div className="quest pxslot" title={step.title}>
-          <span className="quest-eyebrow">{step.title.toUpperCase()} · {qi + 1}/{QUEST.length} <span className="kbd">J</span></span>
+          <span className="quest-eyebrow">{step.title.toUpperCase()} · {qi + 1}/{QUEST.length} <span className="kbd">M</span></span>
           <span className="quest-obj">{step.objective}</span>
           {guide && <span className="quest-where"><i className="quest-arrow" style={{ transform: `rotate(${guide.angle}rad)` }} />{guide.where === "here" ? `${guide.tiles} tiles` : guide.where}</span>}
         </div>
@@ -457,7 +460,7 @@ export function HUD() {
         <div className="divider" />
         <Slot icon="potion" keyHint="1" qty={item("potion")?.qty ?? 0} empty={!item("potion")} locked={!flags.includes("unlock:potion")} />
         <Slot icon="bomb" keyHint="2" qty={item("bomb")?.qty ?? 0} empty={!item("bomb")} locked={!flags.includes("unlock:bomb")} />
-        <Slot icon={item(tool) ? tool : item("boomerang") ? "boomerang" : item("grapple") ? "grapple" : undefined} keyHint={item("boomerang") && item("grapple") ? "RMB · Q" : "RMB"} empty={!item("boomerang") && !item("grapple")} />
+        <Slot icon={item(tool) ? tool : item("boomerang") ? "boomerang" : item("grapple") ? "grapple" : item("firerod") ? "firerod" : undefined} keyHint={[item("boomerang"), item("grapple"), item("firerod")].filter(Boolean).length > 1 ? "RMB · Q" : "RMB"} empty={!item("boomerang") && !item("grapple") && !item("firerod")} />
         {item("bosskey") && <Slot icon="bosskey" keyHint="" />}
         <div className="divider" />
         <Slot icon="bag" keyHint="Tab" />
@@ -509,7 +512,7 @@ export function HUD() {
               <div><span className="kbd">1</span><span>Drink potion</span></div>
               <div><span className="kbd">2</span><span>Drop bomb</span></div>
               <div><span className="kbd">Tab</span><span>Bag</span></div>
-              <div><span className="kbd">J</span><span>Quest journal</span></div>
+              <div><span className="kbd">M</span><span>Quest journal</span></div>
               <div><span className="kbd">Esc</span><span>Pause / resume</span></div>
             </div>
             <div className="pause-settings">
@@ -543,7 +546,7 @@ export function HUD() {
           <div className="bag journal pxpanel" onClick={(e) => e.stopPropagation()}>
             <div className="bag-head">
               <span className="t-title">Journal</span>
-              <span className="muted"><span className="kbd">J</span> close</span>
+              <span className="muted"><span className="kbd">M</span> close</span>
             </div>
             <div className="journal-list">
               {QUEST.map((q, i) => {

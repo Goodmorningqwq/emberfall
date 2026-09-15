@@ -1,8 +1,9 @@
 import type { DungeonDef } from "../dungeon";
 import whisperwood from "./whisperwood.json";
 import crypt from "./sunken-crypt.json";
+import cinder from "./cinder-depths.json";
 
-export type DungeonId = "whisperwood" | "crypt";
+export type DungeonId = "whisperwood" | "crypt" | "cinder";
 
 /** Everything about a dungeon that isn't its rooms: text, the boss, where it hangs off the town. */
 export interface DungeonMeta {
@@ -13,6 +14,8 @@ export interface DungeonMeta {
   /** which town gate leads here, and which way Wren walks through it */
   gate: string;
   gateDir: "east" | "west" | "south";
+  /** the tool this dungeon teaches (its RMB lesson) */
+  tool?: "boomerang" | "grapple" | "firerod";
   /** the RoomObject kind of the boss */
   boss: string;
   signTitle: string;
@@ -56,13 +59,35 @@ export const DUNGEONS: Record<DungeonId, DungeonMeta> = {
     bossKeyHint: "The Bone Knight keeps his hall north of the Crossing.",
     cleansed: "Two of three. The Sunken Crypt sleeps again.",
     completeEyebrow: "SUNKEN CRYPT",
-    completeNext: "Smoke still rises from the mountain road. The Cinder Depths are not built yet.",
+    completeNext: "The smoke on the mountain road is the last shard breathing. The south gate has opened.",
     unlocks: {},
     decor: ["decor-moss", "decor-moss", "decor-rubble", "decor-puddle-dark", "bones", "decor-candle"],
     decorDensity: 0.06,
+  },
+  cinder: {
+    id: "cinder",
+    def: cinder as DungeonDef,
+    tileset: "cinder",
+    gate: "gate-cinder",
+    gateDir: "south",
+    boss: "cindergolem",
+    tool: "firerod",
+    signTitle: "SOOT-BLACK STONE",
+    bossKeyHint: "The Heart of the Cinder burns north of the Crossing.",
+    cleansed: "Three of three. The Ember is whole.",
+    completeEyebrow: "CINDER DEPTHS",
+    completeNext: "Bring the last shard home. Tam is waiting by the plinth.",
+    unlocks: {},
+    decor: ["decor-rubble", "decor-rubble", "stone", "bones", "decor-candle"],
+    decorDensity: 0.05,
   },
 };
 
 export function dungeonFor(place: string): DungeonMeta {
   return DUNGEONS[(place in DUNGEONS ? place : "whisperwood") as DungeonId];
+}
+
+/** Which gate in town leads to a place (the hub reads this instead of hardcoding). */
+export function gateFor(place: string): string | undefined {
+  return (Object.values(DUNGEONS).find((m) => m.id === place) ?? null)?.gate;
 }

@@ -1,5 +1,4 @@
-"""DRAFT — Cinder Depths (dungeon 3). Writes docs/mockup/cinder-map.png (and a draft JSON under docs/,
-not src/) for the user to veto before rooms are built. Same 20x12 format as the crypt plus:
+"""Cinder Depths (dungeon 3). Writes src/game/data/cinder-depths.json and docs/mockup/cinder-map.png. Same 20x12 format as the crypt plus:
   % lava (impassable, never drains)   v fire vent (periodic flame burst on a timer, telegraphed)
   B brazier (unlit; light every brazier in the room with the Fire Rod -> solveReward)
   T thorn barricade (blocks a doorway; burn it with the Fire Rod)   E ember plate (step-on, like the crypt)
@@ -43,7 +42,7 @@ room("vent-gallery", 1, 2, "Vent Gallery", "puzzle", [
     "....................",
     "#..................#",
     "#...v.....v.....v..#",
-    "#.................E#",
+    "#..............c..E#",
     "####################",
 ], solveReward="chest:key")
 
@@ -90,7 +89,7 @@ room("smelter", 0, 1, "The Smelter", "miniboss", [
     "#..%%%%%%%%%%%%%%..#",
     "#..................#",
     "####################",
-], clearReward="chest:firerod", sub="Two cinderlings guard the forge")
+], clearReward="chest:firerod", sub="Two cinderlings guard the forge", signs=[])
 
 room("brazier-vault", 2, 1, "Brazier Vault", "puzzle", [
     "####################",
@@ -150,7 +149,7 @@ room("boss", 1, 0, "Heart of the Cinder", "boss", [
     "#..%%..........%%..#",
     "#..................#",
     "#########..#########",
-], objects=[{"kind": "cindergolem", "x": 10, "y": 4.8}])
+], objects=[{"kind": "cindergolem", "x": 10, "y": 4.8}], sub="Its crust drinks steel. Fire it from behind.")
 
 room("ashen-treasury", 3, 0, "Ashen Treasury", "treasure", [
     "####################",
@@ -183,7 +182,7 @@ data = {
     },
     "rooms": [R[i] for i in order],
 }
-json.dump(data, open("docs/mockup/cinder-depths.draft.json", "w", encoding="utf-8"), indent=2)
+json.dump(data, open("src/game/data/cinder-depths.json", "w", encoding="utf-8"), indent=2)
 
 T, GAP, LABEL_H = 8, 200, 64
 RW, RH = 20 * T, 12 * T

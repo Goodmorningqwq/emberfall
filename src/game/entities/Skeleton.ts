@@ -13,21 +13,27 @@ type State = "walk" | "telegraph" | "lunge" | "recover" | "stunned";
 
 export interface SkeletonOptions {
   captain?: boolean;
+  /** the Cinder Depths' brute: slag body, iron shield that turns steel from the front until a rod bolt heats it */
+  cinder?: boolean;
 }
 
 export class Skeleton extends Enemy {
   private state: State = "walk";
   private stateUntil = 0;
   private captain: boolean;
+  private cinder: boolean;
   private speed: number;
   private k: number;
+  private facing = new Phaser.Math.Vector2(0, 1);
+  private heatedUntil = 0;
 
   constructor(scene: DungeonScene, group: Phaser.Physics.Arcade.Group, x: number, y: number, opts: SkeletonOptions = {}) {
-    super(scene, group, x, y, "skeleton", opts.captain ? 10 : 3);
+    super(scene, group, x, y, opts.cinder ? "cinderling" : "skeleton", opts.captain ? 10 : opts.cinder ? 4 : 3);
     this.captain = !!opts.captain;
-    this.bounty = this.captain ? 25 : 5;
+    this.cinder = !!opts.cinder;
+    this.bounty = this.captain ? 25 : this.cinder ? 8 : 5;
     this.k = this.captain ? 1.4 : 1;
-    this.speed = this.captain ? 62 : 48;
+    this.speed = this.captain ? 62 : this.cinder ? 38 : 48;
     const s = this.sprite;
     s.setScale(this.k);
     s.body!.setSize(18, 14).setOffset(7, 18);
@@ -39,6 +45,22 @@ export class Skeleton extends Enemy {
 
   get isAttacking() {
     return this.state === "lunge";
+  }
+
+  /** Cinderling: the shield turns steel from the front until it's been heated. */
+  get blocksNow() {
+    if (!this.cinder || this.scene.time.now < this.heatedUntil) return false;
+    const p = this.scene.playerPos();
+    const s = this.sprite;
+    const to = new Phaser.Math.Vector2(p.x - s.x, p.y - (s.y - 10)).normalize();
+    return to.dot(this.facing) > 0.2;
+  }
+
+  /** A rod bolt: the slag glows and the guard drops for a while. */
+  heat(ms: number) {
+    this.heatedUntil = this.scene.time.now + ms;
+    this.sprite.setTint(0xff8a3a).setTintMode(Phaser.TintModes.ADD);
+    this.scene.time.delayedCall(ms, () => this.sprite.active && this.scene.time.now >= this.heatedUntil && this.restTint());
   }
 
   update(now: number, px: number, py: number) {
@@ -66,6 +88,7 @@ export class Skeleton extends Enemy {
           const v = to.normalize().scale(this.speed);
           s.setVelocity(v.x, v.y);
           s.setFlipX(v.x < 0);
+          this.facing.copy(to.normalize());
         } else s.setVelocity(0, 0);
         break;
       case "telegraph":
@@ -75,9 +98,10 @@ export class Skeleton extends Enemy {
           this.restTint();
           s.setScale(1.15 * this.k, 0.9 * this.k);
           this.scene.tweens.add({ targets: s, scaleX: this.k, scaleY: this.k, duration: 230, ease: "Quad.easeOut" });
-          const v = to.normalize().scale(this.captain ? 210 : 175);
+          const v = to.normalize().scale(this.captain ? 210 : this.cinder ? 150 : 175);
           s.setVelocity(v.x, v.y);
           s.setFlipX(v.x < 0);
+          this.facing.copy(to.clone().normalize());
           this.scene.slashArc(s.x + v.x * 0.08, s.y - 10 + v.y * 0.08, Math.atan2(v.y, v.x), this.captain ? 16 : 11);
         }
         break;
@@ -100,8 +124,19 @@ export class Skeleton extends Enemy {
 
   private restTint() {
     const s = this.sprite;
+    if (this.scene.time.now < this.heatedUntil) return s.setTint(0xff8a3a).setTintMode(Phaser.TintModes.ADD);
     if (this.captain) s.setTint(0xc8d0e0).setTintMode(Phaser.TintModes.MULTIPLY);
     else s.clearTint().setTintMode(Phaser.TintModes.MULTIPLY);
+  }
+
+  /** Steel on the shield: a knock, no damage (the scene rings the clang). */
+  takeHit(fromX: number, fromY: number, damage = 1): boolean {
+    if (this.blocksNow) {
+      this.hitThisSwing = true;
+      this.scene.tweens.add({ targets: this.sprite, x: this.sprite.x + (fromX < this.sprite.x ? 2 : -2), duration: 40, yoyo: true });
+      return false;
+    }
+    return super.takeHit(fromX, fromY, damage);
   }
 
   protected onHit() {

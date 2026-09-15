@@ -12,6 +12,8 @@ import { Skeleton } from "../entities/Skeleton";
 import { BoneKnight, BONEKNIGHT_HP } from "../entities/BoneKnight";
 import { Boomerang } from "../entities/Boomerang";
 import { Grapple } from "../entities/Grapple";
+import { FireBolt } from "../entities/FireBolt";
+import { CinderGolem, CINDERGOLEM_HP } from "../entities/CinderGolem";
 import { Bomb } from "../entities/Bomb";
 import { HERO } from "../entities/heroAssets";
 import { useGame, type ItemId, type LessonId } from "../../ui/store";
@@ -24,12 +26,13 @@ import { questStep, thingTile } from "../quests";
 type Dir = "north" | "south" | "east" | "west";
 
 /** clip name -> frame count. "-loop" suffix loops. */
-const ENEMY_CLIPS: Record<string, number> = { "slime-hop-loop": 6, "slime-splat": 6, "blueslime-hop-loop": 6, "blueslime-splat": 6, "sprite-hover-loop": 6, "mushroom-spore": 8, "door-locked-open": 6, "door-boss-open": 6, "water-loop": 4 };
-const ENEMY_FPS: Record<string, number> = { "slime-hop-loop": 9, "slime-splat": 14, "blueslime-hop-loop": 9, "blueslime-splat": 14, "sprite-hover-loop": 12, "mushroom-spore": 7.3, "door-locked-open": 10, "door-boss-open": 8, "water-loop": 2.5 };
+const ENEMY_CLIPS: Record<string, number> = { "slime-hop-loop": 6, "slime-splat": 6, "blueslime-hop-loop": 6, "blueslime-splat": 6, "magmaslime-hop-loop": 6, "magmaslime-splat": 6, "sprite-hover-loop": 6, "mushroom-spore": 8, "door-locked-open": 6, "door-boss-open": 6, "water-loop": 4, "lava-loop": 4 };
+const ENEMY_FPS: Record<string, number> = { "slime-hop-loop": 9, "slime-splat": 14, "blueslime-hop-loop": 9, "blueslime-splat": 14, "magmaslime-hop-loop": 9, "magmaslime-splat": 14, "sprite-hover-loop": 12, "mushroom-spore": 7.3, "door-locked-open": 10, "door-boss-open": 8, "water-loop": 2.5, "lava-loop": 3 };
 /** Boss plate text + HP per boss object kind. */
 const BOSSES: Record<string, { name: string; sub: string; hp: number; flash: number; phase2: string; blocked: (hasTool: boolean) => string; stunned: string }> = {
   treant: { name: "ELDER TREANT", sub: "Warden of the Hollow", hp: TREANT_HP, flash: 0xffb060, phase2: "IT DIGS IN DEEPER", blocked: (t) => (t ? "Bark shrugs off steel - ring the core" : "Bark shrugs off steel"), stunned: "STUNNED - STRIKE THE CORE" },
   boneknight: { name: "BONE KNIGHT", sub: "Captain of the Drowned", hp: BONEKNIGHT_HP, flash: 0x9ad0ff, phase2: "HE QUICKENS", blocked: (t) => (t ? "The shield takes it - hook it away" : "The shield takes it - get behind him"), stunned: "SHIELD DOWN - STRIKE" },
+  cindergolem: { name: "CINDER GOLEM", sub: "Heart of the Cinder", hp: CINDERGOLEM_HP, flash: 0xff9a4a, phase2: "THE CRUST SPLITS", blocked: (t) => (t ? "The crust drinks steel - fire its back" : "The crust drinks steel"), stunned: "IT GLOWS - STRIKE" },
 };
 const DIRS: Record<Dir, { dx: number; dy: number }> = { north: { dx: 0, dy: -1 }, south: { dx: 0, dy: 1 }, east: { dx: 1, dy: 0 }, west: { dx: -1, dy: 0 } };
 
@@ -102,6 +105,11 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
   private water: { sprite: Phaser.GameObjects.Sprite; zone: Phaser.GameObjects.Zone }[] = [];
   private anchors: { x: number; y: number; zone: Phaser.GameObjects.Zone }[] = [];
   private grapple?: Grapple;
+  private bolts: FireBolt[] = [];
+  private vents: { x: number; y: number; img: Phaser.GameObjects.Image; em: Phaser.GameObjects.Particles.ParticleEmitter }[] = [];
+  private braziers: { x: number; y: number; zone: Phaser.GameObjects.Zone; img: Phaser.GameObjects.Image; lit: boolean; flame?: Phaser.GameObjects.Particles.ParticleEmitter }[] = [];
+  private thorns?: { img: Phaser.GameObjects.Image; zone: Phaser.GameObjects.Zone; cx: number; cy: number; flag: string };
+  private firePuddles: { x: number; y: number; until: number; img: Phaser.GameObjects.Image }[] = [];
   private guide?: GuideDrawer;
   private createdAt = 0;
   private unsub?: () => void;
@@ -121,10 +129,10 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
       this.load.spritesheet(`tiles-${m.tileset}`, `assets/tiles/${m.tileset}.png`, { frameWidth: TILE, frameHeight: TILE });
       this.load.json(`tiles-meta-${m.tileset}`, `assets/tiles/${m.tileset}.json`);
     }
-    for (const p of ["door", "torch", "block", "chest", "chest-open", "slime", "blueslime", "sprite", "mushroom", "treant", "root", "door-locked", "door-locked-edge", "door-boss", "stump", "crystal", "plate", "crack", "heart-container", "signpost", "bomb", "boomerang", "archway", "skeleton", "bat", "boneknight", "boneknight-noshield", "shield-ground", "sarcophagus", "bones", "anchor", "pit-tile", "hook", "stone", "decor-leaves", "decor-tuft", "decor-shrooms", "decor-puddle", "decor-moss", "decor-rubble", "decor-puddle-dark", "decor-candle"]) {
+    for (const p of ["door", "torch", "block", "chest", "chest-open", "slime", "blueslime", "sprite", "mushroom", "treant", "root", "door-locked", "door-locked-edge", "door-boss", "stump", "crystal", "plate", "crack", "heart-container", "signpost", "bomb", "boomerang", "archway", "skeleton", "bat", "boneknight", "boneknight-noshield", "shield-ground", "sarcophagus", "bones", "anchor", "pit-tile", "hook", "stone", "decor-leaves", "decor-tuft", "decor-shrooms", "decor-puddle", "decor-moss", "decor-rubble", "decor-puddle-dark", "decor-candle", "cinderling", "cindergolem", "magmaslime", "firebat", "brazier", "thorns", "vent", "slag"]) {
       if (!this.textures.exists(p)) this.load.image(p, `assets/sprites/props/${p}.png`);
     }
-    for (const i of ["key", "boomerang", "bomb", "shard", "potion", "coin", "bosskey", "grapple"]) this.load.image(`icon-${i}`, `assets/ui/icons/${i}.png`);
+    for (const i of ["key", "boomerang", "bomb", "shard", "potion", "coin", "bosskey", "grapple", "firerod"]) if (!this.textures.exists(`icon-${i}`)) this.load.image(`icon-${i}`, `assets/ui/icons/${i}.png`);
     // enemy clips: one PNG per frame under assets/sprites/props/anim/<clip>/<i>.png (PixelLab animate_object)
     for (const [clip, n] of Object.entries(ENEMY_CLIPS)) for (let i = 0; i < n; i++) this.load.image(`${clip}-${i}`, `assets/sprites/props/anim/${clip}/${i}.png`);
     this.load.spritesheet("hearts", "assets/ui/hearts.png", { frameWidth: 16, frameHeight: 16 });
@@ -146,6 +154,11 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
     this.bombs = [];
     this.boomerang = undefined;
     this.grapple = undefined;
+    this.bolts = [];
+    this.vents = [];
+    this.braziers = [];
+    this.thorns = undefined;
+    this.firePuddles = [];
     this.boss = undefined;
     this.water = [];
     this.anchors = [];
@@ -205,7 +218,7 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
     const entRoom = this.dungeon.room(ent.room);
     this.player = new Player(this, entRoom.x + ent.tx * TILE, entRoom.y + ent.ty * TILE);
     useGame.getState().setPlace(this.meta.id);
-    setAmbient(this.meta.id === "crypt" ? "crypt" : "whisperwood");
+    setAmbient(this.meta.id === "crypt" ? "crypt" : this.meta.id === "cinder" ? "cinder" : "whisperwood");
     if (useGame.getState().screen === "game") this.cameras.main.fadeIn(400, 8, 10, 8);
     this.wireCollisions();
     this.guide = new GuideDrawer(this);
@@ -379,6 +392,15 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
     this.boomerang = undefined;
     this.grapple?.destroy();
     this.grapple = undefined;
+    for (const b of this.bolts) b.destroy();
+    this.bolts = [];
+    for (const v of this.vents) v.em.destroy();
+    this.vents = [];
+    for (const b of this.braziers) b.flame?.destroy();
+    this.braziers = [];
+    this.thorns = undefined;
+    for (const f of this.firePuddles) f.img.destroy();
+    this.firePuddles = [];
     for (const b of this.bombs) b.destroy();
     this.bombs = [];
   }
@@ -457,6 +479,53 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
           this.waterGroup.add(this.add.zone(x + 16, y + 16, 32, 32));
           break;
         }
+        case "lava": {
+          // molten until the room's plate cools it to slag; fire bats and magma slimes cross it
+          if (drained) {
+            this.roomStuff.push(this.add.image(x, y, "slag").setOrigin(0).setDepth(-998));
+            break;
+          }
+          const spr = this.add.sprite(x, y, "lava-loop-0").setOrigin(0).setDepth(-998);
+          if (this.anims.exists("lava-loop")) spr.play({ key: "lava-loop", startFrame: (p.tx * 3 + p.ty) % 4 });
+          this.roomStuff.push(spr);
+          const zone = this.add.zone(x + 16, y + 16, 32, 32);
+          this.waterGroup.add(zone);
+          this.water.push({ sprite: spr, zone });
+          break;
+        }
+        case "vent": {
+          const img = this.add.image(x, y, "vent").setOrigin(0).setDepth(-997);
+          this.roomStuff.push(img);
+          const em = this.add.particles(x + 16, y + 10, "spore", {
+            speedY: { min: -140, max: -80 }, speedX: { min: -14, max: 14 }, lifespan: { min: 220, max: 420 }, scale: { start: 1.1, end: 0 },
+            tint: [0xff6a2a, 0xffa040, 0xffe08a], alpha: { start: 0.95, end: 0 }, frequency: 14, blendMode: Phaser.BlendModes.ADD, emitting: false,
+          }).setDepth(y + 40);
+          this.roomStuff.push(em);
+          this.vents.push({ x: x + 16, y: y + 16, img, em });
+          break;
+        }
+        case "brazier": {
+          const img = this.add.image(x, y - 16, "brazier").setOrigin(0).setDepth(y + 32);
+          this.roomStuff.push(img);
+          this.solids.add(this.add.zone(x + 16, y + 22, 26, 18));
+          this.solidTiles.add(`${p.tx},${p.ty}`);
+          const zone = this.add.zone(x + 16, y + 4, 30, 40);
+          this.physics.add.existing(zone, true);
+          this.roomStuff.push(zone);
+          const b = { x: x + 16, y: y - 6, zone, img, lit: solved, flame: undefined as Phaser.GameObjects.Particles.ParticleEmitter | undefined };
+          this.braziers.push(b);
+          if (solved) this.lightBrazier(b, true);
+          break;
+        }
+        case "thorns": {
+          if (p.index !== 0 || st.hasFlag(`thorns:${room.id}`)) break;
+          const img = this.add.image(x, y - 4, "thorns").setOrigin(0).setDepth(y + 28);
+          this.roomStuff.push(img);
+          const zone = this.add.zone(x + 32, y + 12, 64, 26);
+          this.solids.add(zone);
+          this.thorns = { img, zone, cx: x + 32, cy: y + 12, flag: `thorns:${room.id}` };
+          break;
+        }
         case "crystal": {
           const img = this.addSolidProp("crystal", p);
           const zone = this.add.zone(x + 16, y + 14, 26, 26);
@@ -506,6 +575,9 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
         case "bat":
         case "blueslime":
         case "captain":
+        case "magmaslime":
+        case "firebat":
+        case "cinderling":
           // every room stays cleared once you've cleared it (saved), not just the reward rooms
           if (!cleared) spawns.push({ kind: p.kind, x: x + 16, y: y + 30 });
           break;
@@ -672,6 +744,18 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
       case "boneknight":
         e = new BoneKnight(this, this.enemyGroup, x, y);
         break;
+      case "magmaslime":
+        e = new Slime(this, this.enemyGroup, x, y, opts.fromSplit ? { hp: 1, scale: 0.7, bounty: 1, texture: "magmaslime" } : { texture: "magmaslime", hp: 3, bounty: 5 });
+        break;
+      case "firebat":
+        e = new ForestSprite(this, this.enemyGroup, x, y, "firebat");
+        break;
+      case "cinderling":
+        e = new Skeleton(this, this.enemyGroup, x, y, { cinder: true });
+        break;
+      case "cindergolem":
+        e = new CinderGolem(this, this.enemyGroup, x, y);
+        break;
     }
     if (!e) return;
     this.enemies.push(e);
@@ -829,16 +913,26 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
     this.time.delayedCall(200, () => {
       if (this.room !== room) return;
       this.shake(900, 0.003);
+      const lava = this.meta.id === "cinder";
       for (const [i, w] of this.water.entries()) {
-        this.tweens.add({ targets: w.sprite, alpha: 0, duration: 700, delay: 200 + (i % 7) * 60, ease: "Quad.easeIn", onComplete: () => w.sprite.destroy() });
+        if (lava) {
+          // it darkens and crusts over instead of sinking
+          this.time.delayedCall(200 + (i % 7) * 60, () => {
+            if (!w.sprite.active) return;
+            w.sprite.stop();
+            w.sprite.setTexture("slag");
+            this.puff(w.sprite.x + 16, w.sprite.y + 16, 0x6a6462, 2);
+          });
+        } else this.tweens.add({ targets: w.sprite, alpha: 0, duration: 700, delay: 200 + (i % 7) * 60, ease: "Quad.easeIn", onComplete: () => w.sprite.destroy() });
       }
       for (const r of this.waterRims) this.tweens.add({ targets: r, alpha: 0, duration: 600, delay: 300 });
       this.time.delayedCall(950, () => {
         if (this.room !== room) return;
         this.waterGroup.clear(true, true);
         this.water = [];
-        useGame.getState().setNarration("The water sinks into the stone. The way is open.");
-        this.time.delayedCall(3200, () => useGame.getState().narration?.startsWith("The water sinks") && useGame.getState().setNarration(null));
+        const line = lava ? "The lava crusts over. It will hold your weight." : "The water sinks into the stone. The way is open.";
+        useGame.getState().setNarration(line);
+        this.time.delayedCall(3200, () => useGame.getState().narration === line && useGame.getState().setNarration(null));
       });
     });
   }
@@ -847,9 +941,11 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
   /** A thin pale rim on every floor edge of the water, so the tile fence reads as a shoreline. */
   private drawWaterRims(room: Room) {
     this.waterRims = [];
-    const isWater = (tx: number, ty: number) => this.dungeon.kindAt(tx, ty) === "water";
+    const liquid = this.meta.id === "cinder" ? "lava" : "water";
+    const rim = liquid === "lava" ? 0x3a1a12 : 0x7aa8b8;
+    const isWater = (tx: number, ty: number) => this.dungeon.kindAt(tx, ty) === liquid;
     for (const p of room.placements) {
-      if (p.kind !== "water") continue;
+      if (p.kind !== liquid) continue;
       const x = p.tx * TILE, y = p.ty * TILE;
       const edges: [boolean, number, number, number, number][] = [
         [!isWater(p.tx, p.ty - 1) && !this.dungeon.isWall(p.tx, p.ty - 1), x, y, TILE, 2],
@@ -859,7 +955,7 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
       ];
       for (const [on, rx, ry, rw, rh] of edges) {
         if (!on) continue;
-        const r = this.add.rectangle(rx, ry, rw, rh, 0x7aa8b8, 0.55).setOrigin(0).setDepth(-997);
+        const r = this.add.rectangle(rx, ry, rw, rh, rim, liquid === "lava" ? 0.8 : 0.55).setOrigin(0).setDepth(-997);
         this.roomStuff.push(r);
         this.waterRims.push(r);
       }
@@ -981,7 +1077,7 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
   private sealDoorway(room: Room) {
     this.unsealDoorway();
     this.shake(200, 0.006);
-    const slabs = this.meta.id === "crypt";
+    const slabs = this.meta.id !== "whisperwood";
     for (const tx of [9, 10]) {
       const x = room.x + tx * TILE + 16;
       const y = room.y + 11 * TILE + 30;
@@ -1092,7 +1188,7 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
     const st = useGame.getState();
     if (!st.boss) return;
     const info = BOSSES[this.meta.boss];
-    const hasTool = st.hasItem(this.meta.boss === "treant" ? "boomerang" : "grapple");
+    const hasTool = st.hasItem(this.meta.tool ?? "boomerang");
     const text = status === "stunned" ? info.stunned : status === "bark" ? info.blocked(hasTool) : "";
     if (status === "stunned") sfx("yell");
     st.setBoss({ ...st.boss, status: text });
@@ -1102,7 +1198,7 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
     this.bossRing = undefined;
     if (status === "stunned" && this.boss) {
       const t = this.boss.sprite;
-      this.bossRing = this.add.circle(t.x, t.y - (this.meta.boss === "treant" ? 40 : 30), 12, 0x000000, 0).setStrokeStyle(2, info.flash, 1).setDepth(t.depth + 1);
+      this.bossRing = this.add.circle(t.x, t.y - (this.meta.boss === "treant" ? 40 : this.meta.boss === "cindergolem" ? 34 : 30), 12, 0x000000, 0).setStrokeStyle(2, info.flash, 1).setDepth(t.depth + 1);
       this.tweens.add({ targets: this.bossRing, scale: 1.5, alpha: 0, duration: 700, repeat: -1, ease: "Quad.easeOut" });
     }
   }
@@ -1217,6 +1313,7 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
     if (st.lessons.includes(id) || this.pendingLessons.includes(id) || st.lesson?.id === id) return;
     if (id === "throw" && !st.hasItem("boomerang")) return;
     if (id === "grapple" && !st.hasItem("grapple")) return;
+    if (id === "firerod" && !st.hasItem("firerod")) return;
     if (id === "bomb" && (!st.hasItem("bomb") || !st.hasFlag("unlock:bomb"))) return;
     if (id === "potion" && (!st.hasItem("potion") || !st.hasFlag("unlock:potion"))) return;
     if (st.lesson) {
@@ -1313,6 +1410,11 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
       case "potion":
         st.giveItem("potion");
         banner = { title: "Potion", icon: "potion" };
+        break;
+      case "firerod":
+        st.giveItem("firerod");
+        banner = { title: "Fire Rod", sub: "Right-click to fire. Lights braziers, burns thorns, heats slag - and the golem's back.", icon: "firerod" };
+        this.time.delayedCall(2600, () => this.startLesson("firerod"));
         break;
       case "grapple":
         st.giveItem("grapple");
@@ -1419,18 +1521,156 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
 
   swapTool() {
     const st = useGame.getState();
-    const owned = (["boomerang", "grapple"] as const).filter((t) => st.hasItem(t));
+    const owned = (["boomerang", "grapple", "firerod"] as const).filter((t) => st.hasItem(t));
     if (owned.length < 2) return;
     const next = owned[(owned.indexOf(st.tool) + 1) % owned.length];
     st.setTool(next);
     sfx("ui");
-    this.toast(`icon-${next}`, next === "grapple" ? "Grapple hook in hand" : "Boomerang in hand");
+    this.toast(`icon-${next}`, next === "grapple" ? "Grapple hook in hand" : next === "firerod" ? "Fire rod in hand" : "Boomerang in hand");
   }
 
   /** RMB: whichever tool is in hand. */
   throwBoomerang(dir: Phaser.Math.Vector2) {
-    if (useGame.getState().tool === "grapple") return this.fireGrapple(dir);
+    const tool = useGame.getState().tool;
+    if (tool === "grapple") return this.fireGrapple(dir);
+    if (tool === "firerod") return this.fireRod(dir);
     return this.throwBoomerangReal(dir);
+  }
+
+  /** The Fire Rod: an ember bolt that lights, burns and heats. Two in the air at most. */
+  private fireRod(dir: Phaser.Math.Vector2) {
+    this.bolts = this.bolts.filter((b) => !b.done);
+    if (this.bolts.length >= 2) return false;
+    const p = this.player.sprite;
+    const bolt = new FireBolt(this, p.x + dir.x * 12, p.y - 14 + dir.y * 12, dir);
+    this.bolts.push(bolt);
+    sfx("whoosh");
+    this.finishLesson("firerod");
+    this.physics.add.collider(bolt.sprite, this.walls);
+    this.physics.add.overlap(bolt.sprite, this.enemyGroup, (_b, obj) => {
+      const e = (obj as Phaser.GameObjects.GameObject).getData("enemy") as Enemy;
+      if (!e || e.isDead || bolt.done || !bolt.canHit(e)) return;
+      if (e instanceof CinderGolem) {
+        if (e.backHit(bolt.sprite.x, bolt.sprite.y)) e.overheat();
+        else this.bossStatus("bark");
+        bolt.burst();
+        return;
+      }
+      if (e instanceof Skeleton) e.heat(2600);
+      e.hitThisSwing = false;
+      const died = e.takeHit(bolt.sprite.x, bolt.sprite.y, 1);
+      this.damageNumber(e.sprite.x, e.sprite.y - e.sprite.displayHeight, 1);
+      if (died) this.onEnemyDied(e);
+      bolt.burst();
+    });
+    for (const b of this.braziers) {
+      this.physics.add.overlap(bolt.sprite, b.zone, () => {
+        if (bolt.done || b.lit) return;
+        this.lightBrazier(b);
+        bolt.burst();
+      });
+    }
+    if (this.thorns) {
+      const t = this.thorns;
+      this.physics.add.overlap(bolt.sprite, t.zone, () => {
+        if (bolt.done || !this.thorns) return;
+        bolt.burst();
+        this.burnThorns();
+      });
+    }
+    return true;
+  }
+
+  /** A brazier catches: flame, glow, and when every one in the room burns the room is solved. */
+  private lightBrazier(b: (typeof this.braziers)[number], silent = false) {
+    b.lit = true;
+    b.img.setTint(0xffc080).setTintMode(Phaser.TintModes.MULTIPLY);
+    b.flame = this.add.particles(b.x, b.y - 2, "spore", {
+      speedY: { min: -40, max: -20 }, speedX: { min: -6, max: 6 }, lifespan: { min: 260, max: 460 }, scale: { start: 1.2, end: 0 },
+      tint: [0xff6a2a, 0xffa040, 0xffe08a], alpha: { start: 0.9, end: 0 }, frequency: 40, blendMode: Phaser.BlendModes.ADD,
+    }).setDepth(b.img.depth + 1);
+    this.roomStuff.push(b.flame);
+    if (silent) return;
+    sfx("crystal");
+    this.puff(b.x, b.y - 4, 0xffb060, 10);
+    this.shake(50, 0.002);
+    if (this.braziers.every((x) => x.lit)) this.solveRoom();
+    else this.toast("icon-firerod", `${this.braziers.filter((x) => x.lit).length} of ${this.braziers.length} lit`);
+  }
+
+  private burnThorns() {
+    const t = this.thorns;
+    if (!t) return;
+    this.thorns = undefined;
+    useGame.getState().setFlag(t.flag);
+    sfx("crack");
+    this.solids.remove(t.zone, true, true);
+    t.img.setTint(0xff8a3a).setTintMode(Phaser.TintModes.ADD);
+    this.tweens.add({ targets: t.img, alpha: 0, y: "+=4", duration: 700, delay: 200, ease: "Quad.easeIn", onComplete: () => t.img.destroy() });
+    for (let i = 0; i < 6; i++) this.time.delayedCall(i * 90, () => this.puff(t.cx - 24 + Math.random() * 48, t.cy - 6, 0xff9a4a, 6));
+    this.shake(120, 0.004);
+  }
+
+  /** A patch of fire on the floor (magma slime landings, golem splashes). */
+  firePuddle(x: number, y: number, ms: number) {
+    const img = this.add.image(x, y - 2, "halo").setTint(0xff7a30).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.7).setScale(0.9, 0.55).setDepth(-996);
+    this.tweens.add({ targets: img, alpha: 0.35, scale: 0.8, duration: 160, yoyo: true, repeat: -1 });
+    this.roomStuff.push(img);
+    this.firePuddles.push({ x, y, until: this.time.now + ms, img });
+    this.time.delayedCall(ms, () => {
+      this.tweens.killTweensOf(img);
+      this.tweens.add({ targets: img, alpha: 0, duration: 200, onComplete: () => img.destroy() });
+    });
+  }
+
+  /** A golem's magma splash: a warned spot, then a burst that hurts and leaves fire. */
+  magmaSplash(x: number, y: number, fromX: number, fromY: number) {
+    const WARN = 520;
+    const warn = this.add.circle(x, y - 4, 16, 0xff6a2a, 0.25).setStrokeStyle(2, 0xff9a4a, 0.9).setDepth(-990).setScale(0.5);
+    this.tweens.add({ targets: warn, scale: 1, alpha: 0.8, duration: WARN, ease: "Quad.easeIn" });
+    // the lump in the air
+    const lump = this.add.image(fromX, fromY, "ember").setDepth(9000).setScale(1.6).setBlendMode(Phaser.BlendModes.ADD);
+    this.tweens.add({ targets: lump, x, duration: WARN, ease: "Linear" });
+    this.tweens.add({ targets: lump, y: fromY - 60, duration: WARN / 2, ease: "Quad.easeOut", yoyo: true, onComplete: () => lump.destroy() });
+    this.time.delayedCall(WARN, () => {
+      warn.destroy();
+      sfx("bomb-place");
+      this.puff(x, y - 4, 0xff9a4a, 12);
+      const p = this.player.sprite;
+      if (Phaser.Math.Distance.Between(x, y, p.x, p.y) < 22) this.hurtPlayer(x, y, 1);
+      this.firePuddle(x, y, 1600);
+    });
+  }
+
+  /** Bosses and hazards hurt through here so the rule (grace, armour) stays in one place. */
+  hurtPlayer(x: number, y: number, dmg: number) {
+    this.player.hurt(x, y, dmg);
+  }
+
+  /** Vents breathe on a shared 3 s cycle: 2 s rest, a 0.4 s glow, 0.6 s of flame. */
+  private updateVents(now: number) {
+    if (!this.vents.length) return;
+    const t = now % 3000;
+    const warn = t >= 2000 && t < 2400, flame = t >= 2400;
+    const p = this.player.sprite;
+    for (const v of this.vents) {
+      if (warn) v.img.setTint(0x603010).setTintMode(Phaser.TintModes.ADD);
+      else v.img.clearTint().setTintMode(Phaser.TintModes.MULTIPLY);
+      if (flame !== v.em.emitting) {
+        if (flame) {
+          v.em.start();
+          if (Phaser.Math.Distance.Between(v.x, v.y, p.x, p.y) < 160) sfx("spore");
+        } else v.em.stop();
+      }
+      if (flame && Phaser.Math.Distance.Between(v.x, v.y, p.x, p.y - 6) < 18) this.hurtPlayer(v.x, v.y + 10, 1);
+    }
+  }
+
+  private updateFire(now: number) {
+    if (!this.firePuddles.length) return;
+    const p = this.player.sprite;
+    this.firePuddles = this.firePuddles.filter((f) => now < f.until);
+    for (const f of this.firePuddles) if (Phaser.Math.Distance.Between(f.x, f.y, p.x, p.y) < 15) this.hurtPlayer(f.x, f.y, 1);
   }
 
   private fireGrapple(dir: Phaser.Math.Vector2) {
@@ -1763,6 +2003,10 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
       this.boomerang?.update(p.x, p.y - 14);
       this.grapple?.update(p.x, p.y - 14);
       if (this.grapple?.done) this.grapple = undefined;
+      for (const b of this.bolts) b.update();
+      this.bolts = this.bolts.filter((b) => !b.done);
+      this.updateVents(now);
+      this.updateFire(now);
       this.checkPlates();
       // the potion lesson only makes sense while she's hurt: at full hearts it can't be completed, so it goes
       {

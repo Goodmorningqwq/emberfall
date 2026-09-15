@@ -72,7 +72,7 @@
         "....................",
         "#..................#",
         "#...v.....v.....v..#",
-        "#.................E#",
+        "#..............c..E#",
         "####################"
       ],
       "solveReward": "chest:key"
@@ -141,7 +141,8 @@
         "####################"
       ],
       "clearReward": "chest:firerod",
-      "sub": "Two cinderlings guard the forge"
+      "sub": "Two cinderlings guard the forge",
+      "signs": []
     },
     {
       "id": "brazier-vault",
@@ -238,7 +239,8 @@
           "x": 10,
           "y": 4.8
         }
-      ]
+      ],
+      "sub": "Its crust drinks steel. Fire it from behind."
     },
     {
       "id": "ashen-treasury",

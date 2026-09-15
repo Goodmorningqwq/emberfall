@@ -55,6 +55,7 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
   private npcZones: { zone: Phaser.GameObjects.Zone; key: string }[] = [];
   private gateZones: { zone: Phaser.GameObjects.Zone; kind: string }[] = [];
   private guide?: GuideDrawer;
+  private finalePending = false;
   private anchorList: { kind: string; tx: number; ty: number }[] = [];
   private createdAt = 0;
   private latched = false;
@@ -122,8 +123,8 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
       const g = anchors.find((a) => a.kind === data.from);
       if (g) {
         // just inside the gate, on the town side of it
-        sx = g.tx * TILE + (data.from === "gate-crypt" ? 76 : -24);
-        sy = g.ty * TILE + 40;
+        sx = g.tx * TILE + (data.from === "gate-crypt" ? 76 : data.from === "gate-cinder" ? 32 : -24);
+        sy = g.ty * TILE + (data.from === "gate-cinder" ? -20 : 40);
       }
     }
     this.player = new Player(this, sx, sy);
@@ -147,7 +148,13 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
       if (shouldFreeze(s) !== shouldFreeze(prev)) this.setFrozen(shouldFreeze(s));
       if (s.screen === "game" && prev.screen !== "game" && prev.screen !== "complete" && this.scene.isActive()) this.time.delayedCall(0, () => this.startWhereverSaved());
       if (s.screen === "title" && prev.screen !== "title" && this.scene.isActive()) this.time.delayedCall(0, () => this.scene.restart({}));
-      if (!s.dialogue && prev.dialogue) this.player.hold(0);
+      if (!s.dialogue && prev.dialogue) {
+        this.player.hold(0);
+        if (this.finalePending) {
+          this.finalePending = false;
+          this.finale();
+        }
+      }
       if (!s.shop && prev.shop) this.player.hold(0);
     });
     this.setFrozen(shouldFreeze(st));
@@ -311,6 +318,7 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
       if (!touch(g.zone)) continue;
       if (g.kind === "gate-whisperwood") return this.leaveFor("whisperwood");
       if (g.kind === "gate-crypt" && this.gateOpen(g.kind)) return this.leaveFor("crypt");
+      if (g.kind === "gate-cinder" && this.gateOpen(g.kind)) return this.leaveFor("cinder");
       if (!this.latched) {
         this.latched = true;
         this.toast(g.kind === "gate-crypt" ? "The marsh road is flooded. Not yet." : "Smoke on the mountain road. Not yet.");
@@ -353,6 +361,7 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
         st.setFlag("talked:elder");
         if (shards >= 1) st.setFlag("talked:elder:1");
         if (shards >= 2) st.setFlag("talked:elder:2");
+        if (shards >= 3 && !st.hasFlag("finale")) this.finalePending = true;
       }
       st.setDialogue({ title: `${npc.title} · ${npc.name}`, text: line });
       break;
@@ -364,10 +373,11 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
   private gateOpen(kind: string) {
     if (kind === "gate-whisperwood") return true;
     if (kind === "gate-crypt") return useGame.getState().hasFlag("shard:whisperwood");
+    if (kind === "gate-cinder") return useGame.getState().hasFlag("shard:crypt");
     return false;
   }
 
-  private leaveFor(place: "whisperwood" | "crypt") {
+  private leaveFor(place: "whisperwood" | "crypt" | "cinder") {
     this.leaving = true;
     this.player.hold(99999);
     this.player.sprite.setVelocity(0, 0);
@@ -462,6 +472,45 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
       this.tweens.resumeAll();
       this.time.paused = false;
     }
+  }
+
+  /**
+   * The ending: three shards home. Wren is held, the camera drifts to the plinth, the flame
+   * comes back all at once, the plate lands, and the complete screen tells the tally.
+   */
+  private finale() {
+    const st = useGame.getState();
+    const a = this.anchorList.find((x) => x.kind === "plinth");
+    if (!a) return;
+    const px = a.tx * TILE + 24, py = a.ty * TILE + 16;
+    this.player.hold(99999);
+    this.player.sprite.setVelocity(0, 0);
+    const cam = this.cameras.main;
+    cam.stopFollow();
+    cam.pan(px, py + 20, 1400, "Sine.easeInOut");
+    cam.zoomTo(1.6, 1400, "Sine.easeInOut");
+    this.time.delayedCall(1500, () => {
+      sfx("roar");
+      this.shake(600, 0.006);
+      const flame = this.add.particles(px, py, "spore", {
+        speedY: { min: -120, max: -50 }, speedX: { min: -30, max: 30 }, lifespan: { min: 500, max: 1100 }, scale: { start: 2.2, end: 0 },
+        tint: [0xd1541f, 0xe8763a, 0xffb060, 0xfff2b0], alpha: { start: 1, end: 0 }, frequency: 12, blendMode: Phaser.BlendModes.ADD,
+      }).setDepth(9000);
+      const halo = this.add.image(px, py + 4, "halo").setDepth(8999).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0).setScale(1);
+      this.tweens.add({ targets: halo, alpha: 0.9, scale: 6, duration: 1600, ease: "Quad.easeOut" });
+      this.time.delayedCall(1400, () => sfx("victory"));
+      this.time.delayedCall(1800, () => useGame.getState().showBanner({ kind: "quest", title: "The Ember Is Whole", sub: "Emberfall breathes again" }));
+      this.time.delayedCall(4600, () => {
+        const g = useGame.getState();
+        g.setFlag("finale");
+        if (g.banner?.kind === "quest") g.showBanner(null);
+        flame.stop();
+        g.completeDungeon();
+        cam.zoomTo(1, 10);
+        cam.startFollow(this.player.sprite, true, 0.12, 0.12);
+        this.player.hold(0);
+      });
+    });
   }
 
   /** The GPS in town: the objective is an NPC or a gate here, or the gate that leads to its dungeon. */

@@ -38,7 +38,7 @@ export class Slime extends Enemy {
     const texture = opts.texture ?? "slime";
     super(scene, group, x, y, texture, opts.hp ?? 2);
     this.opts = { scale: opts.scale ?? 1, hp: opts.hp ?? 2, split: opts.split ?? false, bounty: opts.bounty ?? 3, texture };
-    this.swims = texture === "blueslime";
+    this.swims = texture === "blueslime" || texture === "magmaslime";
     this.bounty = this.opts.bounty;
     const s = this.sprite;
     s.setScale(this.opts.scale);
@@ -92,6 +92,7 @@ export class Slime extends Enemy {
         if (now >= this.stateUntil) {
           this.enter("recover", now + RECOVER_MS);
           s.setVelocity(0, 0);
+          if (this.opts.texture === "magmaslime") this.scene.firePuddle(s.x, s.y, 1400);
           this.breathe?.resume();
           if (s.anims.isPaused) s.anims.resume();
         }

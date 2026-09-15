@@ -24,15 +24,16 @@ export class ForestSprite extends Enemy {
   private phase = Math.random() * Math.PI * 2;
   private bob?: Phaser.Tweens.Tween;
 
-  constructor(scene: DungeonScene, group: Phaser.Physics.Arcade.Group, x: number, y: number, texture: "sprite" | "bat" = "sprite") {
-    super(scene, group, x, y, texture, texture === "bat" ? 2 : 1);
-    this.bounty = texture === "bat" ? 4 : 2;
+  constructor(scene: DungeonScene, group: Phaser.Physics.Arcade.Group, x: number, y: number, texture: "sprite" | "bat" | "firebat" = "sprite") {
+    super(scene, group, x, y, texture, texture === "sprite" ? 1 : 2);
+    this.bounty = texture === "sprite" ? 2 : texture === "firebat" ? 6 : 4;
+    if (texture === "firebat") this.swims = true; // it flies over the lava
     const s = this.sprite;
     s.body!.setSize(16, 16).setOffset(8, 8);
     this.nextDartAt = scene.time.now + 900 + Math.random() * 800;
     if (texture === "sprite" && scene.anims.exists("sprite-hover-loop")) s.play({ key: "sprite-hover-loop", startFrame: Math.floor(Math.random() * 6) });
     // flicker, not a y-bob: tweening y would fight the physics body. Bats beat their wings instead.
-    if (texture === "bat") this.bob = scene.tweens.add({ targets: s, scaleX: 0.82, duration: 110, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+    if (texture !== "sprite") this.bob = scene.tweens.add({ targets: s, scaleX: 0.82, duration: 110, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
     else this.bob = scene.tweens.add({ targets: s, alpha: 0.7, duration: 380 + Math.random() * 120, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
   }
 
@@ -66,7 +67,7 @@ export class ForestSprite extends Enemy {
           this.bob?.pause();
           s.setTint(0xffffff).setTintMode(Phaser.TintModes.ADD);
           this.scene.tweens.add({ targets: s, scaleX: 0.8, scaleY: 1.25, duration: TELEGRAPH_MS, ease: "Quad.easeIn" });
-          if (s.texture.key === "bat") sfx("bat-flap");
+          if (s.texture.key !== "sprite") sfx("bat-flap");
         }
         break;
       }
@@ -74,7 +75,7 @@ export class ForestSprite extends Enemy {
         if (now >= this.stateUntil) {
           this.state = "dart";
           this.stateUntil = now + DART_MS;
-          if (this.sprite.texture.key === "bat") sfx("squeak");
+          if (this.sprite.texture.key !== "sprite") sfx("squeak");
           s.clearTint().setTintMode(Phaser.TintModes.MULTIPLY);
           s.setScale(1.3, 0.75);
           this.scene.tweens.add({ targets: s, scaleX: 1, scaleY: 1, duration: DART_MS, ease: "Quad.easeOut" });
