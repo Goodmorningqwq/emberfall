@@ -6,15 +6,20 @@
 window.__regress = async (opts = {}) => {
   const R = [];
   const section = async (name, fn) => { try { await fn(); } catch (e) { R.push([name + " — crashed", false, e.message]); } };
-  const ok = (name, cond, detail = "") => { R.push([name, !!cond, detail]); if (!cond && opts.stopOnFail) throw new Error("regression stop: " + name); return !!cond; };
   const st = () => window.__store.getState();
+  // balance telemetry: hearts lost and game time between beats (heals are counted as lost hearts)
+  let lastT = 0, lostAcc = 0, lastHearts = 0;
+  const tnow = () => (window.__game.loop.now || 0);
+  const ok = (name, cond, detail = "") => { const dt = Math.round((tnow() - lastT) / 100) / 10; lastT = tnow(); R.push([name, !!cond, detail, lostAcc, dt]); lostAcc = 0; if (!cond && opts.stopOnFail) throw new Error("regression stop: " + name); return !!cond; };
+  const heal = () => { lostAcc += st().maxHearts - st().hearts; st().heal(99); };
+  const watchHearts = () => { const h = st().hearts; if (h < lastHearts) lostAcc += lastHearts - h; lastHearts = h; };
+  const _run = window.__run; const runW = async (ms) => { const r = await _run(ms); watchHearts(); return r; };
   const sleep = window.__sleep;
-  const run = window.__run;
+  const run = runW;
   const game = window.__game;
   const hubS = () => game.scene.getScene("Hub");
   const dg = () => game.scene.getScene("Dungeon");
   const waitScene = async (sc, pred = () => true) => { for (let i = 0; i < 120 && !(sc.scene.settings.status === 5 && pred()); i++) { await sleep(200); await run(100); } await run(600); };
-  const heal = () => st().heal(99);
   const clamp = (r, x, y) => [Math.min(Math.max(x, r.x + 48), r.x + r.w - 48), Math.min(Math.max(y, r.y + 110), r.y + r.h - 40)];
   const tp = (x, y) => window.__tp(x, y);
   const swing = async (d, e) => { const [x, y] = clamp(d.room, e.sprite.x, e.sprite.y + 34); tp(x, y); window.__aim(e.sprite.x, e.sprite.y - 40); await window.__vhold("KeyJ", 74, 60); await run(420); };
@@ -26,6 +31,8 @@ window.__regress = async (opts = {}) => {
       if (st().hearts <= 2) heal(); } await run(900); return n; };
   const openChests = async (d) => { for (const c of [...d.chests]) { if (c.opened) continue; tp(c.image.x + 16, c.image.y + 46); await window.__vhold("KeyW", 87, 260); await run(1600); } };
   const pickup = async (d, kind, ms = 6000) => { for (let t = 0; t < ms; t += 150) { const it = d.pickupGroup.getChildren().find((c) => c.getData("pickup") === kind); if (it) { tp(it.x, it.y + 2); await run(kind === "shard" ? 3600 : 500); return true; } await run(150); } return false; };
+  const talk = async (hub, kind) => { const a = hub.anchorList.find((z) => z.kind === kind); const p = hub.player.sprite; for (let tries = 0; tries < 3 && !st().dialogue; tries++) { p.setPosition(a.tx * 32 + 16, a.ty * 32 + 60 + tries * 6); p.body.reset(p.x, p.y); await run(120); await window.__vhold("KeyW", 87, 700); await run(250); } return !!st().dialogue; };
+  const waitBoss = async () => { for (let t = 0; t < 8000 && !st().boss; t += 200) await run(200); await run(800); };
   const useTool = async (d, tool, tx, ty) => { st().setTool(tool); const p = d.player.sprite; const dx = tx - p.x, dy = ty - p.y, L = Math.hypot(dx, dy); return d.throwBoomerang({ x: dx / L, y: dy / L }); };
 
   // ---- fresh start in town
@@ -34,8 +41,8 @@ window.__regress = async (opts = {}) => {
   await waitScene(hubS(), () => !!hubS().player?.sprite?.body);
   ok("fresh start in town", st().place === "hub" && st().screen === "game");
   {
-    const hub = hubS(); const elder = hub.anchorList.find((a) => a.kind === "npc-elder"); const p = hub.player.sprite;
-    p.setPosition(elder.tx * 32 + 16, elder.ty * 32 + 60); p.body.reset(p.x, p.y); await window.__vhold("KeyW", 87, 600); await run(200);
+    const hub = hubS(); const p = hub.player.sprite;
+    await talk(hub, "npc-elder");
     ok("Tam talks", !!st().dialogue, st().dialogue?.title); st().setDialogue(null); await run(200);
     ok("quest step 2 after Tam", st().hasFlag("talked:elder"));
     // walk through the east gate
@@ -64,7 +71,7 @@ window.__regress = async (opts = {}) => {
     if (cz) { const [x, y] = clamp(d.room, cz.image.x + 16, cz.image.y + 90); tp(x, y); await run(60); await useTool(d, "boomerang", cz.image.x + 16, cz.image.y + 10); await run(1500); }
     await openChests(d);
     ok("boss key from the crystal room", st().hasItem("bosskey"));
-    d.goto("boss"); await run(4600);
+    d.goto("boss"); await waitBoss();
     const b = d.enemies.find((e) => e.isBoss);
     ok("Treant intro", !!b && st().boss?.name === "ELDER TREANT");
     for (let round = 0; round < 12 && b && !b.isDead; round++) {
@@ -86,9 +93,7 @@ window.__regress = async (opts = {}) => {
 
   await section("town after Whisperwood", async () => {
     const hub = hubS(); const p = hub.player.sprite;
-    const elder = hub.anchorList.find((a) => a.kind === "npc-elder");
-    p.setPosition(elder.tx * 32 + 16, elder.ty * 32 + 60); p.body.reset(p.x, p.y); await window.__vhold("KeyW", 87, 600); await run(200);
-    st().setDialogue(null); await run(200);
+    await talk(hub, "npc-elder"); st().setDialogue(null); await run(200);
     ok("Tam after shard 1", st().hasFlag("talked:elder:1"));
     // Orrin: the tempered sword (the shop path), else set the tier so the later bosses stay in budget
     st().openShop("blacksmith"); const err = st().gold >= 80 ? st().buy("sword2") : "poor"; st().closeShop();
@@ -104,8 +109,8 @@ window.__regress = async (opts = {}) => {
 
   await section("Crypt", async () => {
     const d = dg();
-    d.goto("drowned-hall"); await run(1500);
-    { const r = d.room; tp(r.x + 2 * 32 + 16, r.y + 8 * 32 + 16); await window.__vhold("KeyS", 83, 500); await run(1600); }
+    d.goto("drowned-hall"); await run(2000);
+    for (let tries = 0; tries < 3 && !st().hasFlag("solved:drowned-hall"); tries++) { const r = d.room; tp(r.x + 2 * 32 + 16, r.y + 8 * 32 + 16); await run(100); await window.__vhold("KeyS", 83, 500); await run(1600); }
     ok("Drowned Hall drained", st().hasFlag("solved:drowned-hall") && d.water.length === 0);
     d.goto("ossuary"); await run(1800); await fight(d, 80);
     await pickup(d, "key");
@@ -121,12 +126,13 @@ window.__regress = async (opts = {}) => {
     { const r = d.room; const p = d.player.sprite; tp(r.x + 2 * 32 + 16, r.y + 4 * 32 + 16); await run(60);
       const a = d.anchors.find((z) => z.x > r.x + 200); await useTool(d, "grapple", a.x, a.y); for (let i = 0; i < 40 && d.grapple; i++) await run(100);
       ok("hooked across the cistern", p.x > r.x + 11 * 32, "x=" + Math.round((p.x - r.x) / 32));
-      await fight(d, 40);
+      // the blue slime swims: let it come to the shore, then cut it from the floor
+      for (let i = 0; i < 30 && d.enemies.some((e) => !e.isDead); i++) { const e = d.enemies.find((e) => !e.isDead); tp(r.x + 12 * 32 + 16, Math.min(Math.max(e.sprite.y + 30, r.y + 110), r.y + r.h - 40)); window.__aim(e.sprite.x, e.sprite.y - 10); await window.__vhold("KeyJ", 74, 60); await run(420); if (st().hearts <= 2) heal(); }
       tp(r.x + 13 * 32 + 16, r.y + 7 * 32 + 16); await window.__vhold("KeyS", 83, 500); await run(1800);
       await openChests(d);
     }
     ok("boss key from the cistern", st().hasItem("bosskey"));
-    d.goto("boss"); await run(4800);
+    d.goto("boss"); await waitBoss();
     const b = d.enemies.find((e) => e.isBoss); const p = d.player.sprite;
     ok("Bone Knight intro", !!b && st().boss?.name === "BONE KNIGHT");
     for (let round = 0; round < 14 && b && !b.isDead; round++) {
@@ -146,9 +152,7 @@ window.__regress = async (opts = {}) => {
 
   await section("town after Crypt", async () => {
     const hub = hubS(); const p = hub.player.sprite;
-    const elder = hub.anchorList.find((a) => a.kind === "npc-elder");
-    p.setPosition(elder.tx * 32 + 16, elder.ty * 32 + 60); p.body.reset(p.x, p.y); await window.__vhold("KeyW", 87, 600); await run(200);
-    st().setDialogue(null); await run(200);
+    await talk(hub, "npc-elder"); st().setDialogue(null); await run(200);
     ok("south gate open after shard 2", hub.gateOpen("gate-cinder"));
     const gate = hub.anchorList.find((a) => a.kind === "gate-cinder");
     p.setPosition(gate.tx * 32 + 32, gate.ty * 32 - 20); p.body.reset(p.x, p.y); await window.__vhold("KeyS", 83, 1600);
@@ -171,7 +175,7 @@ window.__regress = async (opts = {}) => {
     for (const br of d.braziers) { const [x, y] = clamp(d.room, br.x, br.y + 70); tp(x, y); await run(60); await useTool(d, "firerod", br.x, br.y); await run(700); }
     await run(600); await openChests(d);
     ok("boss key from the braziers", st().hasItem("bosskey"));
-    d.goto("boss"); await run(4800);
+    d.goto("boss"); await waitBoss();
     const b = d.enemies.find((e) => e.isBoss); const p = d.player.sprite;
     ok("Cinder Golem intro", !!b && st().boss?.name === "CINDER GOLEM");
     for (let round = 0; round < 20 && b && !b.isDead; round++) {
@@ -191,14 +195,12 @@ window.__regress = async (opts = {}) => {
   });
 
   await section("finale", async () => {
-    const hub = hubS(); const p = hub.player.sprite;
-    const elder = hub.anchorList.find((a) => a.kind === "npc-elder");
-    p.setPosition(elder.tx * 32 + 16, elder.ty * 32 + 60); p.body.reset(p.x, p.y); await window.__vhold("KeyW", 87, 600); await run(200);
-    st().setDialogue(null); await run(200);
+    const hub = hubS();
+    await talk(hub, "npc-elder"); st().setDialogue(null); await run(200);
     for (let t = 0; t < 9000; t += 500) { await run(500); if (st().screen === "complete") break; }
     ok("finale", st().hasFlag("finale") && st().screen === "complete");
   });
   const failed = R.filter((r) => !r[1]);
-  console.table(R.map(([n, o, d]) => ({ beat: n, ok: o ? "✓" : "✗", detail: d })));
+  console.table(R.map(([n, o, d, lost, dt]) => ({ beat: n, ok: o ? "✓" : "✗", detail: d, heartsLost: lost, seconds: dt })));
   return { passed: R.length - failed.length, failed: failed.map((r) => r[0] + (r[2] ? " (" + r[2] + ")" : "")), beats: R };
 };

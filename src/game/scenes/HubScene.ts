@@ -348,8 +348,11 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
       this.player.hold(99999);
       this.player.sprite.setVelocity(0, 0);
       const st = useGame.getState();
-      // a side quest to hand out or turn in comes before the stall
-      const side = SIDE_QUESTS.find((q) => q.giver === n.key && ["offer", "ready"].includes(sideState(q, questStateOf())));
+      // a side quest to hand out or turn in comes before the stall - but never before a main-quest line
+      // the NPC owes (Tam's shard lines), so the main quest can't be starved by a side offer
+      const shardsNow = st.items.find((i) => i.id === "shard")?.qty ?? 0;
+      const mainPending = n.key === "npc-elder" && (!st.hasFlag("talked:elder") || (shardsNow >= 1 && !st.hasFlag(`talked:elder:${shardsNow}`)));
+      const side = mainPending ? undefined : SIDE_QUESTS.find((q) => q.giver === n.key && ["offer", "ready"].includes(sideState(q, questStateOf())));
       if (side) {
         const state = sideState(side, questStateOf());
         if (state === "offer") {
