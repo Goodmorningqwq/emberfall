@@ -52,9 +52,21 @@ hand: wait for `scene.settings.status === 5` (RUNNING) with **real** sleeps betw
 Prefer `sc.throwBoomerang({x,y})` / `sc.goto(id)` / store actions over key events when you are testing the
 system, and key events when you are testing the input path — both matter, they fail differently.
 
+## Full-game regression (run before pushing any gameplay change)
+```js
+await import("/tools/playtest.js?v=N"); await window.__boot();            // wait for the Hub to be RUNNING first
+await import("/tools/regression.js?v=N");
+window.__regressResult = null; window.__regressPromise = window.__regress().then(r => (window.__regressResult = r));
+// ~6–7 minutes; poll window.__regressResult in later calls (the tool call itself times out at 45 s)
+```
+34 beats from a fresh save to the finale (Tam, gates, every key/tool/boss-key, three bosses through their
+windows, shard → complete → home, Orrin's sword, the finale). Expected `{passed: 34, failed: []}`. A crashed
+section is reported as "<section> — crashed (message)" instead of stopping the run. Editing files under
+`tools/` makes Vite reload the page: re-import and re-boot after an edit.
+
 ## Regression rule
-Anything that touches `Enemy`, `DungeonScene`'s boss/hit paths or the store must re-run **both** boss fights
-(Treant with the boomerang, Bone Knight with the hook) — the crypt work silently left the Treant without
+Anything that touches `Enemy`, `DungeonScene`'s boss/hit paths or the store must re-run the full regression (or at
+least all three boss fights through their windows) — the crypt work silently left the Treant without
 `isBoss`, so its bar stopped updating. Seed the save **after** the page has loaded (the `beforeunload`
 auto-save overwrites a save you wrote before a reload), then `quitToTitle()` → `continueGame()`.
 

@@ -112,7 +112,12 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
     // keep her inside the tree border
     // the tree border: she stops below the top rows' trunks (so she's drawn in front of them, not tangled
     // in the canopy) and above the bottom rows' canopy
-    for (const r of [{ x: 0, y: 0, w: W, h: 2 * TILE + 36 }, { x: 0, y: H - 2 * TILE - 10, w: W, h: 2 * TILE + 10 }, { x: 0, y: 0, w: 2 * TILE, h: H }, { x: W - 2 * TILE, y: 0, w: 2 * TILE, h: H }]) {
+    // the south gate sits in the bottom rows: leave its lane open in the bottom wall
+    const southGate = this.placements().find((a) => a.kind === "gate-cinder");
+    const gx0 = southGate ? southGate.tx * TILE + 8 : -1, gx1 = southGate ? southGate.tx * TILE + 56 : -1;
+    const bottom = [{ x: 0, y: H - 2 * TILE - 10, w: southGate ? gx0 : W, h: 2 * TILE + 10 }];
+    if (southGate) bottom.push({ x: gx1, y: H - 2 * TILE - 10, w: W - gx1, h: 2 * TILE + 10 });
+    for (const r of [{ x: 0, y: 0, w: W, h: 2 * TILE + 36 }, ...bottom, { x: 0, y: 0, w: 2 * TILE, h: H }, { x: W - 2 * TILE, y: 0, w: 2 * TILE, h: H }]) {
       this.walls.add(this.add.zone(r.x + r.w / 2, r.y + r.h / 2, r.w, r.h));
     }
 
