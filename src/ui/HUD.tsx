@@ -492,6 +492,12 @@ export function HUD() {
               <div><span className="kbd">Esc</span><span>Pause / resume</span></div>
             </div>
             <div className="pause-settings">
+              <span className="muted t-small">Music</span>
+              <button className="pxbtn pxslot" onClick={() => { const v = settings.music >= 1 ? 0 : Math.min(1, Math.round((settings.music + 0.25) * 4) / 4); setSettings({ music: v }); sfx("ui"); }}>
+                {settings.music <= 0 ? "Off" : `${Math.round(settings.music * 100)}%`}
+              </button>
+            </div>
+            <div className="pause-settings">
               <span className="muted t-small">Sound</span>
               <button className="pxbtn pxslot" onClick={() => { const v = settings.sfx >= 1 ? 0 : Math.min(1, Math.round((settings.sfx + 0.25) * 4) / 4); setSettings({ sfx: v }); sfx("ui"); }}>
                 {settings.sfx <= 0 ? "Off" : `${Math.round(settings.sfx * 100)}%`}

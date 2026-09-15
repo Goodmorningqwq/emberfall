@@ -56,6 +56,8 @@ export class Player {
   private holdUntil = 0;
   private scripted = false;
   private hitsTaken = 0;
+  private nextStepAt = 0;
+  private swings = 0;
 
   constructor(scene: PlayerHost, x: number, y: number) {
     this.scene = scene;
@@ -227,6 +229,11 @@ export class Player {
       this.sprite.setVelocity(move.x * speed, move.y * speed);
       this.play(sprinting ? "run" : "walk");
       this.state = sprinting ? "sprint" : "walk";
+      // footsteps: a tap every stride, quicker when sprinting, softer on the town's turf
+      if (now >= this.nextStepAt) {
+        this.nextStepAt = now + (sprinting ? 190 : 270);
+        sfx(useGame.getState().place === "hub" ? "step-grass" : "step");
+      }
     } else {
       this.sprite.setVelocity(0, 0);
       if (this.state === "walk" || this.state === "sprint") this.settle();
@@ -322,6 +329,8 @@ export class Player {
     this.sprite.setScale(1.05, 0.95);
     this.scene.tweens.add({ targets: this.sprite, scaleX: 1, scaleY: 1, duration: 150, ease: "Back.easeOut" });
     this.play("attack", true);
+    sfx("swing");
+    if (++this.swings % 3 === 0) sfx("effort");
     this.syncStore();
   }
 

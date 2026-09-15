@@ -17,6 +17,7 @@ import { HERO } from "../entities/heroAssets";
 import { useGame, type ItemId, type LessonId } from "../../ui/store";
 import { DUNGEONS, dungeonFor, type DungeonMeta } from "../data/dungeons";
 import { sfx, setAmbient } from "../audio";
+import { setMusic } from "../music";
 
 type Dir = "north" | "south" | "east" | "west";
 
@@ -505,6 +506,7 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
     if (cleared && room.clearReward === "key" && !st.hasFlag(`key:${room.id}`) && !room.placements.some((p) => p.kind === "key-drop")) this.spawnPickup("key", room.x + room.w / 2, room.y + room.h * 0.6);
     // the water's edge: a pale rim where floor meets water, so the fence reads
     if (this.water.length) this.drawWaterRims(room);
+    if (!bossHere && st.screen === "game") setMusic(spawns.some((sp) => sp.kind !== "mushroom") ? "fight" : "explore");
     if (spawns.length) {
       this.time.delayedCall(spawnAt, () => {
         if (this.room !== room) return;
@@ -727,6 +729,7 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
     const dmg = useGame.getState().swordTier;
     const died = e.takeHit(this.player.sprite.x, this.player.sprite.y, dmg);
     sfx(blocked ? "clang" : "hit");
+    if (!blocked && !e.isBoss) sfx(e instanceof Slime ? "slime-hurt" : e instanceof Skeleton ? "bone-hit" : e instanceof ForestSprite ? (e.sprite.texture.key === "bat" ? "bat-hurt" : "sprite-hurt") : "slime-hurt");
     this.finishLesson("attack");
     // feedback bundle: hit-stop, shake, damage number (flash + knockback are in takeHit)
     this.shake(80, 0.004);
@@ -754,6 +757,7 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
     const st = useGame.getState();
     if (st.hasFlag(`cleared:${room.id}`)) return;
     st.setFlag(`cleared:${room.id}`);
+    setMusic("explore");
     if (!room.clearReward) return;
     this.time.delayedCall(350, () => {
       if (this.room !== room) return;
@@ -908,6 +912,7 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
     }
     this.time.delayedCall(2100, () => {
       sfx("roar");
+      setMusic("boss");
       cam.shake(420, 0.012);
       // the name plate lands mid-screen, then rides up and becomes the health bar
       useGame.getState().setBoss({ name: info.name, sub: info.sub, hp: info.hp, max: info.hp, status: "", intro: true });
@@ -1011,7 +1016,9 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
     st.setFlag(`cleared:${this.room.id}`);
     st.setBoss(null);
     sfx("roar");
+    setMusic("none");
     this.time.delayedCall(900, () => sfx("victory"));
+    this.time.delayedCall(4000, () => setMusic("explore"));
     this.shake(500, 0.01);
     this.hitStop(120);
     // the summoned sprites die with their master

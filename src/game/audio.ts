@@ -10,9 +10,11 @@ export type SfxName =
   | "hit" | "clang" | "hurt" | "dash" | "pickup" | "key" | "heart" | "chest" | "door" | "boss-door"
   | "whoosh" | "catch" | "stun" | "bomb-place" | "bomb" | "potion" | "slime" | "sprite" | "spore"
   | "block" | "plate" | "crystal" | "roar" | "phase" | "victory" | "death" | "ui" | "lesson" | "crack"
-  | "drain" | "squeak" | "bones" | "hook";
+  | "drain" | "squeak" | "bones" | "hook"
+  | "step" | "step-grass" | "swing" | "effort" | "slime-tell" | "slime-hurt" | "bones-tell" | "bone-hit" | "bat-flap" | "bat-hurt" | "sprite-hurt" | "knight-step" | "growl" | "treant-creak";
 
 let ctx: AudioContext | null = null;
+let stepFlip = false;
 let master: GainNode | null = null;
 let noiseBuf: AudioBuffer | null = null;
 
@@ -28,6 +30,14 @@ function ensure() {
   const d = noiseBuf.getChannelData(0);
   for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
   return true;
+}
+
+/** The shared context/noise for the music sequencer (null until a gesture created it). */
+export function audioContext() {
+  return ensure() ? ctx : null;
+}
+export function noiseBuffer() {
+  return noiseBuf;
 }
 
 /** Call from any user-gesture handler so the context is allowed to start. */
@@ -268,6 +278,25 @@ const SFX: Record<SfxName, () => void> = {
   squeak: () => { tone("square", [2800, 3600], 0.05, 0.08); tone("square", [3600, 2200], 0.07, 0.08, 0.05); },
   // a skeleton coming apart
   bones: () => { noise(0.12, 0.3, 4000, 1200); tone("square", [500, 180], 0.1, 0.12); tone("square", [700, 260], 0.08, 0.1, 0.06); tone("square", [380, 120], 0.12, 0.1, 0.12); },
+  // ---- Wren
+  // a boot on stone / on turf: alternating pitch so a walk doesn't tick like a clock
+  step: () => { stepFlip = !stepFlip; noise(0.05, 0.16, stepFlip ? 1800 : 1400, 500); tone("sine", stepFlip ? 140 : 120, 0.04, 0.12); },
+  "step-grass": () => { stepFlip = !stepFlip; noise(0.07, 0.1, stepFlip ? 900 : 700, 250, 0, "bandpass"); },
+  // the blade through the air
+  swing: () => noise(0.16, 0.22, 900, 4500, 0, "bandpass"),
+  // a short breath of effort under a swing
+  effort: () => { noise(0.09, 0.08, 500, 1200, 0, "bandpass"); tone("triangle", [330, 260], 0.09, 0.05); },
+  // ---- monsters
+  "slime-tell": () => { tone("sine", [180, 320], 0.12, 0.14); tone("sine", [220, 380], 0.1, 0.1, 0.06); },
+  "slime-hurt": () => { tone("sine", [420, 160], 0.12, 0.2); noise(0.08, 0.1, 1200, 300); },
+  "bones-tell": () => { for (const i of [0, 1, 2, 3]) tone("square", 900 + i * 130, 0.03, 0.08, i * 0.045); },
+  "bone-hit": () => { noise(0.05, 0.25, 5000, 1500); tone("square", [700, 300], 0.06, 0.12); },
+  "bat-flap": () => { for (const i of [0, 1, 2]) noise(0.05, 0.12, 600, 1500, i * 0.07, "bandpass"); },
+  "bat-hurt": () => { tone("square", [3200, 1800], 0.09, 0.08); tone("square", [2600, 900], 0.1, 0.06, 0.05); },
+  "sprite-hurt": () => { tone("sine", [1800, 2600], 0.06, 0.1); tone("sine", [2600, 1200], 0.08, 0.08, 0.05); },
+  "knight-step": () => { tone("sine", [90, 50], 0.14, 0.3); noise(0.06, 0.2, 800, 200); },
+  growl: () => { tone("sawtooth", [90, 70], 0.45, 0.16); tone("sawtooth", [136, 100], 0.4, 0.08, 0.03); noise(0.4, 0.06, 300, 120, 0, "bandpass"); },
+  "treant-creak": () => { tone("sawtooth", [80, 130], 0.5, 0.12, 0, 0.05, "lin"); noise(0.45, 0.08, 400, 900, 0.05, "bandpass"); },
   // the grapple biting into stone
   hook: () => { tone("square", 1500, 0.03, 0.15); noise(0.08, 0.25, 5000, 1500); tone("triangle", [600, 200], 0.14, 0.12, 0.03); },
 };

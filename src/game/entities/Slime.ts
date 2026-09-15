@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { Enemy } from "./Enemy";
 import type { DungeonScene } from "../scenes/DungeonScene";
+import { sfx } from "../audio";
 
 /**
  * Slime. State machine:
@@ -71,6 +72,7 @@ export class Slime extends Enemy {
           if (s.anims.isPlaying) s.anims.pause(s.anims.currentAnim!.frames[0]);
           this.scene.tweens.add({ targets: s, scaleX: 1.25 * k, scaleY: 0.7 * k, duration: TELEGRAPH_MS * 0.8, ease: "Quad.easeIn" });
           this.glint();
+          sfx("slime-tell");
         } else if (d > 24) {
           const v = new Phaser.Math.Vector2(px - s.x, py - s.y).normalize().scale(WANDER_SPEED * 0.6);
           s.setVelocity(v.x, v.y);

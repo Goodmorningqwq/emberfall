@@ -19,10 +19,13 @@ function snapshotSink(): Plugin {
         let body = "";
         req.on("data", (c) => (body += c));
         req.on("end", () => {
-          const b64 = body.replace(/^data:image\/png;base64,/, "");
-          const dir = join(process.cwd(), "docs/mockup/frames");
+          // any data URL: the extension follows the media type (png frames, wav music previews)
+          const m = /^data:([\w/.+-]+);base64,/.exec(body);
+          const b64 = m ? body.slice(m[0].length) : body;
+          const ext = m && m[1] === "audio/wav" ? "wav" : "png";
+          const dir = join(process.cwd(), ext === "wav" ? "docs/audio-review" : "docs/mockup/frames");
           mkdirSync(dir, { recursive: true });
-          writeFileSync(join(dir, `${name}.png`), Buffer.from(b64, "base64"));
+          writeFileSync(join(dir, `${name}.${ext}`), Buffer.from(b64, "base64"));
           res.end("ok");
         });
       });

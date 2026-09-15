@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { Enemy } from "./Enemy";
 import type { DungeonScene } from "../scenes/DungeonScene";
+import { sfx } from "../audio";
 
 /**
  * Crypt skeleton: a slow, deliberate chaser. Walks at Wren, and inside arm's
@@ -60,6 +61,7 @@ export class Skeleton extends Enemy {
           // the shield arm rises: it draws up tall and pales
           this.scene.tweens.add({ targets: s, scaleY: 1.12 * this.k, scaleX: 0.94 * this.k, duration: 200, ease: "Quad.easeOut" });
           s.setTint(0x505870).setTintMode(Phaser.TintModes.ADD);
+          sfx("bones-tell");
         } else if (d > 20) {
           const v = to.normalize().scale(this.speed);
           s.setVelocity(v.x, v.y);

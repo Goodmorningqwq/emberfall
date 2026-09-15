@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { Enemy } from "./Enemy";
 import type { DungeonScene } from "../scenes/DungeonScene";
+import { sfx } from "../audio";
 
 /**
  * Elder Treant, boss of Whisperwood Hollow. Rooted in place at the top of
@@ -138,6 +139,7 @@ export class Treant extends Enemy {
     const s = this.sprite;
     // lean back and darken, then the slam: shake + a chain of roots that chase the player
     this.sway.pause();
+    sfx("treant-creak");
     this.scene.tweens.add({ targets: s, scaleY: 0.92, scaleX: 1.06, duration: WIND, ease: "Quad.easeIn" });
     s.setTint(0x5a3a1a).setTintMode(Phaser.TintModes.MULTIPLY);
     this.scene.time.delayedCall(WIND, () => {

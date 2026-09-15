@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { Enemy } from "./Enemy";
 import type { DungeonScene } from "../scenes/DungeonScene";
+import { sfx } from "../audio";
 
 /**
  * Bone Knight, boss of the Sunken Crypt. A walking wall: he advances behind
@@ -30,6 +31,7 @@ export class BoneKnight extends Enemy {
   private swingsSinceCharge = 0;
   private phase2Announced = false;
   private stomp?: Phaser.Tweens.Tween;
+  private nextStepAt = 0;
 
   constructor(scene: DungeonScene, group: Phaser.Physics.Arcade.Group, x: number, y: number) {
     super(scene, group, x, y, "boneknight", BONEKNIGHT_HP);
@@ -95,6 +97,10 @@ export class BoneKnight extends Enemy {
         } else {
           const sp = this.phase2 ? 58 : 44;
           s.setVelocity(v.x * sp, v.y * sp);
+          if (now >= this.nextStepAt) {
+            this.nextStepAt = now + (this.phase2 ? 420 : 560);
+            sfx("knight-step");
+          }
           if (!this.stomp) this.stomp = this.scene.tweens.add({ targets: s, scaleY: 0.97, duration: 260, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
         }
         break;
@@ -143,6 +149,7 @@ export class BoneKnight extends Enemy {
       return this.startCharge(now);
     }
     this.state = "windup";
+    sfx("growl");
     const WIND = this.phase2 ? 380 : 520;
     this.stateUntil = now + WIND;
     const s = this.sprite;
@@ -170,6 +177,7 @@ export class BoneKnight extends Enemy {
     this.stateUntil = now + TELL;
     const s = this.sprite;
     s.setTint(0x603030).setTintMode(Phaser.TintModes.ADD);
+    sfx("growl");
     this.scene.tweens.add({ targets: s, x: "+=2", duration: 50, yoyo: true, repeat: Math.floor(TELL / 100) });
     this.scene.time.delayedCall(TELL, () => {
       if (this.isDead || this.state !== "chargeTell") return;

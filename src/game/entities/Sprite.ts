@@ -66,6 +66,7 @@ export class ForestSprite extends Enemy {
           this.bob?.pause();
           s.setTint(0xffffff).setTintMode(Phaser.TintModes.ADD);
           this.scene.tweens.add({ targets: s, scaleX: 0.8, scaleY: 1.25, duration: TELEGRAPH_MS, ease: "Quad.easeIn" });
+          if (s.texture.key === "bat") sfx("bat-flap");
         }
         break;
       }
