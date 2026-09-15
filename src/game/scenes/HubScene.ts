@@ -341,6 +341,9 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
         sfx("heart");
         useGame.getState().heal(99);
         this.toast("Rested. The shrine keeps your progress.");
+        // the save is automatic; the shrine just says so out loud
+        useGame.getState().setNarration("Saved.");
+        this.time.delayedCall(1600, () => useGame.getState().narration === "Saved." && useGame.getState().setNarration(null));
         break;
       }
       const npc = this.def.npcs[n.key];
