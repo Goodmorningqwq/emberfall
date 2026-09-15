@@ -1,4 +1,4 @@
-"""Draws public/assets/ui/minimap.png (five 14x10 room cells: none, unknown, seen, here, boss)
+"""Draws public/assets/ui/minimap.png (six 14x10 room cells: none, unknown, seen, here, boss, done)
 and public/assets/ui/lock.png (8x8 padlock) in the UI palette. Pure pixel work, no AI."""
 from PIL import Image, ImageDraw
 
@@ -13,7 +13,7 @@ EMBER_HI = (255, 242, 176)
 RED = (224, 90, 74)
 
 W, H = 14, 10
-sheet = Image.new("RGBA", (W * 5, H), (0, 0, 0, 0))
+sheet = Image.new("RGBA", (W * 6, H), (0, 0, 0, 0))
 d = ImageDraw.Draw(sheet)
 
 
@@ -49,6 +49,10 @@ for dx, dy in [(0, -2), (-1, -1), (0, -1), (1, -1), (-2, 0), (-1, 0), (0, 0), (1
     d.point((cx + dx, cy + dy), RED)
 d.point((cx - 1, cy), DARK)
 d.point((cx + 1, cy), DARK)
+# 5 done (cleared / solved): the flagstone gone dim, so what's left to do stands out
+cell(5, STONE_LO, STONE)
+d.point((5 * W + 5, 4), (48, 54, 48))
+d.point((5 * W + 9, 6), (48, 54, 48))
 sheet.save("public/assets/ui/minimap.png")
 
 lock = Image.new("RGBA", (8, 8), (0, 0, 0, 0))

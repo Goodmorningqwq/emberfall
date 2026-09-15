@@ -305,9 +305,14 @@ function Minimap() {
     for (let gx = 0; gx < d.cols; gx++) {
       const r = at(gx, gy);
       const x = gx * (W + G), y = gy * (H + G);
-      const state = !r ? "none" : r.id === room ? "here" : seen(r) ? "seen" : "unknown";
+      const done = !!r && (flags.includes(`cleared:${r.id}`) || flags.includes(`solved:${r.id}`));
+      const state = !r ? "none" : r.id === room ? "here" : seen(r) ? (done && r.purpose !== "boss" ? "done" : "seen") : "unknown";
       items.push(<span key={`c${gx}${gy}`} className={`mm ${state}${r?.purpose === "boss" && seen(r) ? " boss" : ""}`} style={{ left: `calc(${x}px * var(--s))`, top: `calc(${y}px * var(--s))` }} />);
       if (!r) continue;
+      // a chest still shut in a room you've seen (same mark as the journal map, one pixel per cell)
+      const chestChars = r.map.flatMap((row) => [...row]).filter((ch) => d.legend[ch] === "chest").length;
+      const shut = seen(r) && r.id !== room && Array.from({ length: chestChars }, (_, i) => i).some((i) => !flags.includes(`chest:${r.id}:${i}`));
+      if (shut && r.id !== target) items.push(<span key={`ch${gx}${gy}`} className="mm-chest" style={{ left: `calc(${x + W / 2 - 2}px * var(--s))`, top: `calc(${y + H / 2 - 2}px * var(--s))` }}><Px rows={GLYPH.chest} color="#e0b050" size={1} /></span>);
       if (r.id === target && r.id !== room) items.push(<span key={`q${gx}${gy}`} className="mm-quest" style={{ left: `calc(${x + W / 2 - 2}px * var(--s))`, top: `calc(${y + H / 2 - 2}px * var(--s))` }} />);
       const e = at(gx + 1, gy);
       if (e && eastDoor(r) && (seen(r) || seen(e))) items.push(<span key={`e${gx}${gy}`} className="mm-link h" style={{ left: `calc(${x + W}px * var(--s))`, top: `calc(${y + H / 2 - 1}px * var(--s))` }} />);

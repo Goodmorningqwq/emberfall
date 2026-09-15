@@ -89,7 +89,9 @@ html, body { margin: 0; height: 100%; background: #0f110f; color: var(--ink); ov
 .minimap-wrap { position: absolute; right: calc(10px * var(--s)); top: calc(8px * var(--s)); display: flex; flex-direction: column; align-items: flex-end; gap: calc(3px * var(--s)); }
 .minimap { position: relative; box-sizing: content-box; padding: calc(2px * var(--s)); }
 .minimap > * { position: absolute; margin: calc(2px * var(--s)); }
-.mm { display: block; width: calc(14px * var(--s)); height: calc(10px * var(--s)); background: url("/assets/ui/minimap.png") no-repeat; background-size: calc(70px * var(--s)) calc(10px * var(--s)); image-rendering: pixelated; }
+.mm { display: block; width: calc(14px * var(--s)); height: calc(10px * var(--s)); background: url("/assets/ui/minimap.png") no-repeat; background-size: calc(84px * var(--s)) calc(10px * var(--s)); image-rendering: pixelated; }
+.mm.done { background-position: calc(-70px * var(--s)) 0; }
+.mm-chest { position: absolute; }
 .mm.none { background-position: 0 0; }
 .mm.unknown { background-position: calc(-14px * var(--s)) 0; }
 .mm.seen { background-position: calc(-28px * var(--s)) 0; }
