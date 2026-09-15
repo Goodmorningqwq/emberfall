@@ -309,6 +309,12 @@ html, body { margin: 0; height: 100%; background: #0f110f; color: var(--ink); ov
 .wm-q { position: absolute; right: calc(2px * var(--s)); top: calc(2px * var(--s)); }
 .wm-link { position: absolute; }
 .wm-count { color: var(--muted); letter-spacing: 0; }
+.townmap { position: relative; margin: 0 auto; background: url("/assets/ui/townmap.png") no-repeat; background-size: 100% 100%; image-rendering: pixelated; box-shadow: 0 0 0 var(--px) var(--shadow); }
+.townmap > * { position: absolute; }
+.tm-npc { background: var(--ink); box-shadow: 0 0 0 var(--px) var(--shadow); }
+.tm-gate { background: #2a2420; box-shadow: 0 0 0 var(--px) var(--shadow); }
+.tm-gate.open { background: var(--ember); animation: mmhere 1.2s ease-in-out infinite alternate; }
+.tm-wren { animation: mmhere .6s ease-in-out infinite alternate; }
 .wm-caption { display: flex; flex-direction: column; gap: calc(2px * var(--s)); font-size: 16px; color: var(--ink); line-height: 1.1; }
 .wm-caption > span { display: flex; align-items: center; gap: calc(4px * var(--s)); }
 .wm-key { flex: none; }

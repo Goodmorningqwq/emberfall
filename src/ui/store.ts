@@ -65,6 +65,8 @@ export interface Guide {
   roomId?: string;
   /** "here" when the thing is in this room, else "N rooms" / "in town" / "in the Hollow" */
   where: string;
+  /** in town: the anchor the objective sits at (npc-elder, gate-whisperwood, shrine...) for the journal's town map */
+  anchor?: string;
 }
 
 /** What survives a reload. Bump SAVE_VERSION when the shape changes. */
@@ -129,6 +131,8 @@ interface GameState {
   tool: ToolId;
   shop: { vendor: keyof typeof SHOPS; bought?: string } | null;
   roomName: string;
+  /** Wren's tile in town ("tx,ty"), for the journal's town map; null in a dungeon */
+  townTile: string | null;
   dungeonName: string;
   bagOpen: boolean;
   journalOpen: boolean;
@@ -182,6 +186,7 @@ interface GameState {
   toggleJournal: (open?: boolean) => void;
   setGuide: (g: Guide | null) => void;
   setQuestNote: (n: string | null) => void;
+  setTownTile: (t: string | null) => void;
   bump: (counter: string, n?: number) => void;
   setInputMode: (m: "kb" | "pad") => void;
   togglePause: (on?: boolean) => void;
@@ -260,6 +265,7 @@ export const useGame = create<GameState>((set, get) => ({
   journalOpen: false,
   guide: null,
   questNote: null,
+  townTile: null,
   inputMode: "kb" as const,
   paused: false,
   banner: null,
@@ -349,9 +355,10 @@ export const useGame = create<GameState>((set, get) => ({
   toggleBag: (open) => set((s) => ({ bagOpen: open ?? !s.bagOpen, journalOpen: false })),
   toggleJournal: (open) => set((s) => ({ journalOpen: open ?? !s.journalOpen, bagOpen: false })),
   setQuestNote: (questNote) => set((s) => (s.questNote === questNote ? {} : { questNote })),
+  setTownTile: (townTile) => set((s) => (s.townTile === townTile ? {} : { townTile })),
   bump: (counter, n = 1) => set((s) => ({ counters: { ...s.counters, [counter]: (s.counters[counter] ?? 0) + n } })),
   setInputMode: (inputMode) => set((s) => (s.inputMode === inputMode ? {} : { inputMode })),
-  setGuide: (guide) => set((s) => (s.guide === guide || (s.guide && guide && s.guide.angle === guide.angle && s.guide.tiles === guide.tiles && s.guide.roomId === guide.roomId && s.guide.where === guide.where) ? {} : { guide })),
+  setGuide: (guide) => set((s) => (s.guide === guide || (s.guide && guide && s.guide.angle === guide.angle && s.guide.tiles === guide.tiles && s.guide.roomId === guide.roomId && s.guide.where === guide.where && s.guide.anchor === guide.anchor) ? {} : { guide })),
   togglePause: (on) => set((s) => ({ paused: on ?? !s.paused })),
   newGame: () => set({ screen: "intro", ...fresh(), sessionStart: Date.now(), bagOpen: false, paused: false, banner: null, boss: null, lesson: null, tag: null, dialogue: null, shop: null }),
   startGame: () => set({ screen: "game" }),

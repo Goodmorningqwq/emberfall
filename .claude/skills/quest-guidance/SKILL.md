@@ -68,3 +68,6 @@ narrator can say. Keys: `objective` ≤ 70 chars so the tracker stays 2 lines at
 - Pixel glyphs in React: `Px({rows, color, size})` in HUD.tsx — a one-pen box-shadow drawing; 2 UI px per cell
   reads at 1x, 1 px does not.
 - The minimap (top-right) is the at-a-glance twin: same seen/here/boss/objective data, no text but the room name.
+- Town map (journal in the hub): `tools/draw_townmap.py` draws the terrain from `emberfall-town.json` (rerun it if
+  the town map changes); the HUD overlays Wren (`store.townTile`, set by HubScene each frame), NPCs and gates from
+  the JSON legend, and the objective from `guide.anchor` (the hub passes its target kind to `GuideDrawer.point`).

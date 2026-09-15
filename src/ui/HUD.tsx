@@ -3,6 +3,7 @@ import { useGame, type ItemId, type LessonId } from "./store";
 import { uiScale, useCanvasRect } from "./useCanvasRect";
 import { Title } from "./Title";
 import { dungeonFor } from "../game/data/dungeons";
+import town from "../game/data/emberfall-town.json";
 import { QUEST, questIndex, SIDE_QUESTS, sideState, sideProgress } from "../game/quests";
 import { sfx } from "../game/audio";
 import { SHOPS } from "./shop";
@@ -284,6 +285,53 @@ function DungeonMap() {
       <div className="wm-caption">
         <span><Px rows={GLYPH.wren} color="var(--ember)" className="wm-key" /> {roomName}</span>
         {goalText && <span><span className="mm-quest wm-key" /> {goalText}</span>}
+      </div>
+    </div>
+  );
+}
+
+const TOWN_LABEL: Record<string, string> = {
+  "npc-elder": "Elder Tam", "npc-apothecary": "Maren", "npc-blacksmith": "Orrin", shrine: "the shrine", plinth: "the plinth",
+  "gate-whisperwood": "the east gate", "gate-crypt": "the west gate", "gate-cinder": "the south gate",
+};
+
+/**
+ * The town map in the journal: the drawn plan of Emberfall (tools/draw_townmap.py, 3 px a tile) with
+ * the living things over it - Wren, the three townsfolk, the gates (ember when the road is open,
+ * dark while it's sealed) and the objective's gold square. The caption names where you are headed.
+ */
+function TownMap() {
+  const { townTile, flags, guide } = useGame();
+  const S = 3, cols = town.cols, rows = town.rows;
+  const at = (tx: number, ty: number, w = 1, h = 1) => ({ left: `calc(${tx * S}px * var(--s))`, top: `calc(${ty * S}px * var(--s))`, width: `calc(${w}px * var(--s))`, height: `calc(${h}px * var(--s))` });
+  const spots: { kind: string; tx: number; ty: number }[] = [];
+  town.map.forEach((row, ty) => [...row].forEach((ch, tx) => { const kind = (town.legend as Record<string, string>)[ch]; if (kind && (kind.startsWith("npc-") || kind.startsWith("gate-"))) spots.push({ kind, tx, ty }); }));
+  const open = (kind: string) => kind === "gate-whisperwood" || (kind === "gate-crypt" && flags.includes("shard:whisperwood")) || (kind === "gate-cinder" && flags.includes("shard:crypt"));
+  const [wx, wy] = (townTile ?? "").split(",").map(Number);
+  // where she stands, by the nearest landmark (houses are 4x4, so measure to their middle)
+  const LANDMARK: Record<string, string> = { plinth: "on the plaza", shrine: "by the shrine", well: "by the well", "house-elder": "at Tam's hall", "house-forge": "at the forge", "house-apothecary": "at Maren's shop", "gate-whisperwood": "at the east gate", "gate-crypt": "at the west gate", "gate-cinder": "at the south gate" };
+  let near = "in the lanes", best = 6.5;
+  if (townTile) town.map.forEach((row, ty) => [...row].forEach((ch, tx) => {
+    const kind = (town.legend as Record<string, string>)[ch];
+    if (!kind || !LANDMARK[kind]) return;
+    const off = kind.startsWith("house") ? 2 : 0.5;
+    const dd = Math.hypot(tx + off - wx - 0.5, ty + off - wy - 0.5);
+    if (dd < best) { best = dd; near = LANDMARK[kind]; }
+  }));
+  const goal = guide?.anchor ? spots.find((sp) => sp.kind === guide.anchor) ?? (() => { let hit: { tx: number; ty: number } | undefined; town.map.forEach((row, ty) => [...row].forEach((ch, tx) => { if ((town.legend as Record<string, string>)[ch] === guide.anchor) hit = { tx, ty }; })); return hit; })() : undefined;
+  return (
+    <div className="worldmap">
+      <span className="eyebrow">EMBERFALL</span>
+      <div className="townmap" style={{ width: `calc(${cols * S}px * var(--s))`, height: `calc(${rows * S}px * var(--s))` }}>
+        {spots.map((sp) => sp.kind.startsWith("gate-")
+          ? <span key={sp.kind} className={`tm-gate${open(sp.kind) ? " open" : ""}`} style={at(sp.tx, sp.ty, S, S)} />
+          : <span key={sp.kind} className="tm-npc" style={at(sp.tx, sp.ty, S, S)} />)}
+        {goal && !(goal.tx === wx && goal.ty === wy) && <span className="mm-quest tm-mark" style={{ left: `calc(${goal.tx * S - 1}px * var(--s))`, top: `calc(${goal.ty * S - 1}px * var(--s))` }} />}
+        {townTile && <span className="tm-wren" style={{ left: `calc(${wx * S - 1}px * var(--s))`, top: `calc(${wy * S - 1}px * var(--s))` }}><Px rows={GLYPH.wren} color="var(--ember)" size={2} /></span>}
+      </div>
+      <div className="wm-caption">
+        <span><Px rows={GLYPH.wren} color="var(--ember)" className="wm-key" /> {near}</span>
+        {guide && (guide.anchor ? <span><span className="mm-quest wm-key" /> {TOWN_LABEL[guide.anchor] ?? guide.anchor}{guide.where !== "here" ? ` · ${guide.where}` : ""}</span> : null)}
       </div>
     </div>
   );
@@ -663,7 +711,7 @@ export function HUD() {
               <span className="t-title">Journal</span>
               <span className="muted"><span className="kbd">M</span> close</span>
             </div>
-            {place !== "hub" && <DungeonMap />}
+            {place !== "hub" ? <DungeonMap /> : <TownMap />}
             {sides.some((x) => x.state !== "hidden") && (
               <div className="journal-list journal-side">
                 <span className="eyebrow">SIDE QUESTS</span>

@@ -569,7 +569,7 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
     const a = this.anchorList.find((x) => x.kind === kind);
     if (!a) return this.guide.hide();
     const tx = a.tx * TILE + (kind === "gate-crypt" ? 41 : 32), ty = a.ty * TILE + (kind?.startsWith("gate") ? 40 : 34);
-    this.guide.point(px, py, tx, ty, t.place === "hub" ? "here" : t.place === "whisperwood" ? "the east gate" : "the west gate");
+    this.guide.point(px, py, tx, ty, t.place === "hub" ? "here" : t.place === "whisperwood" ? "the east gate" : "the west gate", undefined, kind);
   }
 
   update(_t: number, delta: number) {
@@ -578,6 +578,7 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
       this.player.update(delta);
       const p = this.player.sprite;
       this.updateGuide(p.x, p.y);
+      useGame.getState().setTownTile(`${Math.floor(p.x / TILE)},${Math.floor(p.y / TILE)}`);
       this.setAnchor("wren", p.x, p.y - 56);
       this.checkBumps();
     } catch (err) {

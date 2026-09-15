@@ -36,13 +36,13 @@ export class GuideDrawer {
    * Off screen: it sits at the edge of the view in that direction (the Star Rail way). The HUD gets
    * the reading for the tracker line and the minimap marker.
    */
-  point(px: number, py: number, tx: number, ty: number, where: string, roomId?: string) {
+  point(px: number, py: number, tx: number, ty: number, where: string, roomId?: string, anchor?: string) {
     const dx = tx - px, dy = ty - py;
     const dist = Math.hypot(dx, dy);
     const angle = Math.atan2(dy, dx);
     const tiles = Math.round(dist / TILE);
     // quantised so the HUD only re-renders when the reading actually changes
-    useGame.getState().setGuide({ angle: Math.round(angle * 16) / 16, tiles, roomId, where });
+    useGame.getState().setGuide({ angle: Math.round(angle * 16) / 16, tiles, roomId, where, anchor });
     const st = useGame.getState();
     const on = dist > 20 && st.screen === "game" && st.settings.guide;
     const cam = this.scene.cameras.main;
