@@ -85,3 +85,12 @@ same in `chests`/`solveReward`/`clearReward`.
 Seed a save in the new place, `__start(room)`, walk every doorway, solve every puzzle, fight every room,
 hook every anchor, kill the boss, collect the shard → complete screen text; then walk out to town and back in
 through the gate. `__hudOverlaps()` during the intro and with the bar up. Commit, push, log.
+
+## Room dressing (no new art)
+- `scatterDecor(room)` litters empty floor from `meta.decor` by a room-seeded RNG; boss halls (`purpose: "boss"`)
+  go through `dressBossHall` instead: worn oval + ring in the boss's `flash` colour + litter at the oval's edge.
+- Pools: `drawWaterRims` gives every water/lava tile a 4 px bank on the floor and a 1 px lip inside; lava adds
+  additive halos *under* the sprite (depth -999, floor is -1000, lava -998) so only the stone glows. Draw order
+  matters: anything that must show on the floor but not over a pool sits between -1000 and -998.
+- Before choosing a polish target, take a room contact sheet (goto each room, `__snap`, tile at 0.5x) — the
+  sheet is what surfaced the flat lava, the stained-floor water and the anonymous boss halls.

@@ -645,6 +645,7 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
       return seed / 4294967296;
     };
     const used = new Set(room.placements.map((p) => `${p.tx - room.gx * ROOM_W},${p.ty - room.gy * ROOM_H}`));
+    if (room.purpose === "boss") return this.dressBossHall(room, set, rnd, used);
     const taken: { x: number; y: number }[] = [];
     for (let ty = 3; ty < ROOM_H - 1; ty++) {
       for (let tx = 1; tx < ROOM_W - 1; tx++) {
@@ -661,6 +662,43 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
         const img = this.add.image(room.x + tx * TILE + (rnd() * 6 - 3), room.y + ty * TILE + (rnd() * 6 - 3), tex).setOrigin(0).setDepth(-998).setAlpha(flat ? 0.82 : 0.95).setFlipX(rnd() < 0.5);
         this.roomStuff.push(img);
       }
+    }
+  }
+
+  /**
+   * The boss hall is an arena, not another room: the middle is worn bare (a darker oval where the
+   * fight happens, ringed in the boss's colour), and the dungeon's litter is pushed to the edge of
+   * it - leaves and caps around the Treant, bones and candles around the Knight, rubble around the Golem.
+   */
+  private dressBossHall(room: Room, set: string[], rnd: () => number, used: Set<string>) {
+    const bossKind = room.placements.find((p) => BOSSES[p.kind])?.kind;
+    const ring = bossKind ? BOSSES[bossKind].flash : 0xffffff;
+    const cx = room.x + ROOM_W * TILE * 0.5, cy = room.y + 7 * TILE;
+    const rx = 7.2 * TILE, ry = 3.4 * TILE;
+    const g = this.add.graphics().setDepth(-999);
+    g.fillStyle(0x000000, 0.1).fillEllipse(cx, cy, rx * 2, ry * 2);
+    g.fillStyle(0x000000, 0.06).fillEllipse(cx, cy, rx * 1.5, ry * 1.5);
+    g.lineStyle(2, ring, 0.14).strokeEllipse(cx, cy, rx * 2 + 6, ry * 2 + 6);
+    this.roomStuff.push(g);
+    // the litter: around the oval's edge, spaced, never on the south lane or a used tile
+    const taken: { x: number; y: number }[] = [];
+    const count = 16;
+    for (let i = 0; i < count; i++) {
+      const a = ((i + rnd() * 0.6) / count) * Math.PI * 2;
+      const r = 1.08 + rnd() * 0.22;
+      const px = cx + Math.cos(a) * rx * r, py = cy + Math.sin(a) * ry * r;
+      const tx = Math.floor((px - room.x) / TILE), ty = Math.floor((py - room.y) / TILE);
+      if (tx < 1 || tx > ROOM_W - 2 || ty < 3 || ty > ROOM_H - 2) continue;
+      if ((tx === 9 || tx === 10) && ty >= ROOM_H - 3) continue;
+      // not on, or right beside, anything placed (a lava pool, an anchor post) - the sprites straddle tiles
+      if ([[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].some(([ox, oy]) => used.has(`${tx + ox},${ty + oy}`))) continue;
+      if (this.solidTiles.has(`${tx + room.gx * ROOM_W},${ty + room.gy * ROOM_H}`)) continue;
+      if (taken.some((t) => t.x === tx && t.y === ty)) continue;
+      taken.push({ x: tx, y: ty });
+      const tex = set[Math.floor(rnd() * set.length)];
+      const flat = tex.includes("leaves") || tex.includes("puddle") || tex.includes("moss");
+      const img = this.add.image(px - 16, py - 16, tex).setOrigin(0).setDepth(-998).setAlpha(flat ? 0.82 : 0.95).setFlipX(rnd() < 0.5);
+      this.roomStuff.push(img);
     }
   }
 
