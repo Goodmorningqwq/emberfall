@@ -944,7 +944,10 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
           });
         } else this.tweens.add({ targets: w.sprite, alpha: 0, duration: 700, delay: 200 + (i % 7) * 60, ease: "Quad.easeIn", onComplete: () => w.sprite.destroy() });
       }
-      for (const r of this.waterRims) this.tweens.add({ targets: r, alpha: 0, duration: 600, delay: 300 });
+      for (const r of this.waterRims) {
+        this.tweens.killTweensOf(r);
+        this.tweens.add({ targets: r, alpha: 0, duration: 600, delay: 300 });
+      }
       // the crust kills the light; the scorched bank stays
       for (const g of this.lavaGlow) {
         this.tweens.killTweensOf(g);
@@ -962,7 +965,7 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
   }
 
   private waterRims: Phaser.GameObjects.Rectangle[] = [];
-  /** the parts of a lava pool that die when it crusts over: the ember line at the edge and the glow on the floor */
+  /** the parts of a lava pool that die when it crusts over: the ember lip at the edge and the glow on the floor */
   private lavaGlow: Phaser.GameObjects.GameObject[] = [];
   /**
    * The pool's edge. Water: a thin pale rim so the tile fence reads as a shoreline. Lava: a scorched
@@ -984,17 +987,16 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
       if (p.kind !== liquid) continue;
       const x = p.tx * TILE, y = p.ty * TILE;
       const n = open(p.tx, p.ty - 1), s = open(p.tx, p.ty + 1), w = open(p.tx - 1, p.ty), e = open(p.tx + 1, p.ty);
-      if (liquid === "water") {
-        const edges: [boolean, number, number, number, number][] = [[n, x, y, TILE, 2], [s, x, y + TILE - 2, TILE, 2], [w, x, y, 2, TILE], [e, x + TILE - 2, y, 2, TILE]];
-        for (const [on, rx, ry, rw, rh] of edges) if (on) this.waterRims.push(rect(rx, ry, rw, rh, 0x7aa8b8, 0.55));
-        continue;
-      }
-      // lava: the bank sits on the floor outside the tile (4 px of charred stone), the ember line just inside
-      const BANK = 4, bank = 0x2a1a14, ember = 0xffb060;
-      if (n) { rect(x - (w ? BANK : 0), y - BANK, TILE + (w ? BANK : 0) + (e ? BANK : 0), BANK, bank, 0.85); this.lavaGlow.push(rect(x, y, TILE, 1, ember, 0.7, -996)); }
-      if (s) { rect(x - (w ? BANK : 0), y + TILE, TILE + (w ? BANK : 0) + (e ? BANK : 0), BANK, bank, 0.85); this.lavaGlow.push(rect(x, y + TILE - 1, TILE, 1, ember, 0.7, -996)); }
-      if (w) { rect(x - BANK, y, BANK, TILE, bank, 0.85); this.lavaGlow.push(rect(x, y, 1, TILE, ember, 0.7, -996)); }
-      if (e) { rect(x + TILE, y, BANK, TILE, bank, 0.85); this.lavaGlow.push(rect(x + TILE - 1, y, 1, TILE, ember, 0.7, -996)); }
+      // the bank sits on the floor outside the tile (4 px of charred / wet stone), the lip just inside:
+      // an ember line on lava, a pale foam line on water (which dies with the pool when it drains)
+      const BANK = 4, lava = liquid === "lava";
+      const bank = lava ? 0x2a1a14 : 0x1a2c34, lip = lava ? 0xffb060 : 0xa8d4e0, lipA = lava ? 0.7 : 0.5;
+      const lips = lava ? this.lavaGlow : this.waterRims;
+      if (n) { rect(x - (w ? BANK : 0), y - BANK, TILE + (w ? BANK : 0) + (e ? BANK : 0), BANK, bank, 0.85); lips.push(rect(x, y, TILE, 1, lip, lipA, -996)); }
+      if (s) { rect(x - (w ? BANK : 0), y + TILE, TILE + (w ? BANK : 0) + (e ? BANK : 0), BANK, bank, 0.85); lips.push(rect(x, y + TILE - 1, TILE, 1, lip, lipA, -996)); }
+      if (w) { rect(x - BANK, y, BANK, TILE, bank, 0.85); lips.push(rect(x, y, 1, TILE, lip, lipA, -996)); }
+      if (e) { rect(x + TILE, y, BANK, TILE, bank, 0.85); lips.push(rect(x + TILE - 1, y, 1, TILE, lip, lipA, -996)); }
+      if (!lava) continue;
       // the glow: a soft halo under each bank edge, drawn beneath the lava sprite so only the floor
       // catches it (the pool itself keeps its own colour), breathing out of step with its neighbours
       const edges: [boolean, number, number][] = [[n, x + 16, y], [s, x + 16, y + TILE], [w, x, y + 16], [e, x + TILE, y + 16]];
@@ -1006,6 +1008,8 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
         this.tweens.add({ targets: halo, alpha: 0.85, scale: 1.75, duration: 700 + ((hx * 7 + hy * 3) % 5) * 90, yoyo: true, repeat: -1, ease: "Sine.easeInOut", delay: ((hx + hy) / 16) % 4 * 120 });
       }
     }
+    // water laps: the foam line breathes slowly
+    if (liquid === "water" && this.waterRims.length) this.tweens.add({ targets: this.waterRims, alpha: 0.2, duration: 1600, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
   }
 
   /**
