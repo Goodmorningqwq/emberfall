@@ -33,27 +33,22 @@ the user returns, the PixelLab budget floor is hit, or every item is done.
 
 ## Backlog (in order; skip an item only if blocked, and say so in the log)
 
-1. **Boss presentation** — intro: camera pan up to the Treant, eyes/core light up, root-quake shake,
-   name banner, boss door seals behind Wren; death: flash, roots retract, shard rises with a flourish,
-   door unseals. Phase-2 tell (bark darkens, faster sway).
-2. **Wren hurt + death clips** (4 dirs, PixelLab v3 on the existing character, normalise to 68px). Wire
-   `hurt()` and `die()` to them; death screen waits for the clip.
-3. **Enemy frames** — slime hop/squash and death splat, sprite wing flutter, mushroom spore puff as real
-   frames via `animate_object` (1 direction, flip for facing). Keep the tween feel where frames don't land.
-4. **Room transition polish** — locked door swings open (2-frame), door-frame arch on open doorways,
-   Wren auto-walks 1 tile in after a scroll, torches flicker with a light halo.
-5. **Story beats** — new-game opening (3 short plates over the title world: the Ember split, three shards,
-   Wren sets out), dungeon-complete screen (shard count 1/3, playtime, "return to Emberfall" stub),
-   signpost lore pass (one extra sign per room max).
-6. **Title screen life** — ember particles, slow camera drift over the entrance room, save card polish.
-7. **Feel pass** — low-HP heart pulse + vignette, potion/bomb use feedback, key-count flash on gain/spend,
-   screen-shake intensity option in pause (persisted).
-8. **Minimal audio** — WebAudio synth SFX (hit, hurt, pickup, door, chest, boomerang whoosh, boss stun),
-   master/SFX volume in pause. No music yet.
-9. **M3 hub design** — design canvas: Emberfall town map (40x30 tiles), blacksmith / apothecary / elder /
-   save shrine placement, dungeon exit gates; PixelLab: three NPC sprites (idle, down only) styled on Wren.
-   Then build the hub scene with walk-in dialogue and the dungeon entrance, keeping the dungeon scene intact.
-10. **Shop + upgrades** (sword tiers, armor, heart container) if 9 lands before the user is back.
+Items 1–10 (boss presentation … shops) and the Sunken Crypt shipped (see `docs/NIGHT_LOG.md`). Next:
+
+1. **Crypt polish pass** — blue slime tint check in water, drain sound (own synth, not "crack"), skeleton
+   swing arc visual, bat squeak, captain name tag on entry ("SKELETON CAPTAIN" room banner sub), grapple
+   lesson copy check, Bone Knight charge dust. Fix the knock-through: hurt knockback can push Wren past the
+   sealed boss doorway (she ended up in the Crossing mid-fight) — clamp knockback or widen the seal zones.
+2. **Hub leftovers** — tree border reads as hedge (mix 2–3 tree sprites / gaps), "bush" prop is a stone
+   (real bush sprite), double-load warning ("Failed to process file … lantern") — preload each hub prop once.
+3. **Cinder Depths (dungeon 3) design** — map draft only, sent to the user: fire/lava gimmick, a third tool
+   (ideas: fire rod, iron boots), the last shard, the Cinder boss. Do not build rooms before a veto window.
+4. **Armour tiers at Orrin** (skipped in 10): leather/iron, damage taken -1 per tier, hint text.
+5. **Audio pass** — replace the synth placeholders that sound worst (hit, potion, door), add a simple ambient
+   loop per place (town birds, wood wind, crypt drips) at low volume behind the SFX setting.
+
+Skills to lean on: `emberfall-dungeon` (rooms/registry/enemies/boss), `emberfall-playtest` (scripted checks),
+`pixellab-assets` (prompts, fetching, traps), `emberfall-overlap-qa` (depth + HUD checklist).
 
 ## Cycle checklist
 
