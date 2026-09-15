@@ -107,7 +107,7 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
   private anchors: { x: number; y: number; zone: Phaser.GameObjects.Zone }[] = [];
   private grapple?: Grapple;
   private bolts: FireBolt[] = [];
-  private vents: { x: number; y: number; img: Phaser.GameObjects.Image; em: Phaser.GameObjects.Particles.ParticleEmitter }[] = [];
+  private vents: { x: number; y: number; img: Phaser.GameObjects.Image; em: Phaser.GameObjects.Particles.ParticleEmitter; glow: Phaser.GameObjects.Image }[] = [];
   private braziers: { x: number; y: number; zone: Phaser.GameObjects.Zone; img: Phaser.GameObjects.Image; lit: boolean; flame?: Phaser.GameObjects.Particles.ParticleEmitter }[] = [];
   private thorns?: { img: Phaser.GameObjects.Image; zone: Phaser.GameObjects.Zone; cx: number; cy: number; flag: string };
   private firePuddles: { x: number; y: number; until: number; img: Phaser.GameObjects.Image }[] = [];
@@ -507,7 +507,10 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
             tint: [0xff6a2a, 0xffa040, 0xffe08a], alpha: { start: 0.95, end: 0 }, frequency: 14, blendMode: Phaser.BlendModes.ADD, emitting: false,
           }).setDepth(y + 40);
           this.roomStuff.push(em);
-          this.vents.push({ x: x + 16, y: y + 16, img, em });
+          // the mouth's glow on the floor: a faint ember at rest, swelling through the warning, blazing with the flame
+          const glow = this.add.image(x + 16, y + 16, "halo").setTint(0xff6a20).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.1).setScale(1.2).setDepth(-998);
+          this.roomStuff.push(glow);
+          this.vents.push({ x: x + 16, y: y + 16, img, em, glow });
           break;
         }
         case "brazier": {
@@ -1784,9 +1787,14 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
     const t = now % 3000;
     const warn = t >= 2000 && t < 2400, flame = t >= 2400;
     const p = this.player.sprite;
+    // the glow is computed from the cycle, not tweened, so every vent in the room breathes as one
+    const k = warn ? (t - 2000) / 400 : 0;
+    const glowA = flame ? 0.72 + 0.16 * Math.sin(now / 38) : warn ? 0.1 + 0.55 * k : 0.09 + 0.04 * Math.sin(now / 320);
+    const glowS = flame ? 1.9 : warn ? 1.2 + 0.6 * k : 1.2;
     for (const v of this.vents) {
       if (warn) v.img.setTint(0x603010).setTintMode(Phaser.TintModes.ADD);
       else v.img.clearTint().setTintMode(Phaser.TintModes.MULTIPLY);
+      v.glow.setAlpha(glowA).setScale(glowS);
       if (flame !== v.em.emitting) {
         if (flame) {
           v.em.start();
