@@ -3,6 +3,7 @@ import { useGame, type ItemId, type LessonId } from "./store";
 import { uiScale, useCanvasRect } from "./useCanvasRect";
 import { Title } from "./Title";
 import { dungeonFor } from "../game/data/dungeons";
+import { QUEST, questIndex } from "../game/quests";
 import { sfx } from "../game/audio";
 import { SHOPS } from "./shop";
 
@@ -209,8 +210,9 @@ function Complete() {
  * Room name sits under it.
  */
 function Minimap() {
-  const { room, roomName, flags, place } = useGame();
+  const { room, roomName, flags, place, guide } = useGame();
   const d = dungeonFor(place).def;
+  const target = guide?.roomId;
   const cells: (typeof d.rooms)[number][] = d.rooms;
   const at = (gx: number, gy: number) => cells.find((c) => c.gx === gx && c.gy === gy);
   const seen = (r?: (typeof cells)[number]) => !!r && (flags.includes(`visited:${r.id}`) || r.id === room);
@@ -226,6 +228,7 @@ function Minimap() {
       const state = !r ? "none" : r.id === room ? "here" : seen(r) ? "seen" : "unknown";
       items.push(<span key={`c${gx}${gy}`} className={`mm ${state}${r?.purpose === "boss" && seen(r) ? " boss" : ""}`} style={{ left: `calc(${x}px * var(--s))`, top: `calc(${y}px * var(--s))` }} />);
       if (!r) continue;
+      if (r.id === target && r.id !== room) items.push(<span key={`q${gx}${gy}`} className="mm-quest" style={{ left: `calc(${x + W / 2 - 2}px * var(--s))`, top: `calc(${y + H / 2 - 2}px * var(--s))` }} />);
       const e = at(gx + 1, gy);
       if (e && eastDoor(r) && (seen(r) || seen(e))) items.push(<span key={`e${gx}${gy}`} className="mm-link h" style={{ left: `calc(${x + W}px * var(--s))`, top: `calc(${y + H / 2 - 1}px * var(--s))` }} />);
       const s = at(gx, gy + 1);
@@ -339,7 +342,10 @@ function useFlash(value: number, dir: "up" | "any" = "any", ms = 450) {
 }
 
 export function HUD() {
-  const { screen, hearts, maxHearts, gold, keys, items, bagOpen, toggleBag, paused, togglePause, quitToTitle, banner, boss, respawn, dialogue, tag, flags, settings, setSettings, place, tool } = useGame();
+  const { screen, hearts, maxHearts, gold, keys, items, bagOpen, toggleBag, paused, togglePause, quitToTitle, banner, boss, respawn, dialogue, tag, flags, settings, setSettings, place, tool, journalOpen, toggleJournal, guide } = useGame();
+  const qState = { flags, place, has: (id: string) => items.some((i) => i.id === id && i.qty > 0), shards: items.find((i) => i.id === "shard")?.qty ?? 0 };
+  const qi = questIndex(qState);
+  const step = QUEST[qi] ?? null;
   const rect = useCanvasRect();
   const s = uiScale(rect);
   const healFlash = useFlash(hearts, "up");
@@ -353,11 +359,17 @@ export function HUD() {
       if (e.key === "Tab") {
         e.preventDefault();
         if (!st.paused && !st.dialogue && !st.shop) toggleBag();
+      } else if (e.key === "j" || e.key === "J") {
+        if (!st.paused && !st.dialogue && !st.shop) {
+          sfx("ui");
+          st.toggleJournal();
+        }
       } else if (e.key === "Escape") {
         sfx("ui");
         if (st.shop) st.closeShop();
         else if (st.dialogue) st.setDialogue(null);
         else if (st.bagOpen) toggleBag(false);
+        else if (st.journalOpen) st.toggleJournal(false);
         else togglePause();
       }
     };
@@ -430,6 +442,14 @@ export function HUD() {
         </div>
       </div>
 
+      {step && !dialogue && !banner && !boss?.intro && (
+        <div className="quest pxslot" title={step.title}>
+          <span className="quest-eyebrow">{step.title.toUpperCase()} · {qi + 1}/{QUEST.length} <span className="kbd">J</span></span>
+          <span className="quest-obj">{step.objective}</span>
+          {guide && <span className="quest-where"><i className="quest-arrow" style={{ transform: `rotate(${guide.angle}rad)` }} />{guide.where === "here" ? `${guide.tiles} tiles` : guide.where}</span>}
+        </div>
+      )}
+
       {place !== "hub" && <Minimap />}
 
       <div className="hotbar pxpanel">
@@ -451,7 +471,7 @@ export function HUD() {
           <div className="card pxpanel">
             {banner.icon && <img className="banner-icon" src={banner.icon === "heart" ? "/assets/sprites/props/heart-container.png" : `/assets/ui/icons/${banner.icon}.png`} alt="" />}
             <div className="banner-text">
-              <span className="eyebrow">{banner.kind === "boss" ? "BOSS" : banner.kind === "item" ? "YOU GOT" : banner.sub?.toUpperCase()}</span>
+              <span className="eyebrow">{banner.kind === "boss" ? "BOSS" : banner.kind === "item" ? "YOU GOT" : banner.kind === "quest" ? "NEW OBJECTIVE" : banner.sub?.toUpperCase()}</span>
               <span className="t-title">{banner.title}</span>
               {banner.sub && banner.kind !== "room" && <span className="muted t-small">{banner.sub}</span>}
             </div>
@@ -489,6 +509,7 @@ export function HUD() {
               <div><span className="kbd">1</span><span>Drink potion</span></div>
               <div><span className="kbd">2</span><span>Drop bomb</span></div>
               <div><span className="kbd">Tab</span><span>Bag</span></div>
+              <div><span className="kbd">J</span><span>Quest journal</span></div>
               <div><span className="kbd">Esc</span><span>Pause / resume</span></div>
             </div>
             <div className="pause-settings">
@@ -512,6 +533,33 @@ export function HUD() {
             <div className="pause-actions">
               <button className="pxbtn pxslot" onClick={quitToTitle}>Quit to title</button>
               <button className="pxbtn pxslot" onClick={() => togglePause(false)} autoFocus>Resume</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {journalOpen && (
+        <div className="bag-backdrop" onClick={() => toggleJournal(false)}>
+          <div className="bag journal pxpanel" onClick={(e) => e.stopPropagation()}>
+            <div className="bag-head">
+              <span className="t-title">Journal</span>
+              <span className="muted"><span className="kbd">J</span> close</span>
+            </div>
+            <div className="journal-list">
+              {QUEST.map((q, i) => {
+                const state = i < qi ? "done" : i === qi ? "now" : "later";
+                if (state === "later" && i > qi + 1) return null;
+                return (
+                  <div key={q.id} className={`journal-step ${state}`}>
+                    <span className="journal-mark">{state === "done" ? "✓" : state === "now" ? "▶" : "·"}</span>
+                    <div className="journal-text">
+                      <span className="journal-title">{state === "later" ? "???" : q.title}</span>
+                      {state !== "later" && <span className="muted journal-obj">{q.objective}</span>}
+                      {state === "now" && <span className="journal-story">{q.story}</span>}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>

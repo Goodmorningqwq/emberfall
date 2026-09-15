@@ -2,7 +2,7 @@ import Phaser from "phaser";
 import { HERO, HURT_MS, DEATH_MS, type Clip, type Dir } from "./heroAssets";
 import { SWORD, SWORD_MS, SWORD_RECOVER_MS } from "./weapons";
 import { useGame, type Facing } from "../../ui/store";
-import { sfx } from "../audio";
+import { sfx, speak } from "../audio";
 import type { LessonId } from "../../ui/store";
 
 /** What a scene must provide for Wren to live in it (the dungeon and the town both do). */
@@ -56,6 +56,7 @@ export class Player {
   private holdUntil = 0;
   private scripted = false;
   private hitsTaken = 0;
+  private lastLowHpLine = -99999;
   private nextStepAt = 0;
   private swings = 0;
 
@@ -262,6 +263,11 @@ export class Player {
     this.invulnerableUntil = now + HURT_IFRAMES_MS;
     sfx("hurt");
     useGame.getState().damage(dmg);
+    // low on hearts: she says so, but not more than once in a while
+    if (useGame.getState().hearts > 0 && useGame.getState().hearts <= 2 && now - this.lastLowHpLine > 25000) {
+      this.lastLowHpLine = now;
+      this.scene.time.delayedCall(450, () => speak("lowhp"));
+    }
     if (useGame.getState().hearts <= 0) return this.die(fromX, fromY);
     this.scene.onPlayerHurt();
     this.scene.shake(120, 0.006);

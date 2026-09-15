@@ -127,6 +127,55 @@ export class Dungeon {
     return this.def.legend[ch] ?? (ch === "#" ? "wall" : ch === "." ? "floor" : undefined);
   }
 
+  /**
+   * Rooms you can walk to from `room` right now (a doorway = floor on both sides of the shared
+   * wall; cracked walls count once they're broken), with the doorway's world point in `room`.
+   */
+  exits(room: Room): { room: Room; x: number; y: number; dir: "north" | "south" | "east" | "west" }[] {
+    const out: { room: Room; x: number; y: number; dir: "north" | "south" | "east" | "west" }[] = [];
+    const ox = room.gx * ROOM_W, oy = room.gy * ROOM_H;
+    const open = (tx: number, ty: number) => !this.isWall(tx, ty);
+    const east = this.roomAt(room.gx + 1, room.gy);
+    if (east && open(ox + ROOM_W - 1, oy + 6) && open(ox + ROOM_W, oy + 6)) out.push({ room: east, x: (ox + ROOM_W) * TILE, y: (oy + 7) * TILE, dir: "east" });
+    const west = this.roomAt(room.gx - 1, room.gy);
+    if (west && open(ox, oy + 6) && open(ox - 1, oy + 6)) out.push({ room: west, x: ox * TILE, y: (oy + 7) * TILE, dir: "west" });
+    const south = this.roomAt(room.gx, room.gy + 1);
+    if (south && open(ox + 9, oy + ROOM_H - 1) && open(ox + 9, oy + ROOM_H)) out.push({ room: south, x: (ox + 10) * TILE, y: (oy + ROOM_H) * TILE, dir: "south" });
+    const north = this.roomAt(room.gx, room.gy - 1);
+    if (north && open(ox + 9, oy + 2) && open(ox + 9, oy - 1)) out.push({ room: north, x: (ox + 10) * TILE, y: (oy + 2) * TILE, dir: "north" });
+    return out;
+  }
+
+  /** First hop of the shortest walk from `from` to `to` (BFS over doorways), or null if unreachable. */
+  nextHop(from: Room, to: Room): { room: Room; x: number; y: number; hops: number } | null {
+    if (from === to) return null;
+    const prev = new Map<string, { via: Room; door: { x: number; y: number } }>();
+    const queue: Room[] = [from];
+    const seen = new Set([from.id]);
+    while (queue.length) {
+      const r = queue.shift()!;
+      for (const e of this.exits(r)) {
+        if (seen.has(e.room.id)) continue;
+        seen.add(e.room.id);
+        prev.set(e.room.id, { via: r, door: { x: e.x, y: e.y } });
+        if (e.room === to) {
+          // walk back to the first hop
+          let cur = to, hops = 0, door = { x: e.x, y: e.y };
+          for (;;) {
+            const p = prev.get(cur.id)!;
+            hops++;
+            if (p.via === from) return { room: cur, x: p.door.x, y: p.door.y, hops };
+            door = p.door;
+            cur = p.via;
+            void door;
+          }
+        }
+        queue.push(e.room);
+      }
+    }
+    return null;
+  }
+
   setTile(tx: number, ty: number, ch: string) {
     this.tiles[ty][tx] = ch;
   }

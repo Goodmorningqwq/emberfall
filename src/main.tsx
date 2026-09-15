@@ -18,8 +18,8 @@ useGame.subscribe((s, prev) => {
     if (s.screen === "title" || s.screen === "intro") setMusic("title");
     else if (s.screen === "dead") stopMusic();
   }
-  const quiet = s.paused || s.bagOpen || !!s.shop || !!s.dialogue || s.screen === "complete";
-  const wasQuiet = prev.paused || prev.bagOpen || !!prev.shop || !!prev.dialogue || prev.screen === "complete";
+  const quiet = s.paused || s.bagOpen || s.journalOpen || !!s.shop || !!s.dialogue || s.screen === "complete";
+  const wasQuiet = prev.paused || prev.bagOpen || prev.journalOpen || !!prev.shop || !!prev.dialogue || prev.screen === "complete";
   if (quiet !== wasQuiet) duckMusic(quiet);
 });
 if (useGame.getState().screen === "title") setMusic("title");

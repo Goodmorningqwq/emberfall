@@ -4,8 +4,10 @@ import { TILE } from "../room";
 import { Player, type PlayerHost } from "../entities/Player";
 import { HERO } from "../entities/heroAssets";
 import { useGame, type LessonId } from "../../ui/store";
-import { sfx, setAmbient } from "../audio";
+import { sfx, setAmbient, speak } from "../audio";
 import { setMusic } from "../music";
+import { GuideDrawer, announceQuest, questStateOf } from "../guide";
+import { questStep } from "../quests";
 import town from "../data/emberfall-town.json";
 import { DUNGEONS } from "../data/dungeons";
 
@@ -52,6 +54,9 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
   private solids!: Phaser.Physics.Arcade.StaticGroup;
   private npcZones: { zone: Phaser.GameObjects.Zone; key: string }[] = [];
   private gateZones: { zone: Phaser.GameObjects.Zone; kind: string }[] = [];
+  private guide?: GuideDrawer;
+  private anchorList: { kind: string; tx: number; ty: number }[] = [];
+  private createdAt = 0;
   private latched = false;
   private frozen = false;
   private leaving = false;
@@ -123,6 +128,9 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
     }
     this.player = new Player(this, sx, sy);
     this.buildProps(anchors);
+    this.anchorList = anchors;
+    this.guide = new GuideDrawer(this);
+    this.createdAt = this.time.now;
     this.physics.add.collider(this.player.sprite, this.solids);
 
     const cam = this.cameras.main;
@@ -134,7 +142,7 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
     const st = useGame.getState();
     st.setRoom("emberfall", "Emberfall", "");
     st.setBoss(null);
-    const shouldFreeze = (s: ReturnType<typeof useGame.getState>) => s.bagOpen || s.paused || !!s.shop || s.screen === "dead" || s.screen === "complete";
+    const shouldFreeze = (s: ReturnType<typeof useGame.getState>) => s.bagOpen || s.journalOpen || s.paused || !!s.shop || s.screen === "dead" || s.screen === "complete";
     this.unsub = useGame.subscribe((s, prev) => {
       if (shouldFreeze(s) !== shouldFreeze(prev)) this.setFrozen(shouldFreeze(s));
       if (s.screen === "game" && prev.screen !== "game" && prev.screen !== "complete" && this.scene.isActive()) this.time.delayedCall(0, () => this.startWhereverSaved());
@@ -155,7 +163,11 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
         });
       }
     }
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.unsub?.());
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.unsub?.();
+      this.guide?.destroy();
+      useGame.getState().setGuide(null);
+    });
   }
 
   /** New game / continue / respawn land wherever the save says. */
@@ -336,6 +348,12 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
         : shards === 1 ? "You brought it back. One flame of three... the plinth will hold it. Rest, then look west: the marsh road has drained."
         : npc.lines[0];
       const line = n.key === "npc-elder" ? elderLine : npc.lines[0];
+      if (n.key === "npc-elder") {
+        if (!st.hasFlag("talked:elder")) speak("hello-elder");
+        st.setFlag("talked:elder");
+        if (shards >= 1) st.setFlag("talked:elder:1");
+        if (shards >= 2) st.setFlag("talked:elder:2");
+      }
       st.setDialogue({ title: `${npc.title} · ${npc.name}`, text: line });
       break;
     }
@@ -446,11 +464,27 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
     }
   }
 
+  /** The GPS in town: the objective is an NPC or a gate here, or the gate that leads to its dungeon. */
+  private updateGuide(px: number, py: number) {
+    if (!this.guide) return;
+    announceQuest(this, this.time.now - this.createdAt);
+    const st = useGame.getState();
+    const step = questStep(questStateOf());
+    if (!step || st.screen !== "game" || this.leaving) return this.guide.hide();
+    const t = step.target;
+    const kind = t.place === "hub" ? t.anchor : t.place === "whisperwood" ? "gate-whisperwood" : "gate-crypt";
+    const a = this.anchorList.find((x) => x.kind === kind);
+    if (!a) return this.guide.hide();
+    const tx = a.tx * TILE + (kind === "gate-crypt" ? 41 : 32), ty = a.ty * TILE + (kind?.startsWith("gate") ? 40 : 34);
+    this.guide.point(px, py, tx, ty, t.place === "hub" ? "here" : t.place === "whisperwood" ? "the east gate" : "the west gate");
+  }
+
   update(_t: number, delta: number) {
     if (this.frozen) return;
     try {
       this.player.update(delta);
       const p = this.player.sprite;
+      this.updateGuide(p.x, p.y);
       this.setAnchor("wren", p.x, p.y - 56);
       this.checkBumps();
     } catch (err) {

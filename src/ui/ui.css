@@ -254,3 +254,29 @@ html, body { margin: 0; height: 100%; background: #0f110f; color: var(--ink); ov
 #ui .pause.death { align-items: center; text-align: center; }
 .pause.death .eyebrow { font-size: 16px; color: var(--ember); letter-spacing: .05em; }
 .pause.death .pause-actions { align-self: center; margin-top: calc(4px * var(--s)); }
+
+/* main-quest tracker (top-left, under the hearts) */
+.quest { position: absolute; left: calc(12px * var(--s)); top: calc(44px * var(--s)); display: flex; flex-direction: column; gap: calc(1px * var(--s)); padding: calc(3px * var(--s)) calc(6px * var(--s)) calc(4px * var(--s)); max-width: calc(190px * var(--s)); animation: pop .18s ease-out; }
+.quest-eyebrow { font-size: 16px; color: var(--ember); letter-spacing: .05em; display: inline-flex; align-items: center; gap: calc(4px * var(--s)); }
+.quest-eyebrow .kbd { letter-spacing: 0; }
+.quest-title { font-size: calc(16px * var(--s)); line-height: 1; }
+.quest-obj { font-size: 16px; color: var(--ink); line-height: 1.15; }
+.quest-where { display: inline-flex; align-items: center; gap: calc(3px * var(--s)); font-size: 16px; color: var(--muted); }
+.quest-arrow { display: inline-block; width: 0; height: 0; border-top: calc(4px * var(--s)) solid transparent; border-bottom: calc(4px * var(--s)) solid transparent; border-left: calc(7px * var(--s)) solid var(--ember); transform-origin: 40% 50%; }
+.quest-key { font-size: 16px; color: var(--muted); display: inline-flex; align-items: center; gap: calc(3px * var(--s)); }
+@container (min-width: 1100px) { .quest-eyebrow, .quest-obj, .quest-where, .quest-key { font-size: calc(16px * max(1, var(--s) - 1)); } }
+.frame.wren-under-quest .quest { opacity: .35; }
+.mm-quest { display: block; width: calc(4px * var(--s)); height: calc(4px * var(--s)); background: var(--ember); box-shadow: 0 0 0 var(--px) var(--ink); animation: mmhere .6s ease-in-out infinite alternate; }
+
+/* journal */
+#ui .bag.journal { width: calc(300px * var(--s)); }
+.journal-list { display: flex; flex-direction: column; gap: calc(5px * var(--s)); }
+.journal-step { display: grid; grid-template-columns: auto 1fr; gap: calc(6px * var(--s)); align-items: start; }
+.journal-mark { font-size: 16px; color: var(--muted); width: calc(10px * var(--s)); }
+.journal-step.now .journal-mark { color: var(--ember); }
+.journal-step.done .journal-title { color: var(--muted); text-decoration: line-through; }
+.journal-text { display: flex; flex-direction: column; gap: calc(1px * var(--s)); }
+.journal-title { font-size: calc(16px * var(--s)); line-height: 1; }
+.journal-obj { font-size: 16px; }
+.journal-story { font-size: 16px; color: var(--ink); line-height: 1.2; margin-top: calc(2px * var(--s)); }
+.journal-step.later { opacity: .5; }

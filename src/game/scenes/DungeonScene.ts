@@ -16,8 +16,10 @@ import { Bomb } from "../entities/Bomb";
 import { HERO } from "../entities/heroAssets";
 import { useGame, type ItemId, type LessonId } from "../../ui/store";
 import { DUNGEONS, dungeonFor, type DungeonMeta } from "../data/dungeons";
-import { sfx, setAmbient } from "../audio";
+import { sfx, setAmbient, speak } from "../audio";
 import { setMusic } from "../music";
+import { GuideDrawer, announceQuest, questStateOf } from "../guide";
+import { questStep, thingTile } from "../quests";
 
 type Dir = "north" | "south" | "east" | "west";
 
@@ -100,6 +102,8 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
   private water: { sprite: Phaser.GameObjects.Sprite; zone: Phaser.GameObjects.Zone }[] = [];
   private anchors: { x: number; y: number; zone: Phaser.GameObjects.Zone }[] = [];
   private grapple?: Grapple;
+  private guide?: GuideDrawer;
+  private createdAt = 0;
   private unsub?: () => void;
   private signs: { zone: Phaser.GameObjects.Zone; text: string }[] = [];
   private signLatched = false;
@@ -204,13 +208,15 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
     setAmbient(this.meta.id === "crypt" ? "crypt" : "whisperwood");
     if (useGame.getState().screen === "game") this.cameras.main.fadeIn(400, 8, 10, 8);
     this.wireCollisions();
+    this.guide = new GuideDrawer(this);
+    this.createdAt = this.time.now;
     this.enterRoom(entRoom, true);
     this.game.canvas.classList.add("ready");
 
     // React panels freeze the world while open. Not scene.pause(): in Phaser 4
     // that stops rendering too and the canvas clears to black.
     // the title/intro screens keep the world alive behind them (attract mode); only the menus freeze it
-    const shouldFreeze = (s: ReturnType<typeof useGame.getState>) => s.bagOpen || s.paused || !!s.shop || s.screen === "dead" || s.screen === "complete";
+    const shouldFreeze = (s: ReturnType<typeof useGame.getState>) => s.bagOpen || s.journalOpen || s.paused || !!s.shop || s.screen === "dead" || s.screen === "complete";
     this.unsub = useGame.subscribe((s, prev) => {
       if (shouldFreeze(s) !== shouldFreeze(prev)) this.setFrozen(shouldFreeze(s));
       // new game / continue / respawn: start over from the entrance with the store's flags
@@ -230,6 +236,8 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
       this.enemies = [];
       this.boomerang?.destroy();
       this.grapple?.destroy();
+      this.guide?.destroy();
+      useGame.getState().setGuide(null);
       this.bombs.forEach((b) => b.destroy());
     });
   }
@@ -678,6 +686,7 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
         st.heal(2);
         break;
       case "shard":
+        speak("shard");
         st.giveItem("shard");
         st.setFlag(`shard:${this.dungeon.def.id}`);
         st.showBanner({ kind: "item", title: "Ember Shard", sub: this.meta.cleansed, icon: "shard" });
@@ -914,6 +923,7 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
     this.time.delayedCall(2100, () => {
       sfx("roar");
       setMusic("boss");
+      this.time.delayedCall(700, () => speak("boss"));
       cam.shake(420, 0.012);
       // the name plate lands mid-screen, then rides up and becomes the health bar
       useGame.getState().setBoss({ name: info.name, sub: info.sub, hp: info.hp, max: info.hp, status: "", intro: true });
@@ -1098,6 +1108,7 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
       st.addKeys(-1);
     } else {
       if (!st.hasItem("bosskey")) return this.toast("icon-bosskey", "Locked - needs the Boss Key", true, at);
+      st.useItem("bosskey");
     }
     st.setFlag(door.id);
     sfx(door.kind === "boss" ? "boss-door" : "door");
@@ -1619,6 +1630,43 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
     this.roomStuff.push(embers);
   }
 
+  /**
+   * The GPS. The objective is either in this dungeon (walk the doorway graph to its room, then
+   * to the thing itself) or somewhere else (walk to the entrance and out).
+   */
+  private updateGuide(px: number, py: number) {
+    if (!this.guide) return;
+    announceQuest(this, this.time.now - this.createdAt);
+    const st = useGame.getState();
+    const step = questStep(questStateOf());
+    if (!step || st.screen !== "game" || this.transitioning) return this.guide.hide();
+    const t = step.target;
+    let targetRoom: Room;
+    let thing: { x: number; y: number } | null = null;
+    let where: string;
+    if (t.place !== this.meta.id) {
+      targetRoom = this.dungeon.room(this.dungeon.def.entrance.room);
+      thing = { x: targetRoom.x + targetRoom.w / 2, y: targetRoom.y + targetRoom.h + 8 }; // the way out
+      where = t.place === "hub" ? "back in town" : t.place === "whisperwood" ? "in the Hollow" : "in the Crypt";
+    } else {
+      targetRoom = this.dungeon.room(t.room ?? this.dungeon.def.entrance.room);
+      if (t.thing) {
+        const tt = thingTile(this.dungeon.def, targetRoom.id, t.thing);
+        if (tt) thing = { x: targetRoom.x + tt.tx * TILE + 16, y: targetRoom.y + tt.ty * TILE + 16 };
+      }
+      where = "here";
+    }
+    if (targetRoom === this.room && thing) return this.guide.point(px, py, thing.x, thing.y, where === "here" ? "here" : where, targetRoom.id);
+    if (targetRoom === this.room) return this.guide.hide();
+    const hop = this.dungeon.nextHop(this.room, targetRoom);
+    if (!hop) {
+      // no open walk yet (a cracked wall, an unopened door): point the way as the crow flies
+      const cx = targetRoom.x + targetRoom.w / 2, cy = targetRoom.y + targetRoom.h / 2;
+      return this.guide.point(px, py, cx, cy, where === "here" ? "beyond the wall" : where, targetRoom.id);
+    }
+    this.guide.point(px, py, hop.x, hop.y, where === "here" ? `${hop.hops} room${hop.hops > 1 ? "s" : ""} away` : where, targetRoom.id);
+  }
+
   /** Playtest helper (console): __game.scene.getScene("Dungeon").goto("boss") */
   goto(id: string) {
     const r = this.dungeon.room(id);
@@ -1682,6 +1730,12 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
       this.grapple?.update(p.x, p.y - 14);
       if (this.grapple?.done) this.grapple = undefined;
       this.checkPlates();
+      // the potion lesson only makes sense while she's hurt: at full hearts it can't be completed, so it goes
+      {
+        const g = useGame.getState();
+        if (g.lesson?.id === "potion" && g.hearts >= g.maxHearts) g.setLesson(null);
+      }
+      this.updateGuide(p.x, p.y);
       this.setAnchor("wren", p.x, p.y - 56);
       this.checkSigns();
       for (const b of this.bombs) b.update(now);

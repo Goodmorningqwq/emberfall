@@ -25,7 +25,14 @@ function ensure() {
   if (!AC) return false;
   ctx = new AC();
   master = ctx.createGain();
-  master.connect(ctx.destination);
+  // a compressor on the way out so the louder voiced cues can sit above the synth SFX without clipping
+  const comp = ctx.createDynamicsCompressor();
+  comp.threshold.value = -10;
+  comp.knee.value = 8;
+  comp.ratio.value = 5;
+  comp.attack.value = 0.003;
+  comp.release.value = 0.12;
+  master.connect(comp).connect(ctx.destination);
   // 1s of white noise, reused by every burst
   noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
   const d = noiseBuf.getChannelData(0);
@@ -45,6 +52,7 @@ export function noiseBuffer() {
 export function unlockAudio() {
   if (!ensure() || !ctx) return;
   if (ctx.state === "suspended") void ctx.resume();
+  preloadVoice();
   if (wantedAmbient && !ambient) startAmbient(wantedAmbient);
 }
 
@@ -269,8 +277,9 @@ export interface VoiceProfile {
   vibRate: number; // Hz
   warmth: number; // low-pass on the pulse, Hz
   length: number; // stretch on every cue
+  volume: number; // her level against the other sounds
 }
-export const WREN: VoiceProfile = { pitch: 300, tract: 1.0, clarity: 7, breath: 0.35, vibrato: 0.012, vibRate: 6, warmth: 4000, length: 1.0 };
+export const WREN: VoiceProfile = { pitch: 300, tract: 1.0, clarity: 7, breath: 0.35, vibrato: 0.012, vibRate: 6, warmth: 4000, length: 1.0, volume: 1.0 };
 const VOWELS: Record<string, [number, number, number]> = { a: [850, 1250, 2850], e: [600, 2100, 2950], i: [320, 2500, 3100], o: [470, 830, 2750], u: [360, 720, 2550], schwa: [550, 1500, 2700] };
 interface Cue {
   f0: [number, number]; // multiples of the profile pitch, start -> end
@@ -289,8 +298,65 @@ const CUES: Record<"hurt" | "dash" | "effort" | "hm" | "yell" | "potion" | "deat
   death: { f0: [1.18, 0.62], dur: 0.9, vowel: ["a", "o"], gain: 0.9, breath: 0.25 },
 };
 
+/**
+ * Recorded lines beat the synth when they exist: public/assets/voice/wren/<cue>.mp3 (made by
+ * tools/make_voice.py, optionally run through RVC). Decoded once into the shared context; a
+ * missing or failed file just leaves the synth cue in place.
+ */
+const clips = new Map<string, AudioBuffer | null>();
+const clipLoads = new Map<string, Promise<void>>();
+export type VoiceLine = keyof typeof CUES | "hurt2" | "hello-elder" | "shard" | "lowhp" | "boss";
+function loadClip(name: string) {
+  if (!ctx || clips.has(name) || clipLoads.has(name)) return;
+  const c = ctx;
+  clipLoads.set(
+    name,
+    fetch(`/assets/voice/wren/${name}.mp3`)
+      .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
+      .then((b) => c.decodeAudioData(b))
+      .then((buf) => void clips.set(name, buf))
+      .catch(() => void clips.set(name, null)),
+  );
+}
+/** Warm the cache on the first gesture so the first "ah!" isn't late. */
+export function preloadVoice() {
+  for (const n of ["hurt", "hurt2", "dash", "effort", "hm", "yell", "potion", "death", "hello-elder", "shard", "lowhp", "boss"]) loadClip(n);
+}
+let lastLineAt = 0;
+/** A spoken line (not a grunt): rate-limited so lines don't stack. */
+export function speak(line: VoiceLine) {
+  if (!ensure() || !ctx) return;
+  if (ctx.state === "suspended") void ctx.resume();
+  const now = ctx.currentTime;
+  if (now - lastLineAt < 1.2) return;
+  lastLineAt = now;
+  playClip(line, 0, 1);
+}
+function playClip(name: string, delay: number, rateJitter: number): boolean {
+  if (!ctx || !master) return false;
+  const buf = clips.get(name);
+  if (buf === undefined) {
+    loadClip(name);
+    return false;
+  }
+  if (!buf) return false;
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  src.playbackRate.value = 1 + (Math.random() * 2 - 1) * (rateJitter - 1);
+  const g = ctx.createGain();
+  g.gain.value = 0.9 * vol() * 2 * WREN.volume;
+  src.connect(g).connect(master);
+  src.start(ctx.currentTime + delay + timeOffset);
+  return true;
+}
+
 function say(id: keyof typeof CUES, delay = 0) {
   if (!ctx || !master) return;
+  // a recorded take, with a little rate variance so repeats don't sound stamped; hurt alternates two takes
+  if (!previewing) {
+    const name = id === "hurt" && Math.random() < 0.5 && clips.get("hurt2") ? "hurt2" : id;
+    if (playClip(name, delay, 1.06)) return;
+  }
   const p = WREN;
   const cue = CUES[id];
   const t0 = ctx.currentTime + delay + timeOffset;
@@ -298,7 +364,8 @@ function say(id: keyof typeof CUES, delay = 0) {
   const f0: [number, number] = [cue.f0[0] * p.pitch, cue.f0[1] * p.pitch];
   const fa = VOWELS[cue.vowel[0]].map((f) => f * p.tract);
   const fb = VOWELS[cue.vowel[1]].map((f) => f * p.tract);
-  const gain = cue.gain * 0.35 * vol() * 2;
+  // the three vowel filters eat ~10 dB: make it up here (the master compressor catches the peaks)
+  const gain = cue.gain * 2.4 * vol() * 2 * p.volume;
   const g = ctx.createGain();
   g.gain.setValueAtTime(0.0001, t0);
   g.gain.linearRampToValueAtTime(gain, t0 + 0.02);

@@ -28,7 +28,7 @@ export function readSettings(): Settings {
 
 /** Transient "You got X" / boss / room-name plate shown by the HUD. */
 export interface Banner {
-  kind: "item" | "boss" | "room";
+  kind: "item" | "boss" | "room" | "quest";
   title: string;
   sub?: string;
   icon?: ItemId | "heart";
@@ -53,6 +53,16 @@ export interface WorldTag {
 export interface Dialogue {
   title: string;
   text: string;
+}
+
+/** The GPS: where the current objective is relative to Wren. Angle in radians (screen space), distance in tiles. */
+export interface Guide {
+  angle: number;
+  tiles: number;
+  /** dungeon room the objective is in (minimap marker), if any */
+  roomId?: string;
+  /** "here" when the thing is in this room, else "N rooms" / "in town" / "in the Hollow" */
+  where: string;
 }
 
 /** What survives a reload. Bump SAVE_VERSION when the shape changes. */
@@ -116,6 +126,8 @@ interface GameState {
   roomName: string;
   dungeonName: string;
   bagOpen: boolean;
+  journalOpen: boolean;
+  guide: Guide | null;
   paused: boolean;
   banner: Banner | null;
   /** boss HP while a boss fight is on, else null */
@@ -157,6 +169,8 @@ interface GameState {
   setSettings: (s: Partial<Settings>) => void;
   addMaxHearts: (halfHearts: number) => void;
   toggleBag: (open?: boolean) => void;
+  toggleJournal: (open?: boolean) => void;
+  setGuide: (g: Guide | null) => void;
   togglePause: (on?: boolean) => void;
   newGame: () => void;
   startGame: () => void; // after the intro plates
@@ -228,6 +242,8 @@ export const useGame = create<GameState>((set, get) => ({
   roomName: "",
   dungeonName: "",
   bagOpen: false,
+  journalOpen: false,
+  guide: null,
   paused: false,
   banner: null,
   boss: null,
@@ -313,7 +329,9 @@ export const useGame = create<GameState>((set, get) => ({
       return { settings };
     }),
   addMaxHearts: (n) => set((s) => ({ maxHearts: s.maxHearts + n, hearts: s.maxHearts + n })),
-  toggleBag: (open) => set((s) => ({ bagOpen: open ?? !s.bagOpen })),
+  toggleBag: (open) => set((s) => ({ bagOpen: open ?? !s.bagOpen, journalOpen: false })),
+  toggleJournal: (open) => set((s) => ({ journalOpen: open ?? !s.journalOpen, bagOpen: false })),
+  setGuide: (guide) => set((s) => (s.guide === guide || (s.guide && guide && s.guide.angle === guide.angle && s.guide.tiles === guide.tiles && s.guide.roomId === guide.roomId && s.guide.where === guide.where) ? {} : { guide })),
   togglePause: (on) => set((s) => ({ paused: on ?? !s.paused })),
   newGame: () => set({ screen: "intro", ...fresh(), sessionStart: Date.now(), bagOpen: false, paused: false, banner: null, boss: null, lesson: null, tag: null, dialogue: null, shop: null }),
   startGame: () => set({ screen: "game" }),
