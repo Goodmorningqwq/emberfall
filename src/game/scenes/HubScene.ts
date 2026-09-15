@@ -289,6 +289,16 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
           this.tweens.add({ targets: flame, alpha: 0.6, scaleY: 7, duration: 700, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
         }
         const shards = st.items.find((i) => i.id === "shard")?.qty ?? 0;
+        if (a.kind === "plinth" && st.hasFlag("finale")) {
+          // the Ember is whole: one tall warm flame with a bright heart, and a steady glow on the plaza stones
+          const heart = this.add.image(x + 24, y + 8, "spore").setScale(2.4, 4.5).setTint(0xfff2b0).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.8).setDepth(y + p.h + 1);
+          const flame = this.add.image(x + 24, y + 6, "spore").setScale(4.2, 8).setTint(0xffb060).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.55).setDepth(y + p.h);
+          this.tweens.add({ targets: flame, alpha: 0.75, scaleY: 9.5, scaleX: 3.8, duration: 420, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+          this.tweens.add({ targets: heart, scaleY: 5.5, duration: 300, yoyo: true, repeat: -1, ease: "Sine.easeInOut", delay: 90 });
+          const halo = this.add.image(x + 24, y + 14, "halo").setDepth(y + p.h - 1).setBlendMode(Phaser.BlendModes.ADD).setTint(0xffb060).setAlpha(0.32).setScale(2.4);
+          this.tweens.add({ targets: halo, alpha: 0.24, scale: 2.2, duration: 900, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+          continue;
+        }
         if (a.kind === "plinth" && shards > 0) {
           // each shard home is one more ember on the cold plinth; the flame grows with them
           for (let i = 0; i < shards; i++) {
@@ -537,6 +547,8 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
         g.setFlag("finale");
         if (g.banner?.kind === "quest") g.showBanner(null);
         flame.stop();
+        // the blaze settles into the plinth's steady flame (the rebuilt scene draws the same resting state)
+        this.tweens.add({ targets: halo, alpha: 0.3, scale: 2.4, duration: 1400, ease: "Sine.easeInOut" });
         g.completeDungeon();
         cam.zoomTo(1, 10);
         cam.startFollow(this.player.sprite, true, 0.12, 0.12);
