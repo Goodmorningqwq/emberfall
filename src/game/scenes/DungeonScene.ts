@@ -945,6 +945,11 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
         } else this.tweens.add({ targets: w.sprite, alpha: 0, duration: 700, delay: 200 + (i % 7) * 60, ease: "Quad.easeIn", onComplete: () => w.sprite.destroy() });
       }
       for (const r of this.waterRims) this.tweens.add({ targets: r, alpha: 0, duration: 600, delay: 300 });
+      // the crust kills the light; the scorched bank stays
+      for (const g of this.lavaGlow) {
+        this.tweens.killTweensOf(g);
+        this.tweens.add({ targets: g, alpha: 0, duration: 900, delay: 300 });
+      }
       this.time.delayedCall(950, () => {
         if (this.room !== room) return;
         this.waterGroup.clear(true, true);
@@ -957,26 +962,48 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
   }
 
   private waterRims: Phaser.GameObjects.Rectangle[] = [];
-  /** A thin pale rim on every floor edge of the water, so the tile fence reads as a shoreline. */
+  /** the parts of a lava pool that die when it crusts over: the ember line at the edge and the glow on the floor */
+  private lavaGlow: Phaser.GameObjects.GameObject[] = [];
+  /**
+   * The pool's edge. Water: a thin pale rim so the tile fence reads as a shoreline. Lava: a scorched
+   * bank on the floor around it, a hot ember line where the floor drops away, and an additive glow
+   * that breathes over the surrounding stone so the pool lights the room.
+   */
   private drawWaterRims(room: Room) {
     this.waterRims = [];
+    this.lavaGlow = [];
     const liquid = this.meta.id === "cinder" ? "lava" : "water";
-    const rim = liquid === "lava" ? 0x3a1a12 : 0x7aa8b8;
     const isWater = (tx: number, ty: number) => this.dungeon.kindAt(tx, ty) === liquid;
+    const open = (tx: number, ty: number) => !isWater(tx, ty) && !this.dungeon.isWall(tx, ty);
+    const rect = (x: number, y: number, w: number, h: number, color: number, alpha: number, depth = -997) => {
+      const r = this.add.rectangle(x, y, w, h, color, alpha).setOrigin(0).setDepth(depth);
+      this.roomStuff.push(r);
+      return r;
+    };
     for (const p of room.placements) {
       if (p.kind !== liquid) continue;
       const x = p.tx * TILE, y = p.ty * TILE;
-      const edges: [boolean, number, number, number, number][] = [
-        [!isWater(p.tx, p.ty - 1) && !this.dungeon.isWall(p.tx, p.ty - 1), x, y, TILE, 2],
-        [!isWater(p.tx, p.ty + 1) && !this.dungeon.isWall(p.tx, p.ty + 1), x, y + TILE - 2, TILE, 2],
-        [!isWater(p.tx - 1, p.ty) && !this.dungeon.isWall(p.tx - 1, p.ty), x, y, 2, TILE],
-        [!isWater(p.tx + 1, p.ty) && !this.dungeon.isWall(p.tx + 1, p.ty), x + TILE - 2, y, 2, TILE],
-      ];
-      for (const [on, rx, ry, rw, rh] of edges) {
+      const n = open(p.tx, p.ty - 1), s = open(p.tx, p.ty + 1), w = open(p.tx - 1, p.ty), e = open(p.tx + 1, p.ty);
+      if (liquid === "water") {
+        const edges: [boolean, number, number, number, number][] = [[n, x, y, TILE, 2], [s, x, y + TILE - 2, TILE, 2], [w, x, y, 2, TILE], [e, x + TILE - 2, y, 2, TILE]];
+        for (const [on, rx, ry, rw, rh] of edges) if (on) this.waterRims.push(rect(rx, ry, rw, rh, 0x7aa8b8, 0.55));
+        continue;
+      }
+      // lava: the bank sits on the floor outside the tile (4 px of charred stone), the ember line just inside
+      const BANK = 4, bank = 0x2a1a14, ember = 0xffb060;
+      if (n) { rect(x - (w ? BANK : 0), y - BANK, TILE + (w ? BANK : 0) + (e ? BANK : 0), BANK, bank, 0.85); this.lavaGlow.push(rect(x, y, TILE, 1, ember, 0.7, -996)); }
+      if (s) { rect(x - (w ? BANK : 0), y + TILE, TILE + (w ? BANK : 0) + (e ? BANK : 0), BANK, bank, 0.85); this.lavaGlow.push(rect(x, y + TILE - 1, TILE, 1, ember, 0.7, -996)); }
+      if (w) { rect(x - BANK, y, BANK, TILE, bank, 0.85); this.lavaGlow.push(rect(x, y, 1, TILE, ember, 0.7, -996)); }
+      if (e) { rect(x + TILE, y, BANK, TILE, bank, 0.85); this.lavaGlow.push(rect(x + TILE - 1, y, 1, TILE, ember, 0.7, -996)); }
+      // the glow: a soft halo under each bank edge, drawn beneath the lava sprite so only the floor
+      // catches it (the pool itself keeps its own colour), breathing out of step with its neighbours
+      const edges: [boolean, number, number][] = [[n, x + 16, y], [s, x + 16, y + TILE], [w, x, y + 16], [e, x + TILE, y + 16]];
+      for (const [on, hx, hy] of edges) {
         if (!on) continue;
-        const r = this.add.rectangle(rx, ry, rw, rh, rim, liquid === "lava" ? 0.8 : 0.55).setOrigin(0).setDepth(-997);
-        this.roomStuff.push(r);
-        this.waterRims.push(r);
+        const halo = this.add.image(hx, hy, "halo").setTint(0xff6a20).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.55).setScale(1.6).setDepth(-999);
+        this.roomStuff.push(halo);
+        this.lavaGlow.push(halo);
+        this.tweens.add({ targets: halo, alpha: 0.85, scale: 1.75, duration: 700 + ((hx * 7 + hy * 3) % 5) * 90, yoyo: true, repeat: -1, ease: "Sine.easeInOut", delay: ((hx + hy) / 16) % 4 * 120 });
       }
     }
   }

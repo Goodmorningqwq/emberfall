@@ -89,3 +89,6 @@ auto-save overwrites a save you wrote before a reload), then `quitToTitle()` →
 `npx tsc --noEmit -p .` and `npx vite build` pass; the relevant checks above ran on **this** build (HMR of a
 scene module reloads the page and wipes `window.__*` — re-import and re-boot); screenshot anything visual
 into `docs/sprite-review/` and reference it in `docs/NIGHT_LOG.md`.
+- `__snap(name)` resolves on the renderer's next frame. With the pane hidden there is no frame: start it, step
+  `await __run(120)`, then await it (race it against a timeout, or the tool call hangs for 45 s). Same for a fresh
+  dev server: the first `__start` can exceed the 45 s tool limit while Vite transforms — race it and re-check.
