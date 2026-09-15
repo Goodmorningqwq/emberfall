@@ -2,7 +2,7 @@ import Phaser from "phaser";
 import { autotile, buildWangLookup, type TilesetMeta } from "../wang";
 import { ROOM_H, ROOM_W, TILE } from "../room";
 import { Dungeon, type DungeonDef, type Placement, type Room } from "../dungeon";
-import { Player } from "../entities/Player";
+import { Player, type PlayerHost } from "../entities/Player";
 import { Enemy } from "../entities/Enemy";
 import { Slime } from "../entities/Slime";
 import { ForestSprite } from "../entities/Sprite";
@@ -57,7 +57,7 @@ interface Chest {
  * spawning that room's enemies/props. Leaving through a doorway scrolls the
  * camera Zelda-style to the neighbour.
  */
-export class DungeonScene extends Phaser.Scene {
+export class DungeonScene extends Phaser.Scene implements PlayerHost {
   dungeon!: Dungeon;
   player!: Player;
   room!: Room;
@@ -177,6 +177,8 @@ export class DungeonScene extends Phaser.Scene {
     const ent = this.dungeon.def.entrance;
     const entRoom = this.dungeon.room(ent.room);
     this.player = new Player(this, entRoom.x + ent.tx * TILE, entRoom.y + ent.ty * TILE);
+    useGame.getState().setPlace("whisperwood");
+    if (useGame.getState().screen === "game") this.cameras.main.fadeIn(400, 8, 10, 8);
     this.wireCollisions();
     this.enterRoom(entRoom, true);
     this.game.canvas.classList.add("ready");
@@ -189,7 +191,7 @@ export class DungeonScene extends Phaser.Scene {
       if (shouldFreeze(s) !== shouldFreeze(prev)) this.setFrozen(shouldFreeze(s));
       // new game / continue / respawn: start over from the entrance with the store's flags
       // (only once we're running: a restart mid-preload wedges the loader)
-      if (s.screen === "game" && prev.screen !== "game" && prev.screen !== "complete" && this.scene.isActive()) this.time.delayedCall(0, () => this.scene.restart());
+      if (s.screen === "game" && prev.screen !== "game" && prev.screen !== "complete" && this.scene.isActive()) this.time.delayedCall(0, () => (useGame.getState().place === "hub" ? this.scene.start("Hub") : this.scene.restart()));
       // back to the title: reset to the entrance in attract mode so nothing can hurt her behind the menu
       if (s.screen === "title" && prev.screen !== "title" && this.scene.isActive()) this.time.delayedCall(0, () => this.scene.restart());
       // closing a sign's dialogue hands control back
@@ -1237,10 +1239,16 @@ export class DungeonScene extends Phaser.Scene {
     else if (p.x > r.x + r.w) dir = "east";
     else if (p.y - 10 < r.y) dir = "north";
     else if (p.y - 10 > r.y + r.h) dir = "south";
+    // the entrance sits on the world's bottom edge, so the body stops there: read the doorway columns instead
+    if (!dir && r.id === this.dungeon.def.entrance.room && p.y >= r.y + r.h - 2 && Math.abs(p.x - (r.x + r.w / 2)) < 30) dir = "south";
     if (!dir) return;
     const { dx, dy } = DIRS[dir];
     const next = this.dungeon.roomAt(r.gx + dx, r.gy + dy);
-    if (!next) return;
+    if (!next) {
+      // the entrance's south doorway leads home
+      if (dir === "south" && r.id === this.dungeon.def.entrance.room) this.leaveForTown();
+      return;
+    }
     this.startTransition(next, dir);
   }
 
@@ -1316,6 +1324,19 @@ export class DungeonScene extends Phaser.Scene {
     p.setPosition(r.x + r.w / 2, r.y + r.h * 0.75);
     (p.body as Phaser.Physics.Arcade.Body).reset(p.x, p.y);
     this.enterRoom(r);
+  }
+
+  private leaveForTown() {
+    if (this.transitioning) return;
+    this.transitioning = true;
+    this.player.hold(99999);
+    this.player.sprite.setVelocity(0, 0);
+    this.player.walkScripted("south");
+    sfx("door");
+    useGame.getState().setPlace("hub");
+    this.cameras.main.fadeOut(450, 8, 10, 8);
+    this.tweens.add({ targets: this.player.sprite, y: this.player.sprite.y + 30, duration: 500 });
+    this.time.delayedCall(520, () => this.scene.start("Hub", { from: "gate-whisperwood" }));
   }
 
   // ----------------------------------------------------------------- loop

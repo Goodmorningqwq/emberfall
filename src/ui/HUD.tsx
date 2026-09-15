@@ -287,7 +287,7 @@ function useFlash(value: number, dir: "up" | "any" = "any", ms = 450) {
 }
 
 export function HUD() {
-  const { screen, hearts, maxHearts, gold, keys, items, bagOpen, toggleBag, paused, togglePause, quitToTitle, banner, boss, respawn, dialogue, tag, flags, settings, setSettings } = useGame();
+  const { screen, hearts, maxHearts, gold, keys, items, bagOpen, toggleBag, paused, togglePause, quitToTitle, banner, boss, respawn, dialogue, tag, flags, settings, setSettings, place } = useGame();
   const rect = useCanvasRect();
   const s = uiScale(rect);
   const healFlash = useFlash(hearts, "up");
@@ -377,7 +377,7 @@ export function HUD() {
         </div>
       </div>
 
-      <Minimap />
+      {place !== "hub" && <Minimap />}
 
       <div className="hotbar pxpanel">
         <Slot icon="sword" keyHint="LMB" selected />

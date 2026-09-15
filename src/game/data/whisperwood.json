@@ -48,10 +48,10 @@
         "#......S...........#",
         "#........@.........#",
         "#..................#",
-        "####################"
+        "#########..#########"
       ],
       "signs": [
-        "Locked. Two keys lie in the Hollow's wings: the slime warren to the west, the root cellar to the east.",
+        "The road home runs south. Wardens move with WASD and strike toward the cursor. Tap Shift to dash - hold it to run.",
         "Wardens move with WASD and strike toward the cursor. Tap Shift to dash - hold it to run."
       ]
     },

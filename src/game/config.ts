@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { DungeonScene } from "./scenes/DungeonScene";
+import { HubScene } from "./scenes/HubScene";
 import { ROOM_H, ROOM_W, TILE } from "./room";
 
 export function createGame(parent: HTMLElement): Phaser.Game {
@@ -20,6 +21,6 @@ export function createGame(parent: HTMLElement): Phaser.Game {
       default: "arcade",
       arcade: { debug: false },
     },
-    scene: [DungeonScene],
+    scene: [HubScene, DungeonScene],
   });
 }

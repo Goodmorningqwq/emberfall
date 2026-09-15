@@ -64,11 +64,13 @@ export interface SaveData {
   flags: string[];
   lessons: string[];
   room: string;
+  place: Place;
   playtimeMs: number;
   savedAt: number;
 }
 const SAVE_KEY = "emberfall.save.1";
-const SAVE_VERSION = 3;
+const SAVE_VERSION = 4;
+export type Place = "hub" | "whisperwood";
 
 const START_ITEMS: Item[] = [
   { id: "sword", name: "Iron Sword", qty: 1, hint: "1 dmg · equipped" },
@@ -98,6 +100,7 @@ interface GameState {
   /** persistent world state: "chest:<dungeon>/<room>/<n>", "door:<room>:<dir>", "cleared:<room>", "solved:<room>", "boss:<dungeon>" */
   flags: string[];
   room: string; // current room id
+  place: Place; // which scene the save lives in
   roomName: string;
   dungeonName: string;
   bagOpen: boolean;
@@ -126,6 +129,7 @@ interface GameState {
   setFlag: (f: string) => void;
   hasFlag: (f: string) => boolean;
   setRoom: (id: string, name: string, dungeonName: string) => void;
+  setPlace: (p: Place) => void;
   showBanner: (b: Banner | null) => void;
   setBoss: (b: GameState["boss"]) => void;
   setLesson: (l: Lesson | null) => void;
@@ -170,6 +174,7 @@ function writeSave(s: GameState) {
       flags: s.flags,
       lessons: s.lessons,
       room: s.room,
+      place: s.place,
       playtimeMs: s.playtimeMs + (s.sessionStart ? Date.now() - s.sessionStart : 0),
       savedAt: Date.now(),
     };
@@ -188,6 +193,7 @@ const fresh = () => ({
   flags: [] as string[],
   lessons: [] as string[],
   room: "entrance",
+  place: "hub" as Place,
   playtimeMs: 0,
 });
 
@@ -232,6 +238,7 @@ export const useGame = create<GameState>((set, get) => ({
   setFlag: (f) => set((s) => (s.flags.includes(f) ? {} : { flags: [...s.flags, f] })),
   hasFlag: (f) => get().flags.includes(f),
   setRoom: (room, roomName, dungeonName) => set({ room, roomName, dungeonName }),
+  setPlace: (place) => set({ place }),
   showBanner: (banner) => set({ banner }),
   setBoss: (boss) => set({ boss }),
   setLesson: (lesson) => set({ lesson }),
@@ -269,6 +276,7 @@ export const useGame = create<GameState>((set, get) => ({
       flags: d.flags,
       lessons: d.lessons ?? [],
       room: d.room,
+      place: d.place ?? "hub",
       playtimeMs: d.playtimeMs,
       sessionStart: Date.now(),
       bagOpen: false,
@@ -281,7 +289,7 @@ export const useGame = create<GameState>((set, get) => ({
     });
   },
   die: () => set({ screen: "dead", bagOpen: false, paused: false, boss: null, banner: null, lesson: null, tag: null, dialogue: null }),
-  respawn: () => set((s) => ({ screen: "game", hearts: s.maxHearts, room: "entrance" })),
+  respawn: () => set((s) => ({ screen: "game", hearts: s.maxHearts, room: "entrance", place: "whisperwood" })),
   quitToTitle: () => {
     writeSave(get());
     set({ screen: "title", paused: false, bagOpen: false, boss: null, banner: null, lesson: null, tag: null, dialogue: null });
@@ -292,7 +300,7 @@ export const useGame = create<GameState>((set, get) => ({
 let saveTimer: number | undefined;
 useGame.subscribe((s, prev) => {
   if (s.screen !== "game" && s.screen !== "complete") return;
-  if (s.hearts === prev.hearts && s.gold === prev.gold && s.keys === prev.keys && s.items === prev.items && s.flags === prev.flags && s.room === prev.room && s.lessons === prev.lessons) return;
+  if (s.hearts === prev.hearts && s.gold === prev.gold && s.keys === prev.keys && s.items === prev.items && s.flags === prev.flags && s.room === prev.room && s.lessons === prev.lessons && s.place === prev.place) return;
   window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => writeSave(useGame.getState()), 300);
 });

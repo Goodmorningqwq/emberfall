@@ -12,7 +12,8 @@ export function Title() {
   const save = useMemo(readSave, []);
   const hearts = save ? Array.from({ length: save.maxHearts / 2 }, (_, i) => (save.hearts - i * 2 >= 2 ? "full" : save.hearts - i * 2 === 1 ? "half" : "empty")) : [];
   const shards = save?.items.find((i) => i.id === "shard")?.qty ?? 0;
-  const roomName = save ? whisperwood.rooms.find((r) => r.id === save.room)?.name ?? "" : "";
+  const inTown = save?.place === "hub";
+  const roomName = save ? (inTown ? "Town square" : whisperwood.rooms.find((r) => r.id === save.room)?.name ?? "") : "";
 
   return (
     <div className="title-backdrop">
@@ -30,7 +31,7 @@ export function Title() {
               </span>
               <span className="title-continue-meta">
                 <span className="stat"><img src="/assets/ui/icons/shard.png" alt="" />{shards}/3</span>
-                <span className="muted">{whisperwood.name} · {roomName}</span>
+                <span className="muted">{inTown ? "Emberfall" : whisperwood.name} · {roomName}</span>
               </span>
             </button>
           )}

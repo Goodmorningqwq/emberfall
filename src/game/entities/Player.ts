@@ -3,7 +3,19 @@ import { HERO, HURT_MS, DEATH_MS, type Clip, type Dir } from "./heroAssets";
 import { SWORD, SWORD_MS, SWORD_RECOVER_MS } from "./weapons";
 import { useGame, type Facing } from "../../ui/store";
 import { sfx } from "../audio";
-import type { DungeonScene } from "../scenes/DungeonScene";
+import type { LessonId } from "../../ui/store";
+
+/** What a scene must provide for Wren to live in it (the dungeon and the town both do). */
+export type PlayerHost = Phaser.Scene & {
+  resetSwingHits(): void;
+  throwBoomerang(dir: Phaser.Math.Vector2): boolean;
+  placeBomb(): boolean;
+  drinkPotion(): boolean;
+  lessonKey(key: string): void;
+  finishLesson(id: LessonId): void;
+  onPlayerHurt(): void;
+  shake(ms: number, intensity: number): void;
+};
 
 const WALK_SPEED = 110;
 const SPRINT_SPEED = 185;
@@ -23,7 +35,7 @@ export class Player {
   /** last non-zero movement input; the scene uses it to work out push direction */
   moveDir = new Phaser.Math.Vector2(0, 0);
 
-  private scene: DungeonScene;
+  private scene: PlayerHost;
   private keys: Record<"up" | "down" | "left" | "right" | "attackAlt" | "dashAlt" | "throwAlt" | "potion" | "bomb", Phaser.Input.Keyboard.Key>;
   private arrows: Phaser.Types.Input.Keyboard.CursorKeys;
   private shift: Phaser.Input.Keyboard.Key;
@@ -40,7 +52,7 @@ export class Player {
   private wantThrow = false;
   private holdUntil = 0;
 
-  constructor(scene: DungeonScene, x: number, y: number) {
+  constructor(scene: PlayerHost, x: number, y: number) {
     this.scene = scene;
     this.sprite = scene.physics.add.sprite(x, y, HERO.texture("south"));
     // All frames share a 68x68 canvas with the feet line at y=57; pivot there
