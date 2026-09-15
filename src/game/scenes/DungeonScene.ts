@@ -16,7 +16,7 @@ import { Bomb } from "../entities/Bomb";
 import { HERO } from "../entities/heroAssets";
 import { useGame, type ItemId, type LessonId } from "../../ui/store";
 import { DUNGEONS, dungeonFor, type DungeonMeta } from "../data/dungeons";
-import { sfx } from "../audio";
+import { sfx, setAmbient } from "../audio";
 
 type Dir = "north" | "south" | "east" | "west";
 
@@ -199,6 +199,7 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
     const entRoom = this.dungeon.room(ent.room);
     this.player = new Player(this, entRoom.x + ent.tx * TILE, entRoom.y + ent.ty * TILE);
     useGame.getState().setPlace(this.meta.id);
+    setAmbient(this.meta.id === "crypt" ? "crypt" : "whisperwood");
     if (useGame.getState().screen === "game") this.cameras.main.fadeIn(400, 8, 10, 8);
     this.wireCollisions();
     this.enterRoom(entRoom, true);

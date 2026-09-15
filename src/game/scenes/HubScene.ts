@@ -4,7 +4,7 @@ import { TILE } from "../room";
 import { Player, type PlayerHost } from "../entities/Player";
 import { HERO } from "../entities/heroAssets";
 import { useGame, type LessonId } from "../../ui/store";
-import { sfx } from "../audio";
+import { sfx, setAmbient } from "../audio";
 import town from "../data/emberfall-town.json";
 import { DUNGEONS } from "../data/dungeons";
 
@@ -81,6 +81,7 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
   }
 
   create(data: { from?: string } = {}) {
+    setAmbient("town");
     if (!this.textures.exists("spore")) {
       const g = this.add.graphics();
       g.fillStyle(0xffffff, 1).fillCircle(3, 3, 3);
