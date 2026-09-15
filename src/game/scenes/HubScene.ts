@@ -20,9 +20,9 @@ interface TownDef {
 
 /** Sprite size + footprint (solid rect, in tiles from the anchor) per anchor kind. */
 const PROPS: Record<string, { tex: string; w: number; h: number; foot: [number, number, number, number]; depthOff?: number }> = {
-  "house-elder": { tex: "house-elder", w: 96, h: 96, foot: [0, 1, 3, 2] },
-  "house-forge": { tex: "house-forge", w: 96, h: 96, foot: [0, 1, 3, 2] },
-  "house-apothecary": { tex: "house-apothecary", w: 96, h: 96, foot: [0, 1, 3, 2] },
+  "house-elder": { tex: "house-elder", w: 128, h: 128, foot: [0.2, 1.4, 3.6, 2.4] },
+  "house-forge": { tex: "house-forge", w: 128, h: 128, foot: [0.2, 1.4, 3.6, 2.4] },
+  "house-apothecary": { tex: "house-apothecary", w: 128, h: 128, foot: [0.2, 1.4, 3.6, 2.4] },
   shrine: { tex: "shrine", w: 64, h: 64, foot: [0, 0.8, 2, 1.2] },
   plinth: { tex: "plinth", w: 48, h: 64, foot: [0, 1, 1.5, 1] },
   tree: { tex: "tree", w: 48, h: 64, foot: [0.3, 1.4, 0.9, 0.6] },

@@ -29,13 +29,13 @@ fill(15, 6, 16, 9, "=")              # north to the elder's hall
 fill(15, 14, 16, 18, "=")            # south to the shrine
 fill(19, 11, 29, 12, "=")            # east road to the Whisperwood gate
 fill(2, 11, 12, 12, "=")             # west road to the crypt gate
-fill(7, 7, 8, 11, "=")               # apothecary spur
+fill(6, 7, 7, 11, "=")               # apothecary spur (door on cols 6-7)
 fill(24, 7, 25, 11, "=")             # forge spur
 fill(5, 12, 6, 21, "=")              # south-west lane to the cinder gate
-# buildings (96px = 3x3 from the anchor's top-left; doors sit on the middle column)
-put(14, 3, "E")   # elder's hall: cols 14-16, door at 15 -> path 15-16
-put(23, 4, "F")   # forge: cols 23-25, door at 24
-put(6, 4, "A")    # apothecary: cols 6-8, door at 7
+# buildings (128px = 4x4 from the anchor's top-left; doors sit on the middle two columns)
+put(14, 2, "E")   # elder's hall: cols 14-17, door at 15-16 -> path 15-16
+put(23, 3, "F")   # forge: cols 23-26, door at 24-25
+put(5, 3, "A")    # apothecary: cols 5-8, door at 6-7
 put(15, 18, "S")  # shrine 2x2
 put(15, 10, "P")  # ember plinth
 put(29, 11, "1")  # Whisperwood gate (east)
@@ -43,20 +43,20 @@ put(2, 11, "2")   # Sunken Crypt gate (west, sealed)
 put(5, 21, "3")   # Cinder Depths gate (south-west, sealed)
 # npcs and spawn
 put(24, 8, "b")
-put(7, 8, "a")
+put(8, 8, "a")
 put(17, 7, "e")
 put(15, 15, "@")
 # dressing: lanterns on the plaza corners, a well, crates by the forge, bushes, ruined wall bits, tree clumps
 for x, y in [(11, 8), (20, 8), (11, 15), (20, 15)]:
     put(x, y, "l")
-put(19, 5, "w")
-put(26, 6, "c")
+put(20, 5, "w")
+put(27, 7, "c")
 put(27, 9, "c")
-for x, y in [(4, 8), (10, 5), (21, 3), (27, 3), (3, 15), (10, 17), (22, 17), (27, 15), (12, 20), (20, 20), (9, 13), (22, 9)]:
+for x, y in [(3, 8), (10, 6), (21, 3), (28, 3), (3, 15), (10, 17), (22, 17), (27, 15), (12, 20), (20, 20), (9, 13), (22, 9)]:
     put(x, y, "u")
 for x, y in [(9, 19), (23, 20), (3, 18)]:
     put(x, y, "r")
-for x, y in [(3, 4), (4, 5), (11, 3), (12, 4), (28, 5), (27, 7), (3, 20), (26, 21), (28, 19), (13, 21), (19, 21), (29, 15), (2, 15), (13, 2), (18, 2), (28, 8)]:
+for x, y in [(3, 5), (11, 3), (12, 5), (28, 6), (3, 20), (26, 21), (28, 19), (13, 21), (19, 21), (29, 15), (2, 15), (13, 7), (19, 3), (28, 9), (21, 7)]:
     if g[y][x] == ".":
         put(x, y, "T")
 
