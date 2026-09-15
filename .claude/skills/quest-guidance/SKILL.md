@@ -19,14 +19,16 @@ than intrusive guidance annoys. Genshin's beam only appears past ~50 m; its "Nav
   **derived** (`questIndex` = step after the furthest `done`), never saved. Targets name a place + room + thing
   (`thingTile` resolves chests/hidden chests/boss objects) or a town anchor. Last step is an open epilogue so the
   tracker never goes empty.
-- `src/game/guide.ts` — `GuideDrawer` (chevron + 4-dot trail; hidden inside ~6 tiles of an in-room target and
-  when `settings.guide` is off) and `announceQuest` (NEW OBJECTIVE plate + narrated story once per step, only
+- `src/game/guide.ts` — `GuideDrawer`: a small gold square (the minimap's mark) that hovers over the objective
+  when it's on screen and sits at the edge of the view in its direction when it isn't (Star Rail style; the
+  user rejected a big chevron + trail as too loud); off when `settings.guide` is off and `announceQuest` (NEW OBJECTIVE plate + narrated story once per step, only
   in a quiet moment, ≥2.4 s after the previous step completed so the strike-through reads first).
 - Scenes: `DungeonScene.updateGuide` (in-room → the thing; other room → `Dungeon.nextHop` BFS over open
   doorways, first hop's doorway; unreachable → as the crow flies, "beyond the wall"; other place → the way out),
   `HubScene.updateGuide` (NPC/gate anchors). Scenes set `questNote` for sub-counts ("2 of 4 braziers lit").
-- HUD: tracker top-left (TITLE · n/N · M, objective, note, direction + "right here / this room / 2 rooms away /
-  the east gate"), strike-through flash on completion, journal (M) with done/current/next and every story
+- HUD: tracker **under the minimap, top-right** (`.right-col`; the user wants it where the map is, like
+  Genshin/Star Rail), right-aligned, 88% opacity: TITLE · n/N · M, objective, note, "right here / this room /
+  2 rooms away / the east gate", strike-through flash on completion, journal (M) with done/current/next and every story
   line, minimap marker on the objective room. Pause: "Quest guide: Arrow on / Tracker only".
 
 ## Writing objectives

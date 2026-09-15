@@ -66,7 +66,14 @@ sinks water or crusts lava to `slag`), `pit`, `anchor` (+ grapple), `vent` (shar
 when the room has no blocks), `sarcophagus`/`bones`/decor. Tools on RMB via `throwBoomerang()` dispatch:
 Boomerang, Grapple (`Grapple.ts`), Fire Rod (`FireBolt.ts`). Enemy variants by option: `Slime{texture}`,
 `ForestSprite("bat"|"firebat")`, `Skeleton{captain|cinder}` (cinder = front guard until `heat()`).
-Boss pattern: `blocksNow` + a tool that opens a window (`boomerangHit` / `grappled` / `overheat`), `bossStatus`
+Side doors (`L`/`Z` pairs on col 0/19) draw the front door art rotated to face into the room
+(`door-<kind>-w/e`, made in PIL) — never a composite "edge-on" slab, the user hated it. Water/lava/pit fences
+come from `fenceZone()` (grows 20 px into adjacent walls so the wall-face sliver can't bypass a pool).
+Key loops: every locked door must have a key reachable *without* the tool that door guards — check the graph
+(the crypt shipped with the hook behind a key that was behind the hook).
+Boss pattern: **the tool only works after the boss commits** (Treant: core opens ~2.4 s after a slam; Knight:
+guard drops ~1.6–2.2 s after a swing/charge; Golem: only from behind) — `bossStatus("opening"/"guarded")` say
+so — then `blocksNow` + a tool that opens a window (`boomerangHit` / `grappled` / `overheat`), `bossStatus`
 lines in `BOSSES`, a signature attack with a warning (quake → hook a post; stomp ring; magma splashes via
 `magmaSplash`), `bossDefeated` drops the shard. Register `tool` in `DungeonMeta` so status lines mention it.
 
