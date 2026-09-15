@@ -11,7 +11,8 @@ export type SfxName =
   | "whoosh" | "catch" | "stun" | "bomb-place" | "bomb" | "potion" | "slime" | "sprite" | "spore"
   | "block" | "plate" | "crystal" | "roar" | "phase" | "victory" | "death" | "ui" | "lesson" | "crack"
   | "drain" | "squeak" | "bones" | "hook"
-  | "step" | "step-grass" | "swing" | "effort" | "hm" | "yell" | "slime-tell" | "slime-hurt" | "bones-tell" | "bone-hit" | "bat-flap" | "bat-hurt" | "sprite-hurt" | "knight-step" | "growl" | "treant-creak";
+  | "step" | "step-grass" | "swing" | "effort" | "hm" | "yell" | "slime-tell" | "slime-hurt" | "bones-tell" | "bone-hit" | "bat-flap" | "bat-hurt" | "sprite-hurt" | "knight-step" | "growl" | "treant-creak"
+  | "rod" | "ignite" | "vent" | "burn" | "crust" | "splash" | "stomp" | "sizzle" | "heat";
 
 let ctx: AudioContext | null = null;
 let stepFlip = false;
@@ -433,6 +434,14 @@ function say(id: keyof typeof CUES, delay = 0) {
   g.connect(master);
 }
 
+/** Fire: a scatter of tiny bandpassed noise ticks over `dur` seconds, thinning toward the end. */
+function crackle(dur: number, gain = 0.2, delay = 0, count = Math.round(dur * 28)) {
+  for (let i = 0; i < count; i++) {
+    const at = delay + Math.pow(Math.random(), 0.7) * dur;
+    noise(0.012 + Math.random() * 0.02, gain * (0.4 + Math.random() * 0.8), 2500 + Math.random() * 4000, 1200, at, "bandpass");
+  }
+}
+
 /** Filtered noise burst: lowpass cutoff sweeps from `from` to `to` Hz. */
 function noise(dur: number, gain = 0.3, from = 4000, to = 400, delay = 0, type: BiquadFilterType = "lowpass") {
   if (!ctx || !master || !noiseBuf) return;
@@ -518,6 +527,25 @@ const SFX: Record<SfxName, () => void> = {
   "treant-creak": () => { tone("sawtooth", [80, 130], 0.5, 0.12, 0, 0.05, "lin"); noise(0.45, 0.08, 400, 900, 0.05, "bandpass"); },
   // the grapple biting into stone
   hook: () => { tone("square", 1500, 0.03, 0.15); noise(0.08, 0.25, 5000, 1500); tone("triangle", [600, 200], 0.14, 0.12, 0.03); },
+  // ---- Cinder Depths
+  // the rod: a fizzing ember leaves the tip and climbs
+  rod: () => { noise(0.14, 0.22, 500, 3200, 0, "bandpass"); tone("sawtooth", [180, 520], 0.14, 0.07); crackle(0.28, 0.16); },
+  // a brazier catches: a soft whump, then it settles into a crackle with a bright tick so it still reads as progress
+  ignite: () => { tone("sine", [95, 42], 0.28, 0.32); noise(0.4, 0.28, 250, 2600, 0, "bandpass"); crackle(0.7, 0.2, 0.08); tone("triangle", 1046, 0.28, 0.09, 0.14); },
+  // a vent breathes out: a rising hiss that thins
+  vent: () => { noise(0.12, 0.18, 700, 3200, 0, "highpass"); noise(0.55, 0.2, 2600, 800, 0.08, "bandpass"); },
+  // thorns going up: dry crackle over a low rush
+  burn: () => { crackle(0.95, 0.3); noise(0.85, 0.2, 1300, 350, 0.05, "bandpass"); tone("sawtooth", [120, 55], 0.45, 0.09); },
+  // lava crusting over: a long sizzle that dies to ticks, with the rock settling underneath
+  crust: () => { noise(1.3, 0.22, 2400, 300, 0, "bandpass"); crackle(1.3, 0.14, 0.25); tone("sine", [80, 38], 1.0, 0.2, 0.2, 0.02, "lin"); },
+  // a lump of magma lands: a wet slap, then it sizzles on the stone
+  splash: () => { noise(0.07, 0.35, 3000, 500); tone("sine", [220, 55], 0.16, 0.26); noise(0.42, 0.16, 2600, 1100, 0.06, "bandpass"); crackle(0.42, 0.12, 0.08); },
+  // the golem's foot: a floor-deep thud and a spray of grit
+  stomp: () => { tone("sine", [72, 26], 0.5, 0.7); noise(0.32, 0.45, 900, 70); noise(0.09, 0.3, 4000, 1400, 0.02); },
+  // the crust cracks open: a snap, then it hisses and spits for the whole window
+  sizzle: () => { noise(0.06, 0.35, 5000, 1800); tone("square", [420, 110], 0.16, 0.14); noise(1.0, 0.18, 3200, 1400, 0.05, "bandpass"); crackle(1.3, 0.2, 0.1); },
+  // a cinderling's slag glows: a short sizzle
+  heat: () => { noise(0.3, 0.2, 3200, 1200, 0, "bandpass"); crackle(0.36, 0.12); tone("sine", [640, 300], 0.1, 0.09); },
 };
 
 export function sfx(name: SfxName) {

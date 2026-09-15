@@ -30,5 +30,13 @@ No audio files except Wren's voice clips. Everything else is synthesized at play
   (1.2 s) so lines don't stack; the low-HP line at most every 25 s.
 - New SFX: add the name to `SfxName`, a lambda in `SFX`; monsters get a tell sound on the telegraph and a
   per-type hurt sound in `hitEnemy`; footsteps come from `Player.update` (place decides stone vs turf).
+- Fire has its own helper: `crackle(dur, gain, delay)` scatters tiny bandpassed noise ticks (thinning toward the
+  end) — layer it under a hiss (`noise(..., "bandpass")`) for anything burning. Cinder Depths set: `rod` (shot),
+  `ignite` (brazier), `vent` (flame, only within 160 px), `burn` (thorns), `crust` (lava crusting — `drainRoom`
+  picks it over `drain` in the cinder), `splash` (magma lands), `stomp` (golem foot), `sizzle` (golem overheat
+  window), `heat` (cinderling's guard drops — only when it wasn't already hot, so bolts don't stack the sound).
+- Level check without ears: `renderSfxPreview(names, 1.6)` then per-sound peak/RMS in the console. Reference peaks
+  at preview volume: hit 0.23, bomb 0.38, crack 0.29, crystal 0.13, stun 0.11, whoosh 0.03. A hazard tell that
+  repeats (vents) should sit around 0.1; a boss impact near 0.3–0.4. Preview WAV: `docs/audio-review/sfx-cinder.wav`.
 - The Voice Lab artifact (https://claude.ai/artifact/6j6SoJ4fyAF18YEWpYd426) mirrors `say()`; a pasted preset
   maps 1:1 onto `WREN`.

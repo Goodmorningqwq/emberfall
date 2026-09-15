@@ -58,6 +58,7 @@ export class Skeleton extends Enemy {
 
   /** A rod bolt: the slag glows and the guard drops for a while. */
   heat(ms: number) {
+    if (this.scene.time.now >= this.heatedUntil) sfx("heat");
     this.heatedUntil = this.scene.time.now + ms;
     this.sprite.setTint(0xff8a3a).setTintMode(Phaser.TintModes.ADD);
     this.scene.time.delayedCall(ms, () => this.sprite.active && this.scene.time.now >= this.heatedUntil && this.restTint());

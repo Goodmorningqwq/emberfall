@@ -147,7 +147,7 @@ export class CinderGolem extends Enemy {
       this.stateUntil = this.scene.time.now + 600;
       this.scene.tweens.add({ targets: s, scaleY: 0.92, scaleX: 1.1, duration: 90, yoyo: true, ease: "Quad.easeOut" });
       this.scene.shake(300, 0.01);
-      sfx("bomb");
+      sfx("stomp");
       // the ring: a hazard band that expands; hurt if her distance is within the band
       const ring = this.scene.add.circle(s.x, s.y - 6, 20, 0x000000, 0).setStrokeStyle(5, 0xff9a4a, 0.95).setDepth(9000);
       const t0 = this.scene.time.now;
@@ -206,6 +206,7 @@ export class CinderGolem extends Enemy {
     s.setTint(0xff7a30).setTintMode(Phaser.TintModes.ADD);
     this.scene.tweens.add({ targets: s, x: "+=3", duration: 45, yoyo: true, repeat: 5 });
     this.scene.puff(s.x, s.y - 30, 0xffb060, 18);
+    sfx("sizzle");
     this.scene.bossStatus("stunned");
   }
 

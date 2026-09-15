@@ -928,11 +928,11 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
   /** The rune plate: the standing water sinks away and the room's fence with it. */
   private drainRoom() {
     const room = this.room;
-    sfx("drain");
+    const lava = this.meta.id === "cinder";
+    sfx(lava ? "crust" : "drain");
     this.time.delayedCall(200, () => {
       if (this.room !== room) return;
       this.shake(900, 0.003);
-      const lava = this.meta.id === "cinder";
       for (const [i, w] of this.water.entries()) {
         if (lava) {
           // it darkens and crusts over instead of sinking
@@ -1600,7 +1600,7 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
     const p = this.player.sprite;
     const bolt = new FireBolt(this, p.x + dir.x * 12, p.y - 14 + dir.y * 12, dir);
     this.bolts.push(bolt);
-    sfx("whoosh");
+    sfx("rod");
     this.finishLesson("firerod");
     this.physics.add.collider(bolt.sprite, this.walls);
     this.physics.add.overlap(bolt.sprite, this.enemyGroup, (_b, obj) => {
@@ -1647,7 +1647,7 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
     }).setDepth(b.img.depth + 1);
     this.roomStuff.push(b.flame);
     if (silent) return;
-    sfx("crystal");
+    sfx("ignite");
     this.puff(b.x, b.y - 4, 0xffb060, 10);
     this.shake(50, 0.002);
     const lit = this.braziers.filter((x) => x.lit).length;
@@ -1665,7 +1665,7 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
     if (!t) return;
     this.thorns = undefined;
     useGame.getState().setFlag(t.flag);
-    sfx("crack");
+    sfx("burn");
     this.solids.remove(t.zone, true, true);
     t.img.setTint(0xff8a3a).setTintMode(Phaser.TintModes.ADD);
     this.tweens.add({ targets: t.img, alpha: 0, y: "+=4", duration: 700, delay: 200, ease: "Quad.easeIn", onComplete: () => t.img.destroy() });
@@ -1696,7 +1696,7 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
     this.tweens.add({ targets: lump, y: fromY - 60, duration: WARN / 2, ease: "Quad.easeOut", yoyo: true, onComplete: () => lump.destroy() });
     this.time.delayedCall(WARN, () => {
       warn.destroy();
-      sfx("bomb-place");
+      sfx("splash");
       this.puff(x, y - 4, 0xff9a4a, 12);
       const p = this.player.sprite;
       if (Phaser.Math.Distance.Between(x, y, p.x, p.y) < 22) this.hurtPlayer(x, y, 1);
@@ -1721,7 +1721,7 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
       if (flame !== v.em.emitting) {
         if (flame) {
           v.em.start();
-          if (Phaser.Math.Distance.Between(v.x, v.y, p.x, p.y) < 160) sfx("spore");
+          if (Phaser.Math.Distance.Between(v.x, v.y, p.x, p.y) < 160) sfx("vent");
         } else v.em.stop();
       }
       if (flame && Phaser.Math.Distance.Between(v.x, v.y, p.x, p.y - 6) < 18) this.hurtPlayer(v.x, v.y + 10, 1);
