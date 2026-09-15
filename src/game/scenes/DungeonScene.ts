@@ -121,8 +121,8 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
       this.load.spritesheet(`tiles-${m.tileset}`, `assets/tiles/${m.tileset}.png`, { frameWidth: TILE, frameHeight: TILE });
       this.load.json(`tiles-meta-${m.tileset}`, `assets/tiles/${m.tileset}.json`);
     }
-    for (const p of ["door", "torch", "block", "chest", "chest-open", "slime", "blueslime", "sprite", "mushroom", "treant", "root", "door-locked", "door-locked-edge", "door-boss", "stump", "crystal", "plate", "crack", "heart-container", "signpost", "bomb", "boomerang", "archway", "skeleton", "bat", "boneknight", "boneknight-noshield", "shield-ground", "sarcophagus", "bones", "anchor", "pit-tile", "hook"]) {
-      this.load.image(p, `assets/sprites/props/${p}.png`);
+    for (const p of ["door", "torch", "block", "chest", "chest-open", "slime", "blueslime", "sprite", "mushroom", "treant", "root", "door-locked", "door-locked-edge", "door-boss", "stump", "crystal", "plate", "crack", "heart-container", "signpost", "bomb", "boomerang", "archway", "skeleton", "bat", "boneknight", "boneknight-noshield", "shield-ground", "sarcophagus", "bones", "anchor", "pit-tile", "hook", "stone", "decor-leaves", "decor-tuft", "decor-shrooms", "decor-puddle", "decor-moss", "decor-rubble", "decor-puddle-dark", "decor-candle"]) {
+      if (!this.textures.exists(p)) this.load.image(p, `assets/sprites/props/${p}.png`);
     }
     for (const i of ["key", "boomerang", "bomb", "shard", "potion", "coin", "bosskey", "grapple"]) this.load.image(`icon-${i}`, `assets/ui/icons/${i}.png`);
     // enemy clips: one PNG per frame under assets/sprites/props/anim/<clip>/<i>.png (PixelLab animate_object)
@@ -511,6 +511,7 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
           break;
       }
     }
+    this.scatterDecor(room);
     // a key earned earlier but never picked up waits mid-room when the map gives it no spot
     if (cleared && room.clearReward === "key" && !st.hasFlag(`key:${room.id}`) && !room.placements.some((p) => p.kind === "key-drop")) this.spawnPickup("key", room.x + room.w / 2, room.y + room.h * 0.6);
     // the water's edge: a pale rim where floor meets water, so the fence reads
@@ -550,6 +551,39 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
     }
     if (!this.boss) st.setBoss(null);
     if (!first) this.puffRoomEntry();
+  }
+
+  /**
+   * Floor dressing: leaves, tufts, moss, rubble on empty floor tiles, seeded by the room so it's
+   * the same every visit. Never on doorway lanes or on a tile something else uses; never solid.
+   */
+  private scatterDecor(room: Room) {
+    const set = this.meta.decor.filter((t) => this.textures.exists(t));
+    if (!set.length) return;
+    let seed = 0;
+    for (const ch of room.id) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
+    const rnd = () => {
+      seed = (seed * 1664525 + 1013904223) >>> 0;
+      return seed / 4294967296;
+    };
+    const used = new Set(room.placements.map((p) => `${p.tx - room.gx * ROOM_W},${p.ty - room.gy * ROOM_H}`));
+    const taken: { x: number; y: number }[] = [];
+    for (let ty = 3; ty < ROOM_H - 1; ty++) {
+      for (let tx = 1; tx < ROOM_W - 1; tx++) {
+        const ch = room.map[ty][tx];
+        if (ch !== ".") continue;
+        // keep the lanes through the doorways clear so the trail and the walk read
+        if ((tx === 9 || tx === 10) && (ty <= 4 || ty >= ROOM_H - 3)) continue;
+        if ((ty === 6 || ty === 7) && (tx <= 2 || tx >= ROOM_W - 3)) continue;
+        if (used.has(`${tx},${ty}`) || rnd() > this.meta.decorDensity) continue;
+        if (taken.some((t) => Math.abs(t.x - tx) <= 1 && Math.abs(t.y - ty) <= 1)) continue;
+        taken.push({ x: tx, y: ty });
+        const tex = set[Math.floor(rnd() * set.length)];
+        const flat = tex.includes("leaves") || tex.includes("puddle") || tex.includes("moss");
+        const img = this.add.image(room.x + tx * TILE + (rnd() * 6 - 3), room.y + ty * TILE + (rnd() * 6 - 3), tex).setOrigin(0).setDepth(-998).setAlpha(flat ? 0.82 : 0.95).setFlipX(rnd() < 0.5);
+        this.roomStuff.push(img);
+      }
+    }
   }
 
   private puffRoomEntry() {

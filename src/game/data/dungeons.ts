@@ -23,6 +23,9 @@ export interface DungeonMeta {
   completeNext: string;
   /** rooms where a consumable first matters: the hotbar slot unlocks on entry */
   unlocks: { potion?: string; bomb?: string };
+  /** floor dressing scattered on empty tiles (texture keys under sprites/props), and how much of the floor gets some */
+  decor: string[];
+  decorDensity: number;
 }
 
 export const DUNGEONS: Record<DungeonId, DungeonMeta> = {
@@ -39,6 +42,8 @@ export const DUNGEONS: Record<DungeonId, DungeonMeta> = {
     completeEyebrow: "WHISPERWOOD HOLLOW",
     completeNext: "The Sunken Crypt waits beyond the marsh. The west gate in town has opened.",
     unlocks: { potion: "west-fight", bomb: "east-crystal" },
+    decor: ["decor-leaves", "decor-leaves", "decor-tuft", "decor-tuft", "decor-shrooms", "decor-puddle", "stone"],
+    decorDensity: 0.08,
   },
   crypt: {
     id: "crypt",
@@ -53,6 +58,8 @@ export const DUNGEONS: Record<DungeonId, DungeonMeta> = {
     completeEyebrow: "SUNKEN CRYPT",
     completeNext: "Smoke still rises from the mountain road. The Cinder Depths are not built yet.",
     unlocks: {},
+    decor: ["decor-moss", "decor-moss", "decor-rubble", "decor-puddle-dark", "bones", "decor-candle"],
+    decorDensity: 0.06,
   },
 };
 
