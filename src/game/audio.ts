@@ -11,10 +11,11 @@ export type SfxName =
   | "whoosh" | "catch" | "stun" | "bomb-place" | "bomb" | "potion" | "slime" | "sprite" | "spore"
   | "block" | "plate" | "crystal" | "roar" | "phase" | "victory" | "death" | "ui" | "lesson" | "crack"
   | "drain" | "squeak" | "bones" | "hook"
-  | "step" | "step-grass" | "swing" | "effort" | "slime-tell" | "slime-hurt" | "bones-tell" | "bone-hit" | "bat-flap" | "bat-hurt" | "sprite-hurt" | "knight-step" | "growl" | "treant-creak";
+  | "step" | "step-grass" | "swing" | "effort" | "hm" | "yell" | "slime-tell" | "slime-hurt" | "bones-tell" | "bone-hit" | "bat-flap" | "bat-hurt" | "sprite-hurt" | "knight-step" | "growl" | "treant-creak";
 
 let ctx: AudioContext | null = null;
 let stepFlip = false;
+let timeOffset = 0; // offline previews schedule sounds along a timeline
 let master: GainNode | null = null;
 let noiseBuf: AudioBuffer | null = null;
 
@@ -194,8 +195,42 @@ useGame.subscribe((s, prev) => {
 });
 
 function vol() {
+  if (previewing) return 0.5;
   const s = useGame.getState().settings;
   return (s.sfx ?? 1) * 0.5;
+}
+let previewing = false;
+
+/**
+ * Review helper: render a list of sounds one after another into an offline context and return
+ * the samples (mono), so a WAV can be written for someone to actually listen to.
+ */
+export async function renderSfxPreview(names: SfxName[], gap = 0.7): Promise<{ sampleRate: number; samples: Float32Array }> {
+  const rate = 22050;
+  const total = names.length * gap + 1.5;
+  const oc = new OfflineAudioContext(1, Math.ceil(total * rate), rate);
+  const saved = { ctx, master, noiseBuf };
+  ctx = oc as unknown as AudioContext;
+  master = oc.createGain();
+  master.connect(oc.destination);
+  noiseBuf = oc.createBuffer(1, rate, rate);
+  const d = noiseBuf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  previewing = true;
+  try {
+    names.forEach((n, i) => {
+      timeOffset = 0.1 + i * gap;
+      SFX[n]();
+    });
+  } finally {
+    timeOffset = 0;
+    previewing = false;
+    ctx = saved.ctx;
+    master = saved.master;
+    noiseBuf = saved.noiseBuf;
+  }
+  const buf = await oc.startRendering();
+  return { sampleRate: rate, samples: buf.getChannelData(0) };
 }
 
 type Wave = OscillatorType;
@@ -203,7 +238,7 @@ type Wave = OscillatorType;
 /** One oscillator note: freq (or a [from, to] sweep), duration, gain envelope. */
 function tone(wave: Wave, freq: number | [number, number], dur: number, gain = 0.3, delay = 0, attack = 0.005, curve: "exp" | "lin" = "exp") {
   if (!ctx || !master) return;
-  const t0 = ctx.currentTime + delay;
+  const t0 = ctx.currentTime + delay + timeOffset;
   const o = ctx.createOscillator();
   const g = ctx.createGain();
   o.type = wave;
@@ -220,10 +255,70 @@ function tone(wave: Wave, freq: number | [number, number], dur: number, gain = 0
   o.stop(t0 + dur + 0.02);
 }
 
+/**
+ * A small voice: a pulse-ish source (two detuned saws) through two formant bandpasses, so a
+ * short sweep reads as a sung vowel. Wren's voice sits around 280-360 Hz with "a"/"u" formants.
+ * f0 is [from, to] in Hz; formants are [F1, F2] pairs (can sweep by giving two pairs).
+ */
+function voice(f0: [number, number], dur: number, formants: [[number, number], [number, number]?], gain = 0.3, delay = 0, breath = 0.15) {
+  if (!ctx || !master) return;
+  const t0 = ctx.currentTime + delay + timeOffset;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.linearRampToValueAtTime(gain * vol(), t0 + 0.02);
+  g.gain.setValueAtTime(gain * vol(), t0 + dur * 0.6);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  const mix = ctx.createGain();
+  mix.gain.value = 0.5;
+  for (const det of [-7, 7]) {
+    const o = ctx.createOscillator();
+    o.type = "sawtooth";
+    o.frequency.setValueAtTime(f0[0], t0);
+    o.frequency.exponentialRampToValueAtTime(Math.max(40, f0[1]), t0 + dur);
+    o.detune.value = det;
+    // a little vibrato, like a held note
+    const v = ctx.createOscillator();
+    const vg = ctx.createGain();
+    v.frequency.value = 6;
+    vg.gain.value = f0[0] * 0.012;
+    v.connect(vg).connect(o.frequency);
+    o.connect(mix);
+    o.start(t0);
+    v.start(t0);
+    o.stop(t0 + dur + 0.05);
+    v.stop(t0 + dur + 0.05);
+  }
+  const [fa, fb] = formants;
+  for (const i of [0, 1]) {
+    const f = ctx.createBiquadFilter();
+    f.type = "bandpass";
+    f.Q.value = i === 0 ? 6 : 9;
+    f.frequency.setValueAtTime(fa[i], t0);
+    if (fb) f.frequency.exponentialRampToValueAtTime(fb[i], t0 + dur);
+    mix.connect(f).connect(g);
+  }
+  // breath under the vowel
+  if (breath > 0 && noiseBuf) {
+    const src = ctx.createBufferSource();
+    src.buffer = noiseBuf;
+    src.loop = true;
+    const bf = ctx.createBiquadFilter();
+    bf.type = "bandpass";
+    bf.frequency.value = 2200;
+    const bg = ctx.createGain();
+    bg.gain.setValueAtTime(breath * gain * vol(), t0);
+    bg.gain.exponentialRampToValueAtTime(0.0001, t0 + dur * 0.7);
+    src.connect(bf).connect(bg).connect(master);
+    src.start(t0);
+    src.stop(t0 + dur);
+  }
+  g.connect(master);
+}
+
 /** Filtered noise burst: lowpass cutoff sweeps from `from` to `to` Hz. */
 function noise(dur: number, gain = 0.3, from = 4000, to = 400, delay = 0, type: BiquadFilterType = "lowpass") {
   if (!ctx || !master || !noiseBuf) return;
-  const t0 = ctx.currentTime + delay;
+  const t0 = ctx.currentTime + delay + timeOffset;
   const src = ctx.createBufferSource();
   src.buffer = noiseBuf;
   src.loop = true;
@@ -243,8 +338,10 @@ const SFX: Record<SfxName, () => void> = {
   // a blade landing: click, body thump, short ring
   hit: () => { noise(0.04, 0.4, 7000, 2500); tone("sine", [180, 70], 0.11, 0.35); tone("triangle", [900, 500], 0.06, 0.1, 0.01); },
   clang: () => { tone("square", 880, 0.05, 0.15); tone("sawtooth", [1400, 900], 0.12, 0.12, 0.01); noise(0.05, 0.15, 6000, 2000); },
-  hurt: () => { tone("sawtooth", [320, 110], 0.22, 0.25); noise(0.1, 0.12, 2000, 300); },
-  dash: () => noise(0.16, 0.18, 1200, 6000, 0, "highpass"),
+  // a short, bright "ah!" over the body thump
+  hurt: () => { voice([360, 250], 0.26, [[850, 1300], [650, 1050]], 0.32, 0, 0.2); noise(0.1, 0.1, 2000, 300); },
+  // a clipped "hup" with the rush of air
+  dash: () => { voice([300, 330], 0.1, [[600, 1100], [350, 900]], 0.16, 0, 0.1); noise(0.16, 0.16, 1200, 6000, 0.02, "highpass"); },
   pickup: () => { tone("sine", 660, 0.08, 0.25); tone("sine", 990, 0.12, 0.25, 0.07); },
   key: () => { tone("triangle", 880, 0.08, 0.22); tone("triangle", 1174, 0.08, 0.22, 0.08); tone("triangle", 1760, 0.16, 0.22, 0.16); },
   heart: () => { tone("sine", 523, 0.1, 0.22); tone("sine", 784, 0.18, 0.22, 0.09); },
@@ -258,7 +355,7 @@ const SFX: Record<SfxName, () => void> = {
   "bomb-place": () => tone("square", [200, 150], 0.06, 0.15),
   bomb: () => { noise(0.45, 0.5, 3000, 80); tone("sine", [120, 30], 0.5, 0.5); },
   // three gulps and a sparkle
-  potion: () => { for (const i of [0, 1, 2]) tone("sine", [260 + i * 60, 520 + i * 90], 0.09, 0.2, i * 0.11); tone("triangle", 1568, 0.18, 0.12, 0.36); tone("triangle", 2093, 0.24, 0.1, 0.42); },
+  potion: () => { for (const i of [0, 1, 2]) tone("sine", [260 + i * 60, 520 + i * 90], 0.09, 0.2, i * 0.11); tone("triangle", 1568, 0.18, 0.12, 0.36); tone("triangle", 2093, 0.24, 0.1, 0.42); voice([300, 330], 0.25, [[400, 800], [450, 900]], 0.12, 0.5, 0.05); },
   slime: () => { tone("sine", [200, 80], 0.18, 0.25); noise(0.12, 0.12, 1500, 300); },
   sprite: () => { tone("sine", [1400, 2400], 0.1, 0.12); tone("sine", [2400, 600], 0.14, 0.12, 0.1); },
   spore: () => noise(0.5, 0.15, 400, 1200, 0, "bandpass"),
@@ -268,7 +365,8 @@ const SFX: Record<SfxName, () => void> = {
   roar: () => { tone("sawtooth", [60, 45], 0.7, 0.35); tone("square", [95, 70], 0.7, 0.15, 0.05); noise(0.7, 0.2, 500, 100, 0.1); },
   phase: () => { tone("sawtooth", [55, 40], 0.5, 0.3); tone("sine", 41, 0.6, 0.3, 0.1); },
   victory: () => { for (const [i, f] of [523, 659, 784, 1046, 1318].entries()) tone("triangle", f, 0.35, 0.22, i * 0.11); },
-  death: () => { tone("sawtooth", [220, 40], 0.9, 0.3, 0, 0.01, "lin"); noise(0.5, 0.12, 1000, 100, 0.2); },
+  // a falling "aah..." and the body going down
+  death: () => { voice([340, 180], 0.9, [[850, 1300], [500, 900]], 0.3, 0, 0.25); tone("sine", [120, 40], 0.6, 0.2, 0.5); noise(0.5, 0.1, 1000, 100, 0.6); },
   ui: () => tone("square", 1200, 0.03, 0.08),
   lesson: () => { tone("sine", 880, 0.06, 0.12); tone("sine", 1320, 0.1, 0.12, 0.06); },
   crack: () => { noise(0.4, 0.4, 2500, 150); tone("square", [140, 60], 0.3, 0.3); },
@@ -285,7 +383,10 @@ const SFX: Record<SfxName, () => void> = {
   // the blade through the air
   swing: () => noise(0.16, 0.22, 900, 4500, 0, "bandpass"),
   // a short breath of effort under a swing
-  effort: () => { noise(0.09, 0.08, 500, 1200, 0, "bandpass"); tone("triangle", [330, 260], 0.09, 0.05); },
+  effort: () => voice([320, 270], 0.12, [[700, 1150], [600, 1000]], 0.14, 0, 0.3),
+  // a curious "hm?" (lessons, signs) and a battle cry (boss stun window)
+  hm: () => voice([300, 380], 0.22, [[400, 1100], [450, 1300]], 0.14, 0, 0.05),
+  yell: () => voice([330, 420], 0.35, [[800, 1250], [850, 1300]], 0.3, 0, 0.2),
   // ---- monsters
   "slime-tell": () => { tone("sine", [180, 320], 0.12, 0.14); tone("sine", [220, 380], 0.1, 0.1, 0.06); },
   "slime-hurt": () => { tone("sine", [420, 160], 0.12, 0.2); noise(0.08, 0.1, 1200, 300); },

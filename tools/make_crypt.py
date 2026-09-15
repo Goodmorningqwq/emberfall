@@ -139,16 +139,16 @@ room("boss", 1, 0, "Hall of the Bone Knight", "boss", [
     "####################",
     "####################",
     "####t##########t####",
+    "#.^..............^.#",
     "#..................#",
     "#..................#",
     "#..................#",
     "#..................#",
     "#..................#",
     "#..................#",
-    "#..................#",
-    "#..................#",
+    "#.^..............^.#",
     "#########..#########",
-], objects=[{"kind": "boneknight", "x": 10, "y": 4.8}])
+], objects=[{"kind": "boneknight", "x": 10, "y": 4.8}], sub="Hook a post when the floor shakes")
 
 room("reliquary", 3, 0, "Reliquary", "treasure", [
     "####################",
@@ -199,7 +199,7 @@ COL = {"#": (52, 58, 70), ".": (104, 112, 100), "~": (46, 96, 120), "_": (10, 10
        "X": (90, 150, 200), "S": (160, 120, 70), "C": (230, 190, 80), "c": (200, 160, 60), "k": (230, 230, 220), "b": (150, 110, 170), "w": (110, 160, 230), "K": (255, 255, 255)}
 NOTE = {"entrance": "sign: rune plates drain water", "drowned-hall": "plate drains it : N locked, E open", "ossuary": "3 skeletons : small key",
         "crossing": "bats, slime : W locked, N boss", "captains-vault": "Skeleton Captain : Grapple hook", "cistern": "grapple over, plate : Boss key",
-        "bat-roost": "bats : key : crack N", "flooded-chapel": "slimes, plate : heart", "boss": "grapple his shield : shard 2/3",
+        "bat-roost": "bats : key : crack N", "flooded-chapel": "slimes, plate : heart", "boss": "hook his shield; hook a post when he quakes : shard 2/3",
         "reliquary": "bomb passage : gold + potion"}
 for i, rid in enumerate(order):
     r = R[rid]

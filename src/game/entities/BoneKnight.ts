@@ -11,7 +11,7 @@ import { sfx } from "../audio";
  * open. Hits from behind always count. Phase 2 below half HP: quicker, and he
  * charges twice.
  */
-type State = "idle" | "advance" | "windup" | "swing" | "chargeTell" | "charge" | "exposed" | "dead";
+type State = "idle" | "advance" | "windup" | "swing" | "chargeTell" | "charge" | "quakeTell" | "quake" | "exposed" | "dead";
 
 export const BONEKNIGHT_HP = 30;
 const EXPOSED_MS = 3600;
@@ -28,7 +28,7 @@ export class BoneKnight extends Enemy {
   private stateUntil = 0;
   private facing = new Phaser.Math.Vector2(0, 1);
   private swingHz?: { hz: Hazard; until: number };
-  private swingsSinceCharge = 0;
+  private attacks = 0;
   private phase2Announced = false;
   private stomp?: Phaser.Tweens.Tween;
   private nextStepAt = 0;
@@ -38,7 +38,7 @@ export class BoneKnight extends Enemy {
     this.isBoss = true;
     this.bounty = 60;
     const s = this.sprite;
-    s.body!.setSize(34, 24).setOffset(15, 40);
+    s.body!.setSize(36, 40).setOffset(14, 22); // tall enough that a hook aimed at his chest connects
     s.setImmovable(true);
     s.setDrag(0, 0);
     this.stateUntil = scene.time.now + 1200;
@@ -107,6 +107,8 @@ export class BoneKnight extends Enemy {
       }
       case "windup":
       case "chargeTell":
+      case "quakeTell":
+      case "quake":
         s.setVelocity(0, 0);
         break;
       case "swing":
@@ -142,12 +144,11 @@ export class BoneKnight extends Enemy {
     this.stomp?.stop();
     this.stomp = undefined;
     this.sprite.setScale(1);
-    // every third swing he charges instead
-    this.swingsSinceCharge++;
-    if (this.swingsSinceCharge >= (this.phase2 ? 2 : 3)) {
-      this.swingsSinceCharge = 0;
-      return this.startCharge(now);
-    }
+    // the cycle: swing, swing, charge, swing, QUAKE (phase 2: swing, charge, quake)
+    this.attacks++;
+    const period = this.phase2 ? 3 : 5;
+    if (this.attacks % period === 0) return this.startQuake(now);
+    if (this.attacks % (this.phase2 ? 2 : 3) === 0) return this.startCharge(now);
     this.state = "windup";
     sfx("growl");
     const WIND = this.phase2 ? 380 : 520;
@@ -195,7 +196,32 @@ export class BoneKnight extends Enemy {
     });
   }
 
-  /** Grappled: the shield tears off his arm and he staggers, wide open. */
+  /**
+   * The quake: he raises the greatsword for a long beat (the tell: status line, the anchor posts pulse),
+   * then drives it into the floor. Everything standing on the flagstones takes two hearts - unless she is
+   * on the hook (mid-reel) or beside a post. Phase 2 tells faster.
+   */
+  private startQuake(now: number) {
+    this.state = "quakeTell";
+    const TELL = this.phase2 ? 1300 : 1700;
+    this.stateUntil = now + TELL;
+    const s = this.sprite;
+    sfx("roar");
+    s.setTint(0x704040).setTintMode(Phaser.TintModes.ADD);
+    this.scene.tweens.add({ targets: s, scaleY: 1.12, scaleX: 0.94, duration: TELL * 0.8, ease: "Quad.easeIn" });
+    this.scene.quakeWarning(TELL);
+    this.scene.time.delayedCall(TELL, () => {
+      if (this.isDead || this.state !== "quakeTell") return;
+      s.clearTint().setTintMode(Phaser.TintModes.MULTIPLY);
+      this.state = "quake";
+      this.stateUntil = this.scene.time.now + 700;
+      this.scene.tweens.add({ targets: s, scaleY: 0.9, scaleX: 1.1, duration: 90, yoyo: true, ease: "Quad.easeOut" });
+      this.scene.quakeHit(s.x, s.y, 4);
+      this.scene.time.delayedCall(700, () => this.state === "quake" && this.rest(this.scene.time.now, 900));
+    });
+  }
+
+  /** Grappled: the shield tears off his arm and skids across the floor; he staggers, wide open. */
   grappled() {
     if (this.isDead || this.state === "exposed") return;
     this.scene.tweens.killTweensOf(this.sprite);
@@ -205,9 +231,9 @@ export class BoneKnight extends Enemy {
     this.stateUntil = this.scene.time.now + (this.phase2 ? EXPOSED_MS_P2 : EXPOSED_MS);
     const s = this.sprite;
     s.setScale(1).setVelocity(0, 0);
+    if (this.scene.textures.exists("boneknight-noshield")) s.setTexture("boneknight-noshield");
     s.setTint(0xa8c8ff).setTintMode(Phaser.TintModes.MULTIPLY);
     this.scene.tweens.add({ targets: s, x: "+=3", duration: 45, yoyo: true, repeat: 5 });
-    // the shield skids away and comes back when he recovers
     this.scene.shieldFlies(s.x, s.y, this.facing);
     this.scene.bossStatus("stunned");
   }
@@ -215,6 +241,7 @@ export class BoneKnight extends Enemy {
   private shieldBack() {
     const s = this.sprite;
     s.clearTint().setTintMode(Phaser.TintModes.MULTIPLY);
+    this.scene.shieldReturns(s.x, s.y, () => !this.isDead && s.active && s.setTexture("boneknight"));
     this.scene.bossStatus("recovered");
   }
 

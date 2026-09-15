@@ -46,6 +46,10 @@ export class Grapple {
   get flying() {
     return this.phase === "fly";
   }
+  /** Wren is being reeled: off the floor as far as hazards are concerned. */
+  get reeling() {
+    return this.phase === "reelPlayer";
+  }
 
   /** The hook bit into an anchor post: Wren gets reeled to it (a scripted glide, like a room scroll). */
   latchAnchor(ax: number, ay: number) {

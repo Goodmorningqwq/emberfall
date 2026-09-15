@@ -244,7 +244,7 @@ export class Player {
     this.syncStore();
   }
 
-  hurt(fromX: number, fromY: number) {
+  hurt(fromX: number, fromY: number, dmg = 1) {
     const now = this.scene.time.now;
     if (now < this.invulnerableUntil || this.state === "dash" || this.state === "dead") return;
     // armour: every 3rd (leather) or 2nd (iron) hit glances off - a clang, a short grace, no damage
@@ -261,7 +261,7 @@ export class Player {
     }
     this.invulnerableUntil = now + HURT_IFRAMES_MS;
     sfx("hurt");
-    useGame.getState().damage(1);
+    useGame.getState().damage(dmg);
     if (useGame.getState().hearts <= 0) return this.die(fromX, fromY);
     this.scene.onPlayerHurt();
     this.scene.shake(120, 0.006);
