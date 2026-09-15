@@ -1,0 +1,82 @@
+{
+  "id": "emberfall",
+  "name": "Emberfall",
+  "cols": 40,
+  "rows": 30,
+  "spawn": {
+    "tx": 19.5,
+    "ty": 18
+  },
+  "legend": {
+    ".": "grass",
+    "=": "path",
+    "T": "tree",
+    "E": "house-elder",
+    "F": "house-forge",
+    "A": "house-apothecary",
+    "S": "shrine",
+    "P": "plinth",
+    "1": "gate-whisperwood",
+    "2": "gate-crypt",
+    "3": "gate-cinder",
+    "b": "npc-blacksmith",
+    "a": "npc-apothecary",
+    "e": "npc-elder",
+    "@": "spawn"
+  },
+  "map": [
+    "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+    "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+    "TT....................................TT",
+    "TT..........T....................T....TT",
+    "TT...T...........E....................TT",
+    "TT......A...................F.........TT",
+    "TT....................................TT",
+    "TT.................==.................TT",
+    "TT.......==...T...e==........==....T..TT",
+    "TT.T.....a=........==....T...b=.......TT",
+    "TT.......==........==........==.......TT",
+    "TT.......==....==========....==.......TT",
+    "TT.......==....==========....==.......TT",
+    "TT.......==....====P=====....==.......TT",
+    "TT2==================================1TT",
+    "TT====================================TT",
+    "TT.............==========.............TT",
+    "TT.............====@=====.............TT",
+    "TT....===================.............TT",
+    "TT....==...........==.................TT",
+    "TT....==...........==.................TT",
+    "TT....==...........==............T....TT",
+    "TT..T.==..........S==.................TT",
+    "TT....==..............................TT",
+    "TT....==....T.............T...........TT",
+    "TT....==..............................TT",
+    "TT....==..........................T...TT",
+    "TT....3=..............................TT",
+    "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+    "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT"
+  ],
+  "npcs": {
+    "npc-blacksmith": {
+      "name": "Orrin",
+      "title": "BLACKSMITH",
+      "lines": [
+        "Back from the Hollow with all your fingers. Good. Bring me gold and I'll put an edge on that sword you'd not believe."
+      ]
+    },
+    "npc-apothecary": {
+      "name": "Maren",
+      "title": "APOTHECARY",
+      "lines": [
+        "Potions for coin, dear. Bombs too, if you promise not to use them indoors."
+      ]
+    },
+    "npc-elder": {
+      "name": "Tam",
+      "title": "ELDER",
+      "lines": [
+        "The Ember cracked in three. One shard sleeps under Whisperwood, east of here. Bring it home and the town will breathe again."
+      ]
+    }
+  }
+}
