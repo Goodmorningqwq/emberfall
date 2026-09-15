@@ -389,7 +389,7 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
     const bossHere = (room.objects ?? []).some((o) => o.kind === bossKind) && !st.hasFlag(`boss:${this.dungeon.def.id}`);
     const drained = room.solveReward === "drain" && solved;
     if (!bossHere) {
-      st.showBanner({ kind: "room", title: room.name, sub: this.dungeon.def.name });
+      st.showBanner({ kind: "room", title: room.name, sub: room.sub ?? this.dungeon.def.name });
       this.time.delayedCall(1300, () => useGame.getState().banner?.kind === "room" && useGame.getState().showBanner(null));
     }
     const spawnAt = first ? 300 : 1100;
@@ -740,7 +740,7 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
 
   private onEnemyDied(e: Enemy) {
     this.enemies = this.enemies.filter((x) => x !== e);
-    sfx(e instanceof ForestSprite ? "sprite" : e instanceof Skeleton ? "crack" : "slime");
+    sfx(e instanceof ForestSprite ? "sprite" : e instanceof Skeleton ? "bones" : "slime");
     const st = useGame.getState();
     st.addGold(e.bounty);
     if (!e.isBoss && Math.random() < 0.2 && st.hearts < st.maxHearts) this.spawnPickup("heart", e.sprite.x, e.sprite.y);
@@ -776,7 +776,7 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
   /** The rune plate: the standing water sinks away and the room's fence with it. */
   private drainRoom() {
     const room = this.room;
-    sfx("crack");
+    sfx("drain");
     this.time.delayedCall(200, () => {
       if (this.room !== room) return;
       this.shake(900, 0.003);
@@ -965,11 +965,11 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
   }
 
   /** A sword arc drawn where a big swing lands (the Bone Knight's greatsword). */
-  slashArc(x: number, y: number, angle: number) {
+  slashArc(x: number, y: number, angle: number, radius = 22) {
     const g = this.add.graphics().setDepth(y + 40);
-    g.lineStyle(3, 0xe8ecf4, 0.9);
+    g.lineStyle(radius > 14 ? 3 : 2, 0xe8ecf4, 0.9);
     g.beginPath();
-    g.arc(x, y, 22, angle - 1.1, angle + 1.1, false);
+    g.arc(x, y, radius, angle - 1.1, angle + 1.1, false);
     g.strokePath();
     this.tweens.add({ targets: g, alpha: 0, duration: 220, ease: "Quad.easeOut", onComplete: () => g.destroy() });
     sfx("whoosh");
@@ -1464,6 +1464,16 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
   private checkRoomExit() {
     const p = this.player.sprite;
     const r = this.room;
+    // a sealed boss room keeps her in: a charge or a shove can push the body through the seal zones
+    // in one physics step (enemy separation runs after the static one), so clamp instead of scrolling
+    if (this.sealRoots.length) {
+      const nx = Phaser.Math.Clamp(p.x, r.x + 12, r.x + r.w - 12), ny = Phaser.Math.Clamp(p.y, r.y + 3 * TILE + 8, r.y + r.h - 8);
+      if (nx !== p.x || ny !== p.y) {
+        p.setPosition(nx, ny);
+        (p.body as Phaser.Physics.Arcade.Body).reset(nx, ny);
+      }
+      return;
+    }
     let dir: Dir | null = null;
     if (p.x < r.x) dir = "west";
     else if (p.x > r.x + r.w) dir = "east";

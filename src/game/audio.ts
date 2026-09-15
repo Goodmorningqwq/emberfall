@@ -9,7 +9,8 @@ import { useGame } from "../ui/store";
 export type SfxName =
   | "hit" | "clang" | "hurt" | "dash" | "pickup" | "key" | "heart" | "chest" | "door" | "boss-door"
   | "whoosh" | "catch" | "stun" | "bomb-place" | "bomb" | "potion" | "slime" | "sprite" | "spore"
-  | "block" | "plate" | "crystal" | "roar" | "phase" | "victory" | "death" | "ui" | "lesson" | "crack";
+  | "block" | "plate" | "crystal" | "roar" | "phase" | "victory" | "death" | "ui" | "lesson" | "crack"
+  | "drain" | "squeak" | "bones" | "hook";
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -111,6 +112,14 @@ const SFX: Record<SfxName, () => void> = {
   ui: () => tone("square", 1200, 0.03, 0.08),
   lesson: () => { tone("sine", 880, 0.06, 0.12); tone("sine", 1320, 0.1, 0.12, 0.06); },
   crack: () => { noise(0.4, 0.4, 2500, 150); tone("square", [140, 60], 0.3, 0.3); },
+  // water sinking away: a long falling gurgle under a hiss
+  drain: () => { tone("sine", [220, 60], 1.1, 0.2, 0, 0.02, "lin"); tone("triangle", [330, 90], 0.9, 0.1, 0.15); noise(1.2, 0.14, 900, 300, 0.1, "bandpass"); },
+  // a bat's dart
+  squeak: () => { tone("square", [2800, 3600], 0.05, 0.08); tone("square", [3600, 2200], 0.07, 0.08, 0.05); },
+  // a skeleton coming apart
+  bones: () => { noise(0.12, 0.3, 4000, 1200); tone("square", [500, 180], 0.1, 0.12); tone("square", [700, 260], 0.08, 0.1, 0.06); tone("square", [380, 120], 0.12, 0.1, 0.12); },
+  // the grapple biting into stone
+  hook: () => { tone("square", 1500, 0.03, 0.15); noise(0.08, 0.25, 5000, 1500); tone("triangle", [600, 200], 0.14, 0.12, 0.03); },
 };
 
 export function sfx(name: SfxName) {

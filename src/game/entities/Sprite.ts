@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { Enemy } from "./Enemy";
 import type { DungeonScene } from "../scenes/DungeonScene";
+import { sfx } from "../audio";
 
 /**
  * Forest sprite: a fast, fragile wisp. Hovers around the player at arm's
@@ -72,6 +73,7 @@ export class ForestSprite extends Enemy {
         if (now >= this.stateUntil) {
           this.state = "dart";
           this.stateUntil = now + DART_MS;
+          if (this.sprite.texture.key === "bat") sfx("squeak");
           s.clearTint().setTintMode(Phaser.TintModes.MULTIPLY);
           s.setScale(1.3, 0.75);
           this.scene.tweens.add({ targets: s, scaleX: 1, scaleY: 1, duration: DART_MS, ease: "Quad.easeOut" });

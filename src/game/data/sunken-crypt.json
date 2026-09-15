@@ -144,7 +144,8 @@
         "#..Q............Q..#",
         "####################"
       ],
-      "clearReward": "chest:grapple"
+      "clearReward": "chest:grapple",
+      "sub": "The Captain waits"
     },
     {
       "id": "cistern",

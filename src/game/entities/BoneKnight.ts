@@ -182,6 +182,8 @@ export class BoneKnight extends Enemy {
       this.stateUntil = this.scene.time.now + 520;
       s.setVelocity(v.x * 280, v.y * 280);
       this.scene.shake(120, 0.004);
+      // dust kicked up behind him for the length of the charge
+      for (let i = 0; i < 5; i++) this.scene.time.delayedCall(i * 100, () => this.state === "charge" && this.scene.puff(s.x - v.x * 14, s.y - 2, 0x9aa0b0, 4));
     });
   }
 

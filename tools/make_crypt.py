@@ -88,7 +88,7 @@ room("captains-vault", 0, 1, "Captain's Vault", "miniboss", [
     "#..................#",
     "#..Q............Q..#",
     "####################",
-], clearReward="chest:grapple")
+], clearReward="chest:grapple", sub="The Captain waits")
 
 room("cistern", 2, 1, "Cistern", "puzzle", [
     "####################",

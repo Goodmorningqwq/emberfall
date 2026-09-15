@@ -76,6 +76,7 @@ export class Skeleton extends Enemy {
           const v = to.normalize().scale(this.captain ? 210 : 175);
           s.setVelocity(v.x, v.y);
           s.setFlipX(v.x < 0);
+          this.scene.slashArc(s.x + v.x * 0.08, s.y - 10 + v.y * 0.08, Math.atan2(v.y, v.x), this.captain ? 16 : 11);
         }
         break;
       case "lunge":

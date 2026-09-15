@@ -52,7 +52,7 @@ export class Grapple {
     if (this.phase !== "fly") return;
     this.phase = "reelPlayer";
     this.target = { x: ax, y: ay };
-    sfx("stun");
+    sfx("hook");
     const s = this.sprite;
     s.setVelocity(0, 0);
     s.setPosition(ax, ay - 10);

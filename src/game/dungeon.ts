@@ -20,6 +20,8 @@ export interface RoomDef {
   gy: number;
   name: string;
   purpose: string;
+  /** optional second line on the room plate (defaults to the dungeon name) */
+  sub?: string;
   map: string[];
   objects?: RoomObject[];
   chests?: string[]; // contents of each "C" in reading order
