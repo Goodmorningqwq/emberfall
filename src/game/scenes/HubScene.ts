@@ -113,12 +113,13 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
     const st = useGame.getState();
     st.setRoom("emberfall", "Emberfall", "");
     st.setBoss(null);
-    const shouldFreeze = (s: ReturnType<typeof useGame.getState>) => s.bagOpen || s.paused || s.screen === "dead" || s.screen === "complete";
+    const shouldFreeze = (s: ReturnType<typeof useGame.getState>) => s.bagOpen || s.paused || !!s.shop || s.screen === "dead" || s.screen === "complete";
     this.unsub = useGame.subscribe((s, prev) => {
       if (shouldFreeze(s) !== shouldFreeze(prev)) this.setFrozen(shouldFreeze(s));
       if (s.screen === "game" && prev.screen !== "game" && prev.screen !== "complete" && this.scene.isActive()) this.time.delayedCall(0, () => this.startWhereverSaved());
       if (s.screen === "title" && prev.screen !== "title" && this.scene.isActive()) this.time.delayedCall(0, () => this.scene.restart({}));
       if (!s.dialogue && prev.dialogue) this.player.hold(0);
+      if (!s.shop && prev.shop) this.player.hold(0);
     });
     this.setFrozen(shouldFreeze(st));
     if (st.screen === "title" || st.screen === "intro") this.attractMode();
@@ -261,6 +262,11 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
       this.player.hold(99999);
       this.player.sprite.setVelocity(0, 0);
       const st = useGame.getState();
+      if (n.key === "npc-apothecary" || n.key === "npc-blacksmith") {
+        sfx("ui");
+        st.openShop(n.key === "npc-apothecary" ? "apothecary" : "blacksmith");
+        break;
+      }
       // the elder's line changes once the shard is home
       const line = n.key === "npc-elder" && st.hasItem("shard") ? "You brought it back. One flame of three... the plinth will hold it. Rest, then look west when the marsh road drains." : npc.lines[0];
       st.setDialogue({ title: `${npc.title} · ${npc.name}`, text: line });

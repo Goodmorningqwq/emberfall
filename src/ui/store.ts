@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { SHOPS } from "./shop";
 
 export type Facing = "south" | "north" | "east" | "west";
 export type ItemId = "sword" | "potion" | "bomb" | "key" | "boomerang" | "bosskey" | "shard";
@@ -65,11 +66,12 @@ export interface SaveData {
   lessons: string[];
   room: string;
   place: Place;
+  swordTier: number;
   playtimeMs: number;
   savedAt: number;
 }
 const SAVE_KEY = "emberfall.save.1";
-const SAVE_VERSION = 4;
+const SAVE_VERSION = 5;
 export type Place = "hub" | "whisperwood";
 
 const START_ITEMS: Item[] = [
@@ -101,6 +103,8 @@ interface GameState {
   flags: string[];
   room: string; // current room id
   place: Place; // which scene the save lives in
+  swordTier: number; // 1..3 = damage per strike
+  shop: { vendor: keyof typeof SHOPS; bought?: string } | null;
   roomName: string;
   dungeonName: string;
   bagOpen: boolean;
@@ -130,6 +134,10 @@ interface GameState {
   hasFlag: (f: string) => boolean;
   setRoom: (id: string, name: string, dungeonName: string) => void;
   setPlace: (p: Place) => void;
+  openShop: (vendor: keyof typeof SHOPS) => void;
+  closeShop: () => void;
+  /** returns why it failed, or null on success */
+  buy: (entryId: string) => string | null;
   showBanner: (b: Banner | null) => void;
   setBoss: (b: GameState["boss"]) => void;
   setLesson: (l: Lesson | null) => void;
@@ -175,6 +183,7 @@ function writeSave(s: GameState) {
       lessons: s.lessons,
       room: s.room,
       place: s.place,
+      swordTier: s.swordTier,
       playtimeMs: s.playtimeMs + (s.sessionStart ? Date.now() - s.sessionStart : 0),
       savedAt: Date.now(),
     };
@@ -194,6 +203,8 @@ const fresh = () => ({
   lessons: [] as string[],
   room: "entrance",
   place: "hub" as Place,
+  swordTier: 1,
+  shop: null,
   playtimeMs: 0,
 });
 
@@ -239,6 +250,31 @@ export const useGame = create<GameState>((set, get) => ({
   hasFlag: (f) => get().flags.includes(f),
   setRoom: (room, roomName, dungeonName) => set({ room, roomName, dungeonName }),
   setPlace: (place) => set({ place }),
+  openShop: (vendor) => set({ shop: { vendor } }),
+  closeShop: () => set({ shop: null }),
+  buy: (entryId) => {
+    const s = get();
+    if (!s.shop) return "no shop";
+    const entry = SHOPS[s.shop.vendor].entries.find((e) => e.id === entryId);
+    if (!entry) return "no such item";
+    if (entry.give) {
+      const have = s.items.find((i) => i.id === entry.give!.item)?.qty ?? 0;
+      if (have >= entry.give.max) return "You can't carry more";
+    }
+    if (entry.upgrade === "sword2" && s.swordTier >= 2) return "Already forged";
+    if (entry.upgrade === "sword3" && (s.swordTier >= 3 || s.swordTier < 2)) return s.swordTier >= 3 ? "Already forged" : "Temper it first";
+    if (entry.upgrade === "heart" && s.hasFlag("bought:heart")) return "Only had the one";
+    if (s.gold < entry.price) return "Not enough gold";
+    set({ gold: s.gold - entry.price, shop: { ...s.shop, bought: entryId } });
+    if (entry.give) get().giveItem(entry.give.item, entry.give.qty);
+    if (entry.upgrade === "sword2") set({ swordTier: 2, items: get().items.map((i) => (i.id === "sword" ? { ...i, name: "Tempered Sword", hint: "2 dmg · equipped" } : i)) });
+    if (entry.upgrade === "sword3") set({ swordTier: 3, items: get().items.map((i) => (i.id === "sword" ? { ...i, name: "Ember-forged Sword", hint: "3 dmg · equipped" } : i)) });
+    if (entry.upgrade === "heart") {
+      get().setFlag("bought:heart");
+      get().addMaxHearts(2);
+    }
+    return null;
+  },
   showBanner: (banner) => set({ banner }),
   setBoss: (boss) => set({ boss }),
   setLesson: (lesson) => set({ lesson }),
@@ -259,7 +295,7 @@ export const useGame = create<GameState>((set, get) => ({
   addMaxHearts: (n) => set((s) => ({ maxHearts: s.maxHearts + n, hearts: s.maxHearts + n })),
   toggleBag: (open) => set((s) => ({ bagOpen: open ?? !s.bagOpen })),
   togglePause: (on) => set((s) => ({ paused: on ?? !s.paused })),
-  newGame: () => set({ screen: "intro", ...fresh(), sessionStart: Date.now(), bagOpen: false, paused: false, banner: null, boss: null, lesson: null, tag: null, dialogue: null }),
+  newGame: () => set({ screen: "intro", ...fresh(), sessionStart: Date.now(), bagOpen: false, paused: false, banner: null, boss: null, lesson: null, tag: null, dialogue: null, shop: null }),
   startGame: () => set({ screen: "game" }),
   completeDungeon: () => set({ screen: "complete", banner: null, tag: null, lesson: null }),
   keepExploring: () => set({ screen: "game" }),
@@ -277,6 +313,8 @@ export const useGame = create<GameState>((set, get) => ({
       lessons: d.lessons ?? [],
       room: d.room,
       place: d.place ?? "hub",
+      swordTier: d.swordTier ?? 1,
+      shop: null,
       playtimeMs: d.playtimeMs,
       sessionStart: Date.now(),
       bagOpen: false,
@@ -300,7 +338,7 @@ export const useGame = create<GameState>((set, get) => ({
 let saveTimer: number | undefined;
 useGame.subscribe((s, prev) => {
   if (s.screen !== "game" && s.screen !== "complete") return;
-  if (s.hearts === prev.hearts && s.gold === prev.gold && s.keys === prev.keys && s.items === prev.items && s.flags === prev.flags && s.room === prev.room && s.lessons === prev.lessons && s.place === prev.place) return;
+  if (s.hearts === prev.hearts && s.gold === prev.gold && s.keys === prev.keys && s.items === prev.items && s.flags === prev.flags && s.room === prev.room && s.lessons === prev.lessons && s.place === prev.place && s.swordTier === prev.swordTier) return;
   window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => writeSave(useGame.getState()), 300);
 });

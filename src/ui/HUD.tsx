@@ -4,6 +4,7 @@ import { uiScale, useCanvasRect } from "./useCanvasRect";
 import { Title } from "./Title";
 import whisperwood from "../game/data/whisperwood.json";
 import { sfx } from "../game/audio";
+import { SHOPS } from "./shop";
 
 /** PixelLab icon set at public/assets/ui/icons/<name>.png (24x24). */
 type IconName = ItemId | "coin" | "bag" | "boomerang" | "shard" | "bosskey" | "grapple";
@@ -271,6 +272,54 @@ function BossBar({ name, hp, max }: { name: string; hp: number; max: number }) {
   );
 }
 
+/** Vendor panel: cards with price and the delta they give; Esc/click-out closes. */
+function ShopPanel() {
+  const { shop, gold, items, swordTier, flags, buy, closeShop } = useGame();
+  const [msg, setMsg] = useState<string | null>(null);
+  useEffect(() => setMsg(null), [shop?.vendor]);
+  if (!shop) return null;
+  const def = SHOPS[shop.vendor];
+  const qty = (id: string) => items.find((i) => i.id === id)?.qty ?? 0;
+  const iconSrc = (icon: string) => (icon === "heart" ? "/assets/sprites/props/heart-container.png" : icon.startsWith("sword") ? "/assets/ui/icons/sword.png" : `/assets/ui/icons/${icon}.png`);
+  return (
+    <div className="bag-backdrop" onClick={closeShop}>
+      <div className="shop pxpanel" onClick={(e) => e.stopPropagation()}>
+        <div className="bag-head">
+          <span className="eyebrow">{def.title}</span>
+          <span className="muted"><span className="kbd">Esc</span> leave</span>
+        </div>
+        <span className="t-small shop-greeting">{def.greeting}</span>
+        <div className="shop-grid">
+          {def.entries.map((e) => {
+            const owned = e.upgrade === "sword2" ? swordTier >= 2 : e.upgrade === "sword3" ? swordTier >= 3 : e.upgrade === "heart" ? flags.includes("bought:heart") : false;
+            const locked = e.upgrade === "sword3" && swordTier < 2;
+            const full = !!e.give && qty(e.give.item) >= e.give.max;
+            const canAfford = gold >= e.price;
+            const disabled = owned || locked || full || !canAfford;
+            const label = owned ? "Owned" : locked ? "Temper first" : full ? "Full" : `${e.price}`;
+            return (
+              <div key={e.id} className={`shop-card pxslot${disabled ? " off" : ""}${shop.bought === e.id ? " bought" : ""}`}>
+                <img src={iconSrc(e.icon)} alt="" />
+                <div className="shop-text">
+                  <span>{e.name}{e.give && <span className="muted"> ×{qty(e.give.item)}/{e.give.max}</span>}</span>
+                  <span className="muted t-small">{e.effect}</span>
+                </div>
+                <button className={`pxbtn pxslot shop-buy${!canAfford && !owned && !full && !locked ? " poor" : ""}`} disabled={disabled} onClick={() => { const err = buy(e.id); setMsg(err); sfx(err ? "ui" : "chest"); }}>
+                  {!owned && !locked && !full && <img src="/assets/ui/icons/coin.png" alt="" />}{label}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+        <div className="shop-foot">
+          <span className="stat gold t-title"><img src="/assets/ui/icons/coin.png" alt="" />{gold}</span>
+          {msg && <span className="shop-msg">{msg}</span>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** Adds a class for `ms` whenever `value` changes in the given direction — the HUD's little "something happened" pops. */
 function useFlash(value: number, dir: "up" | "any" = "any", ms = 450) {
   const [on, setOn] = useState(false);
@@ -300,10 +349,11 @@ export function HUD() {
       if (st.screen !== "game") return;
       if (e.key === "Tab") {
         e.preventDefault();
-        if (!st.paused && !st.dialogue) toggleBag();
+        if (!st.paused && !st.dialogue && !st.shop) toggleBag();
       } else if (e.key === "Escape") {
         sfx("ui");
-        if (st.dialogue) st.setDialogue(null);
+        if (st.shop) st.closeShop();
+        else if (st.dialogue) st.setDialogue(null);
         else if (st.bagOpen) toggleBag(false);
         else togglePause();
       }
@@ -420,6 +470,7 @@ export function HUD() {
       )}
 
       <DialogueBox />
+      <ShopPanel />
       {!dialogue && !banner && <Narrator />}
 
       {paused && (

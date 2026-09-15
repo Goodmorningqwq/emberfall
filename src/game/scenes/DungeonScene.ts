@@ -186,7 +186,7 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
     // React panels freeze the world while open. Not scene.pause(): in Phaser 4
     // that stops rendering too and the canvas clears to black.
     // the title/intro screens keep the world alive behind them (attract mode); only the menus freeze it
-    const shouldFreeze = (s: ReturnType<typeof useGame.getState>) => s.bagOpen || s.paused || s.screen === "dead" || s.screen === "complete";
+    const shouldFreeze = (s: ReturnType<typeof useGame.getState>) => s.bagOpen || s.paused || !!s.shop || s.screen === "dead" || s.screen === "complete";
     this.unsub = useGame.subscribe((s, prev) => {
       if (shouldFreeze(s) !== shouldFreeze(prev)) this.setFrozen(shouldFreeze(s));
       // new game / continue / respawn: start over from the entrance with the store's flags
@@ -631,13 +631,14 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
     if (!this.player.attackActive || e.hitThisSwing || e.isDead) return;
     const s = e.sprite;
     const wasStunnedBoss = e instanceof Treant;
-    const died = e.takeHit(this.player.sprite.x, this.player.sprite.y, 1);
+    const dmg = useGame.getState().swordTier;
+    const died = e.takeHit(this.player.sprite.x, this.player.sprite.y, dmg);
     sfx(e instanceof Treant && !(e as Treant).isStunned ? "clang" : "hit");
     this.finishLesson("attack");
     // feedback bundle: hit-stop, shake, damage number (flash + knockback are in takeHit)
     this.shake(80, 0.004);
     this.hitStop(60);
-    if (!(wasStunnedBoss && !(e as Treant).isStunned)) this.damageNumber(s.x, s.y - s.displayHeight, 1);
+    if (!(wasStunnedBoss && !(e as Treant).isStunned)) this.damageNumber(s.x, s.y - s.displayHeight, dmg);
     if (e instanceof Treant && !died) {
       const b = useGame.getState().boss;
       if (b) useGame.getState().setBoss({ ...b, hp: Math.max(0, e.hp) });
