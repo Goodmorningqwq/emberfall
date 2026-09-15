@@ -213,6 +213,44 @@ function Complete() {
  * rooms revealed as visited, current one lit, doorways drawn between rooms you've seen.
  * Room name sits under it.
  */
+/**
+ * The journal's map: the dungeon at readable size, room names on the rooms you've seen, the boss
+ * hall marked, the objective's room lit, doorways between seen rooms. Same data as the minimap.
+ */
+function DungeonMap() {
+  const { room, flags, place, guide } = useGame();
+  const d = dungeonFor(place).def;
+  const at = (gx: number, gy: number) => d.rooms.find((c) => c.gx === gx && c.gy === gy);
+  const seen = (r?: (typeof d.rooms)[number]) => !!r && (flags.includes(`visited:${r.id}`) || r.id === room);
+  const W = 56, H = 34, G = 10;
+  const items: React.ReactNode[] = [];
+  for (let gy = 0; gy < d.rows; gy++) {
+    for (let gx = 0; gx < d.cols; gx++) {
+      const r = at(gx, gy);
+      if (!r) continue;
+      const x = gx * (W + G), y = gy * (H + G);
+      const isSeen = seen(r);
+      const cls = `wm-room${r.id === room ? " here" : isSeen ? " seen" : " unknown"}${r.purpose === "boss" && isSeen ? " boss" : ""}${flags.includes(`cleared:${r.id}`) || flags.includes(`solved:${r.id}`) ? " done" : ""}`;
+      items.push(
+        <div key={r.id} className={cls} style={{ left: `calc(${x}px * var(--s))`, top: `calc(${y}px * var(--s))`, width: `calc(${W}px * var(--s))`, height: `calc(${H}px * var(--s))` }}>
+          <span className="wm-name">{isSeen ? r.name : "?"}</span>
+          {r.id === guide?.roomId && <span className="mm-quest wm-q" />}
+        </div>,
+      );
+      const e = at(gx + 1, gy);
+      if (e && r.map[6][19] !== "#" && (isSeen || seen(e))) items.push(<span key={`e${r.id}`} className="mm-link h wm-link" style={{ left: `calc(${x + W}px * var(--s))`, top: `calc(${y + H / 2 - 1}px * var(--s))`, width: `calc(${G}px * var(--s))` }} />);
+      const s = at(gx, gy + 1);
+      if (s && r.map[11][9] !== "#" && (isSeen || seen(s))) items.push(<span key={`s${r.id}`} className="mm-link v wm-link" style={{ left: `calc(${x + W / 2 - 1}px * var(--s))`, top: `calc(${y + H}px * var(--s))`, height: `calc(${G}px * var(--s))` }} />);
+    }
+  }
+  return (
+    <div className="worldmap">
+      <span className="eyebrow">{d.name.toUpperCase()}</span>
+      <div className="worldmap-grid" style={{ width: `calc(${d.cols * (W + G) - G}px * var(--s))`, height: `calc(${d.rows * (H + G) - G}px * var(--s))` }}>{items}</div>
+    </div>
+  );
+}
+
 function Minimap() {
   const { room, roomName, flags, place, guide } = useGame();
   const d = dungeonFor(place).def;
@@ -582,6 +620,7 @@ export function HUD() {
               <span className="t-title">Journal</span>
               <span className="muted"><span className="kbd">M</span> close</span>
             </div>
+            {place !== "hub" && <DungeonMap />}
             {sides.some((x) => x.state !== "hidden") && (
               <div className="journal-list journal-side">
                 <span className="eyebrow">SIDE QUESTS</span>

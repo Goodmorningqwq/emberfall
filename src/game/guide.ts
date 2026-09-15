@@ -100,7 +100,7 @@ export function announceQuest(scene: Phaser.Scene, sinceCreateMs: number) {
   if (scene.time.now - idxChangedAt < 2400 && sinceCreateMs > 3000) return;
   const step = QUEST[idx];
   if (!step || st.hasFlag(`quest:${step.id}`)) return;
-  if (st.banner || st.dialogue || st.narration || st.shop || st.boss?.intro) return;
+  if (st.banner || st.dialogue || st.narration || st.shop || st.boss?.intro || st.journalOpen || st.bagOpen || st.paused) return;
   st.setFlag(`quest:${step.id}`);
   st.showBanner({ kind: "quest", title: step.title, sub: step.objective });
   scene.time.delayedCall(2600, () => {
