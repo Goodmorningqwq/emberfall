@@ -7,8 +7,9 @@ export type Clip = "idle" | "walk" | "run" | "attack" | "attack-out" | "roll" | 
 const DIRS: Dir[] = ["south", "north", "east", "west"];
 
 /**
- * Frames live at assets/sprites/wren/<folder>/<dir>/<i>.png, one PNG per
- * frame, all on a shared 68x68 canvas (tools/normalize_frames.py).
+ * Frames are authored at assets/sprites/wren/<folder>/<dir>/<i>.png, one PNG per frame on a
+ * shared 68x68 canvas (tools/normalize_frames.py), and packed into one atlas for the game
+ * (tools/pack_wren.py → wren-atlas.png/json; frame names are the keys below).
  *
  * A clip is a list of (folder, frame index, duration ms) so a single playable
  * clip can stitch PixelLab's separate generations together — the sword swing
@@ -47,29 +48,22 @@ export const HERO = {
   canvas: 68,
   feetLine: 57,
 
+  /** the atlas texture key */
+  atlas: "wren",
+
   preload(scene: Phaser.Scene) {
-    const seen = new Set<string>();
-    for (const d of DIRS) {
-      scene.load.image(`wren-rot-${d}`, `assets/sprites/wren/rotations/${d}.png`);
-      for (const clip of Object.values(CLIPS)) {
-        for (const f of clip.frames) {
-          const key = texKey(f, d);
-          if (seen.has(key)) continue;
-          seen.add(key);
-          scene.load.image(key, `assets/sprites/wren/${f.folder}/${d}/${f.index}.png`);
-        }
-      }
-    }
+    if (!scene.textures.exists(HERO.atlas)) scene.load.atlas(HERO.atlas, "assets/sprites/wren-atlas.png", "assets/sprites/wren-atlas.json");
   },
 
   createAnims(scene: Phaser.Scene) {
+    const tex = scene.textures.get(HERO.atlas);
     for (const d of DIRS) {
       for (const [name, clip] of Object.entries(CLIPS) as [Clip, (typeof CLIPS)[Clip]][]) {
         const key = HERO.animKey(name, d);
         if (scene.anims.exists(key)) continue;
         const frames = clip.frames
-          .filter((f) => scene.textures.exists(texKey(f, d)))
-          .map((f) => ({ key: texKey(f, d), duration: f.ms }));
+          .filter((f) => tex.has(texKey(f, d)))
+          .map((f) => ({ key: HERO.atlas, frame: texKey(f, d), duration: f.ms }));
         if (frames.length === 0) continue;
         scene.anims.create({ key, frames, repeat: clip.loop ? -1 : 0 });
       }
@@ -80,8 +74,8 @@ export const HERO = {
     return `wren-${clip}-${d}`;
   },
 
-  /** Static texture fallback (rotation frame) for a direction. */
-  texture(d: Dir) {
+  /** The standing frame for a direction (atlas frame name). */
+  frame(d: Dir) {
     return `wren-rot-${d}`;
   },
 };

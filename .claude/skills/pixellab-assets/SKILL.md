@@ -41,7 +41,9 @@ seen: 1-dir object 5–6, tileset 3–4, character v3 clip ~1/direction, UI kit 
   clips: `--anim clip=obj/anim:frames`. Backblaze needs a curl-like User-Agent (the script sets it).
 - Tilesets: `curl -A curl/8.4.0 https://api.pixellab.ai/mcp/tilesets/<id>/image?inline=true` and
   `/metadata` → `public/assets/tiles/<name>.{png,json}` (no auth needed for these two).
-- Wren clips: `tools/fetch_wren.py`, then `tools/normalize_frames.py` (v3 clips are 68px, templates 48px).
+- Wren clips: `tools/fetch_wren.py`, then `tools/normalize_frames.py` (v3 clips are 68px, templates 48px),
+  then **`tools/pack_wren.py`** — the game loads one atlas (`wren-atlas.png/json`, frame names
+  `wren-<folder>-<dir>-<i>` / `wren-rot-<dir>`), not the per-frame PNGs; a new clip isn't in the game until repacked.
 - Always build a review strip in `docs/sprite-review/` (x3/x4 NEAREST) and look at it before wiring.
 
 ## Naming / registration

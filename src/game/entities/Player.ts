@@ -65,7 +65,7 @@ export class Player {
 
   constructor(scene: PlayerHost, x: number, y: number) {
     this.scene = scene;
-    this.sprite = scene.physics.add.sprite(x, y, HERO.texture("south"));
+    this.sprite = scene.physics.add.sprite(x, y, HERO.atlas, HERO.frame("south"));
     // All frames share a 68x68 canvas with the feet line at y=57; pivot there
     // so sprite.y is where she stands.
     this.sprite.setOrigin(0.5, HERO.feetLine / HERO.canvas);
@@ -446,7 +446,7 @@ export class Player {
       this.sprite.anims.timeScale = timeScale;
     } else {
       this.sprite.stop();
-      this.sprite.setTexture(HERO.texture(this.facing));
+      this.sprite.setTexture(HERO.atlas, HERO.frame(this.facing));
     }
   }
 
