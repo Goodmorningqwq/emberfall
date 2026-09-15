@@ -61,8 +61,8 @@ for y in range(raw.height):
         h, l, s = colorsys.rgb_to_hls(r / 255, g / 255, b / 255)
         # greens swing toward teal, everything a touch darker and greyer
         if 0.15 < h < 0.45:
-            h = h + 0.12
-        l *= 0.86
+            h = h + 0.16
+        l *= 0.8
         s *= 0.8
         r2, g2, b2 = colorsys.hls_to_rgb(h, l, s)
         px[x, y] = (int(r2 * 255), int(g2 * 255), int(b2 * 255), a)

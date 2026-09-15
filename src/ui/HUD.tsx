@@ -246,6 +246,7 @@ function Minimap() {
  */
 const BOSS_BARS: Record<string, { img: string; w: number; h: number; channel: [number, number, number, number]; fill: string; hi: string; lo: string }> = {
   "ELDER TREANT": { img: "/assets/sprites/props/bossbar-treant.png", w: 192, h: 32, channel: [32, 12, 127, 9], fill: "#e8763a", hi: "#ffd090", lo: "#7a2e10" },
+  "BONE KNIGHT": { img: "/assets/sprites/props/bossbar-boneknight.png", w: 192, h: 32, channel: [33, 11, 121, 9], fill: "#4fb3c4", hi: "#bfeff5", lo: "#1e4a58" },
 };
 
 /** The boss's own health bar: bespoke frame, fill clipped to its channel, name riding above. */
@@ -443,7 +444,7 @@ export function HUD() {
       </div>
 
       {!bagOpen && !dialogue && !banner && !tag && <Coach />}
-      <WorldTag />
+      {!dialogue && !bagOpen && <WorldTag />}
 
       {banner && (
         <div className={`banner ${banner.kind}`} key={banner.kind + banner.title}>

@@ -28,7 +28,7 @@ const PROPS: Record<string, { tex: string; w: number; h: number; foot: [number, 
   plinth: { tex: "plinth", w: 48, h: 64, foot: [0, 1, 1.5, 1] },
   tree: { tex: "tree", w: 48, h: 64, foot: [0.3, 1.4, 0.9, 0.6] },
   "gate-whisperwood": { tex: "gate", w: 64, h: 64, foot: [0, 0, 0, 0] },
-  "gate-crypt": { tex: "gate", w: 64, h: 64, foot: [0, 0, 0, 0] },
+  "gate-crypt": { tex: "gate-side", w: 64, h: 132, foot: [0, 0, 0, 0] }, // the west road runs through it sideways
   "gate-cinder": { tex: "gate", w: 64, h: 64, foot: [0, 0, 0, 0] },
   lantern: { tex: "lantern", w: 32, h: 48, foot: [0.3, 1.1, 0.4, 0.4] },
   well: { tex: "well", w: 48, h: 48, foot: [0.1, 0.6, 1.3, 0.9] },
@@ -63,7 +63,7 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
   preload() {
     this.load.spritesheet("town-tiles", "assets/tiles/town.png", { frameWidth: TILE, frameHeight: TILE });
     this.load.json("town-meta", "assets/tiles/town.json");
-    for (const p of ["house-elder", "house-forge", "house-apothecary", "shrine", "plinth", "tree", "gate", "signpost", "lantern", "well", "crates", "bush", "ruin-wall", "root", "block"]) this.load.image(p, `assets/sprites/props/${p}.png`);
+    for (const p of ["house-elder", "house-forge", "house-apothecary", "shrine", "plinth", "tree", "gate", "gate-side", "signpost", "lantern", "well", "crates", "bush", "ruin-wall", "root", "block"]) this.load.image(p, `assets/sprites/props/${p}.png`);
     for (const n of ["blacksmith", "apothecary", "elder"]) this.load.image(`npc-${n}`, `assets/sprites/npc/${n}.png`);
     for (const i of ["potion", "bomb", "coin", "key"]) this.load.image(`icon-${i}`, `assets/ui/icons/${i}.png`);
     HERO.preload(this);
@@ -98,7 +98,9 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
     this.data.set("walls", this.walls);
     this.data.set("solids", this.solids);
     // keep her inside the tree border
-    for (const r of [{ x: 0, y: 0, w: W, h: 2 * TILE + 8 }, { x: 0, y: H - 2 * TILE + 10, w: W, h: 2 * TILE }, { x: 0, y: 0, w: 2 * TILE, h: H }, { x: W - 2 * TILE, y: 0, w: 2 * TILE, h: H }]) {
+    // the tree border: she stops below the top rows' trunks (so she's drawn in front of them, not tangled
+    // in the canopy) and above the bottom rows' canopy
+    for (const r of [{ x: 0, y: 0, w: W, h: 2 * TILE + 36 }, { x: 0, y: H - 2 * TILE - 10, w: W, h: 2 * TILE + 10 }, { x: 0, y: 0, w: 2 * TILE, h: H }, { x: W - 2 * TILE, y: 0, w: 2 * TILE, h: H }]) {
       this.walls.add(this.add.zone(r.x + r.w / 2, r.y + r.h / 2, r.w, r.h));
     }
 
@@ -109,7 +111,7 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
       const g = anchors.find((a) => a.kind === data.from);
       if (g) {
         // just inside the gate, on the town side of it
-        sx = g.tx * TILE + (data.from === "gate-crypt" ? 88 : -24);
+        sx = g.tx * TILE + (data.from === "gate-crypt" ? 76 : -24);
         sy = g.ty * TILE + 40;
       }
     }
@@ -201,18 +203,29 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
         const img = this.add.image(x, y, p.tex).setOrigin(0).setDepth(y + p.h - 6);
         if (a.kind.startsWith("gate")) {
           const sealed = !this.gateOpen(a.kind);
+          const side = p.tex === "gate-side"; // posts top and bottom, road gap between (y 34..62 of the sprite)
+          if (side) {
+            // drawn 34px above the anchor so the road gap (sprite y 50..82) lands on the road rows;
+            // the two posts are separate sprites so Wren sorts between them on the road
+            img.setY(y - 34).setCrop(0, 0, 64, 60).setDepth(y + 16);
+            const lower = this.add.image(x, y - 34, p.tex).setOrigin(0).setCrop(0, 80, 64, 52).setDepth(y + 98);
+            this.solids.add(this.add.zone(x + 41, y + 6, 14, 20));
+            this.solids.add(this.add.zone(x + 41, y + 88, 14, 20));
+            if (sealed) lower.setTint(0x9a9aa6);
+          }
           if (sealed) {
             img.setTint(0x9a9aa6);
             // barred: roots choke the marsh gate, fallen stone blocks the mountain lane
             if (a.kind === "gate-crypt") {
-              for (const [dx, sc] of [[14, 0.9], [30, 1.1], [46, 0.85]] as const) this.add.image(x + dx, y + 62, "root").setOrigin(0.5, 1).setScale(sc).setTint(0x8aa08a).setDepth(y + 63);
+              for (const [dy, sc] of [[30, 0.9], [44, 1.1], [56, 0.85]] as const) this.add.image(x + 41, y + dy, "root").setOrigin(0.5, 1).setScale(sc).setTint(0x8aa08a).setDepth(y + dy + 1);
+              this.solids.add(this.add.zone(x + 41, y + 40, 20, 34));
             } else {
               for (const [dx, dy] of [[8, 30], [30, 26], [20, 38]] as const) this.add.image(x + dx, y + dy, "block").setOrigin(0).setScale(0.8).setTint(0xb0a090).setDepth(y + dy + 26);
+              this.solids.add(this.add.zone(x + 32, y + 46, 56, 20));
             }
-            this.solids.add(this.add.zone(x + 32, y + 46, 56, 20));
           }
           // a sign hangs by each gate; the walkable gap is the middle
-          const zone = this.add.zone(x + 32, y + 40, 40, 30);
+          const zone = side ? this.add.zone(x + 41, y + 40, 20, 30) : this.add.zone(x + 32, y + 40, 40, 30);
           this.physics.add.existing(zone, true);
           this.gateZones.push({ zone, kind: a.kind });
           if (!sealed) {
