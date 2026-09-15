@@ -58,6 +58,18 @@ Anything that touches `Enemy`, `DungeonScene`'s boss/hit paths or the store must
 `isBoss`, so its bar stopped updating. Seed the save **after** the page has loaded (the `beforeunload`
 auto-save overwrites a save you wrote before a reload), then `quitToTitle()` → `continueGame()`.
 
+## Traps met while testing
+- Keyboard map: J/K/L are the keyboard attack/dash/throw keys, Q swaps tools, Tab bag, **M journal**, 1/2
+  consumables. A new HUD hotkey on J froze the game mid-test (journal opened, physics paused) — check
+  `Player.ts` keys before binding anything.
+- After editing a React module, HMR keeps the *old* keydown effect alive until a full reload; if the store
+  shows `journalOpen/bagOpen` you didn't ask for, reload the page.
+- `__sc()` is the Dungeon scene; in town use `window.__game.scene.getScene("Hub")` and its `player.sprite`.
+- Teleporting under an enemy that faces you tests its front; to test guards/backs compute the spot from its
+  `facing` vector (`b.sprite.x - facing.x * 90`).
+- Scripted fights can drop Wren's hearts to 0 → screen "dead" → everything freezes; check `screen` when a loop
+  stalls and `respawn()`.
+
 ## Before declaring done
 
 `npx tsc --noEmit -p .` and `npx vite build` pass; the relevant checks above ran on **this** build (HMR of a

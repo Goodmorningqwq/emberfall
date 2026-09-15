@@ -27,6 +27,15 @@ seen: 1-dir object 5–6, tileset 3–4, character v3 clip ~1/direction, UI kit 
 - Recolours for enemy variants (blue slime) are a hue shift of the PNG **and every clip frame**; register the
   clips as `<texture>-hop-loop` / `<texture>-splat` so the class can pick them by texture name.
 
+- **style_image must fit the target canvas**: a 64px reference for a 32px object is rejected ("must fit the
+  native canvas") — pick a reference the same size or smaller (bush.png for 32px props, anchor.png for 32x48).
+- Descriptive floors drift: "dark basalt" came back slate blue. Recolour in PIL by hue band (`tools/draw_lava.py`
+  warms blues to ash) instead of re-rolling; keep `<name>-raw.png` so the step is repeatable.
+- Recolour variants (magma slime, fire bat) are hue shifts of the base PNG **and** its clips; a shift of a
+  purple sprite to "orange" needs trial (wings turned green at +0.28, brown at +0.16) — always look at the sheet.
+- Boss-consistent sprites: `style_image` = the boss itself with "copy him faithfully, only remove X" gave a
+  matching shieldless knight; the same trick should work for damage states.
+
 ## Fetching
 - Objects: `python tools/fetch_objects.py name=object_id …` → `public/assets/sprites/props/name.png`;
   clips: `--anim clip=obj/anim:frames`. Backblaze needs a curl-like User-Agent (the script sets it).

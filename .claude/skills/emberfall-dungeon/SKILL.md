@@ -59,6 +59,21 @@ The dungeon's tool goes on RMB (`throwBoomerang()` dispatches on `store.tool`; Q
 that moves Wren must drive her with a tween while `body.enable=false` + `player.hold()` + `walkScripted(dir)`
 (velocity is zeroed every frame during a hold).
 
+## 5b. What the three dungeons already give you (reuse before inventing)
+Tile kinds in `enterRoom`: `water`/`lava` (static fence in `waterGroup`; `swims` enemies cross; `solveReward:"drain"`
+sinks water or crusts lava to `slag`), `pit`, `anchor` (+ grapple), `vent` (shared 3 s breath cycle in `updateVents`),
+`brazier` (rod lights; all lit ⇒ `solveRoom`), `thorns` (doorway barricade, `thorns:<room>` flag), `plate` (step-on
+when the room has no blocks), `sarcophagus`/`bones`/decor. Tools on RMB via `throwBoomerang()` dispatch:
+Boomerang, Grapple (`Grapple.ts`), Fire Rod (`FireBolt.ts`). Enemy variants by option: `Slime{texture}`,
+`ForestSprite("bat"|"firebat")`, `Skeleton{captain|cinder}` (cinder = front guard until `heat()`).
+Boss pattern: `blocksNow` + a tool that opens a window (`boomerangHit` / `grappled` / `overheat`), `bossStatus`
+lines in `BOSSES`, a signature attack with a warning (quake → hook a post; stomp ring; magma splashes via
+`magmaSplash`), `bossDefeated` drops the shard. Register `tool` in `DungeonMeta` so status lines mention it.
+
+Quest steps live in `src/game/quests.ts`: add the dungeon's steps (enter, tool, boss key, boss, shard, home) with
+`target` rooms/things; `thingTile` finds chests/hidden chests/boss objects from the room def, so name items the
+same in `chests`/`solveReward`/`clearReward`.
+
 ## 6. Verify (see emberfall-playtest)
 Seed a save in the new place, `__start(room)`, walk every doorway, solve every puzzle, fight every room,
 hook every anchor, kill the boss, collect the shard → complete screen text; then walk out to town and back in
