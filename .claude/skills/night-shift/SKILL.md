@@ -31,29 +31,37 @@ the user returns, the PixelLab budget floor is hit, or every item is done.
 8. Don't touch: save format compatibility (bump SAVE_VERSION only if unavoidable, note it), the repo's
    public/private state, Vercel settings, anything outside this repo.
 
-## Backlog (in order; skip an item only if blocked, and say so in the log)
+## The cycle (the user's five beats — every wake-up runs all five, in order)
 
-Items 1–10 (boss presentation … shops) and the Sunken Crypt shipped (see `docs/NIGHT_LOG.md`). Next:
+1. **Brainstorm** — 3–6 candidate increments from what shipped last, the log's "Ask" list, the user's taste
+   notes (memory) and the skills. Write them in the log entry as one line each.
+2. **Plan** — pick one; say what changes, which files, what "done" looks like, how it will be verified.
+3. **Reality check** — what could go wrong (budget, unknown asset shape, a rule in a skill, save
+   compatibility, the user's stated taste). If the check kills the pick, take the next candidate.
+4. **Action** — build it small, verify with the playtest tools, commit + push.
+5. **Perfection** — look at it once more as the user would (screenshots, contact sheets, overlap checker,
+   copy read aloud): fix what's off, then log the cycle and refresh any skill that learned something.
 
-1. **Crypt polish pass** — blue slime tint check in water, drain sound (own synth, not "crack"), skeleton
-   swing arc visual, bat squeak, captain name tag on entry ("SKELETON CAPTAIN" room banner sub), grapple
-   lesson copy check, Bone Knight charge dust. Fix the knock-through: hurt knockback can push Wren past the
-   sealed boss doorway (she ended up in the Crossing mid-fight) — clamp knockback or widen the seal zones.
-2. **Hub leftovers** — tree border reads as hedge (mix 2–3 tree sprites / gaps), "bush" prop is a stone
-   (real bush sprite), double-load warning ("Failed to process file … lantern") — preload each hub prop once.
-3. **Cinder Depths (dungeon 3) design** — map draft only, sent to the user: fire/lava gimmick, a third tool
-   (ideas: fire rod, iron boots), the last shard, the Cinder boss. Do not build rooms before a veto window.
-4. **Armour tiers at Orrin** (skipped in 10): leather/iron, damage taken -1 per tier, hint text.
-5. **Audio pass** — replace the synth placeholders that sound worst (hit, potion, door), add a simple ambient
-   loop per place (town birds, wood wind, crypt drips) at low volume behind the SFX setting.
+## Backlog seeds (brainstorm from these; the main quest is complete end to end)
 
-Skills to lean on: `emberfall-dungeon` (rooms/registry/enemies/boss), `emberfall-playtest` (scripted checks),
-`pixellab-assets` (prompts, fetching, traps), `emberfall-overlap-qa` (depth + HUD checklist).
+- **Regression playthrough script** (`tools/regression.js`): a fresh save → Tam → all three dungeons →
+  finale, asserting flags/items/screens at each beat; run before every push of a gameplay change.
+- **Gamepad** (Phaser Gamepad plugin): left stick move, A attack, B dash, X tool, Y potion, RB bomb, Start
+  pause, aim = right stick or facing; HUD key hints switch when a pad is used.
+- **Side quests** on the quest system: Maren wants mushroom caps (drops), Orrin wants slag chips (cinder),
+  Tam's memory (find three signs); each with tracker/journal support (`side: true`, shown under the main one).
+- **Room polish**: vents/lava art pass, the Whisperwood tree border, crack decals, the treasure rooms'
+  reward feel (chest open flourish), title screen state after the finale.
+- **Balance pass** with the regression script's numbers (hearts lost per room at tier 1/2/3 sword,
+  time-to-kill per boss window) and a difficulty setting if it's lopsided.
+- **World map** screen (hold M → full dungeon map with room names) and a shrine "saved" confirmation.
+
+Skills to lean on: `emberfall-dungeon`, `emberfall-playtest`, `pixellab-assets`, `emberfall-overlap-qa`,
+`emberfall-audio`, `quest-guidance`.
 
 ## Cycle checklist
 
 - [ ] Read `docs/NIGHT_LOG.md` tail and `git log -3` — know where you are.
-- [ ] Pick the next backlog item (or the next sub-step of it).
-- [ ] Build it; verify; commit; push.
-- [ ] Append to the log (time, item, result, spend, screenshot path).
+- [ ] Brainstorm → plan → reality check (write them down) → action → perfection.
+- [ ] Verify; commit; push; log (time, item, result, spend, screenshot path); refresh skills.
 - [ ] Schedule the next wake-up at the minimum delay — there is nothing to wait for.
