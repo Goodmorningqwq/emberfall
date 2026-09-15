@@ -1420,8 +1420,19 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
     sfx("chest");
     if (this.textures.exists("chest-open")) c.image.setTexture("chest-open");
     else c.image.setTint(0x777777);
+    // the lid pops: a squash, a beat of hit-stop, a shaft of light and a sparkle burst; gold fountains
     this.tweens.add({ targets: c.image, scaleY: 0.85, duration: 60, yoyo: true });
-    this.puff(c.image.x + 16, c.image.y + 8, 0xfff2b0, 10);
+    this.hitStop(40);
+    const cx = c.image.x + 16, cy = c.image.y + 8;
+    const shaft = this.add.rectangle(cx, cy - 20, 14, 60, 0xfff2b0, 0.35).setBlendMode(Phaser.BlendModes.ADD).setDepth(c.image.depth + 2).setScale(0.3, 0.2);
+    this.tweens.add({ targets: shaft, scaleX: 1, scaleY: 1, alpha: 0, duration: 520, ease: "Quad.easeOut", onComplete: () => shaft.destroy() });
+    this.puff(cx, cy, 0xfff2b0, 14);
+    const sparks = this.add.particles(cx, cy, "spore", {
+      speed: { min: 40, max: 110 }, angle: { min: 200, max: 340 }, gravityY: 160, lifespan: { min: 500, max: 900 }, scale: { start: 0.9, end: 0 },
+      tint: c.contents === "gold" ? [0xffd166, 0xfff2b0, 0xe8a030] : [0xfff2b0, 0xffffff, 0xffd090], alpha: { start: 1, end: 0 }, emitting: false, blendMode: Phaser.BlendModes.ADD,
+    }).setDepth(c.image.depth + 3);
+    sparks.explode(c.contents === "gold" ? 26 : 14);
+    this.time.delayedCall(1200, () => sparks.destroy());
     // the item rises out of the chest and hangs there while the banner shows
     const item = c.contents;
     const tex = item === "heart" ? "heart-container" : item === "gold" ? "icon-coin" : `icon-${item}`;
