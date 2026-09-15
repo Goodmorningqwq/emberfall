@@ -60,3 +60,11 @@ narrator can say. Keys: `objective` ≤ 70 chars so the tracker stays 2 lines at
 - Old saves: seed a save missing intermediate flags (e.g. no `solved:drowned-hall` but `boss:crypt`) and check
   `questIndex` lands after the furthest milestone.
 - Guide off in settings: tracker text and minimap marker remain; chevron and dots don't.
+
+## The dungeon map (journal, M)
+- Rooms are tiles, not labels: names in cells never fit at pixel-font sizes. Glyphs carry the meaning (you, boss,
+  objective, chest still shut), the caption under the grid carries the names ("The Crossing" / "Captain's Vault ·
+  2 rooms away" / "back in town"), the eyebrow counts rooms seen.
+- Pixel glyphs in React: `Px({rows, color, size})` in HUD.tsx — a one-pen box-shadow drawing; 2 UI px per cell
+  reads at 1x, 1 px does not.
+- The minimap (top-right) is the at-a-glance twin: same seen/here/boss/objective data, no text but the room name.

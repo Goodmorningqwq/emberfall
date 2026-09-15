@@ -302,9 +302,16 @@ html, body { margin: 0; height: 100%; background: #0f110f; color: var(--ink); ov
 .wm-room.seen { background: rgba(70, 78, 68, .9); }
 .wm-room.here { background: rgba(120, 88, 40, .95); border-color: var(--ember); animation: mmhere 1.2s ease-in-out infinite alternate; }
 .wm-room.boss { border-color: #e05a4a; }
-.wm-room.done .wm-name { color: var(--muted); }
-.wm-name { font-size: 16px; line-height: 1.05; padding: 0 calc(2px * var(--s)); color: var(--ink); }
-.wm-room.unknown .wm-name { color: var(--muted); }
+.wm-room.done { background: rgba(52, 58, 50, .7); border-color: rgba(70, 78, 68, .9); }
+.wm-room.done .px-glyph { opacity: .55; }
 .wm-q { position: absolute; right: calc(2px * var(--s)); top: calc(2px * var(--s)); }
 .wm-link { position: absolute; }
+.wm-count { color: var(--muted); letter-spacing: 0; }
+.wm-caption { display: flex; flex-direction: column; gap: calc(2px * var(--s)); font-size: 16px; color: var(--ink); line-height: 1.1; }
+.wm-caption > span { display: flex; align-items: center; gap: calc(4px * var(--s)); }
+.wm-key { flex: none; }
+.px-glyph { display: block; position: relative; flex: none; }
+.px-pen { position: absolute; left: 0; top: 0; }
+.wm-room .px-glyph { margin: auto; }
+.wm-room.here .px-glyph { animation: mmhere .6s ease-in-out infinite alternate; }
 #ui .bag.journal { max-height: 92%; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--muted) transparent; }

@@ -217,36 +217,74 @@ function Complete() {
  * The journal's map: the dungeon at readable size, room names on the rooms you've seen, the boss
  * hall marked, the objective's room lit, doorways between seen rooms. Same data as the minimap.
  */
+/** A tiny pixel glyph: rows of 0/1, drawn with one box-shadow per lit pixel so it scales with --s. */
+function Px({ rows, color, className, size = 2 }: { rows: string[]; color: string; className?: string; size?: number }) {
+  // one square "pen" (size UI px); every lit cell is a copy of it, offset by its column and row
+  const dots: string[] = [];
+  rows.forEach((row, y) => [...row].forEach((c, x) => c === "1" && dots.push(`calc(${x * size}px * var(--s)) calc(${y * size}px * var(--s)) 0 0 ${color}`)));
+  return (
+    <span className={`px-glyph${className ? " " + className : ""}`} style={{ width: `calc(${rows[0].length * size}px * var(--s))`, height: `calc(${rows.length * size}px * var(--s))` }}>
+      <span className="px-pen" style={{ width: `calc(${size}px * var(--s))`, height: `calc(${size}px * var(--s))`, boxShadow: dots.join(",") }} />
+    </span>
+  );
+}
+const GLYPH = {
+  skull: ["01110", "11111", "10101", "11111", "01010"],
+  chest: ["01110", "11111", "10001", "11111"],
+  key: ["0110", "1001", "0110", "0100", "0110"],
+  wren: ["010", "111", "010"],
+};
+
+/**
+ * The dungeon map in the journal, read the way a Zelda map is read: rooms are tiles, not labels.
+ * Lit tiles are rooms you've seen (dimmed once cleared), dashed ones are rooms you know of but
+ * haven't entered, doorways join them. Glyphs say what matters: where you are, the boss hall,
+ * the objective, a chest still shut. Names live in the caption under the grid.
+ */
 function DungeonMap() {
-  const { room, flags, place, guide } = useGame();
+  const { room, roomName, flags, place, guide } = useGame();
   const d = dungeonFor(place).def;
   const at = (gx: number, gy: number) => d.rooms.find((c) => c.gx === gx && c.gy === gy);
   const seen = (r?: (typeof d.rooms)[number]) => !!r && (flags.includes(`visited:${r.id}`) || r.id === room);
-  const W = 56, H = 34, G = 10;
+  const W = 40, H = 26, G = 10;
   const items: React.ReactNode[] = [];
+  let seenCount = 0;
   for (let gy = 0; gy < d.rows; gy++) {
     for (let gx = 0; gx < d.cols; gx++) {
       const r = at(gx, gy);
       if (!r) continue;
       const x = gx * (W + G), y = gy * (H + G);
       const isSeen = seen(r);
-      const cls = `wm-room${r.id === room ? " here" : isSeen ? " seen" : " unknown"}${r.purpose === "boss" && isSeen ? " boss" : ""}${flags.includes(`cleared:${r.id}`) || flags.includes(`solved:${r.id}`) ? " done" : ""}`;
+      if (isSeen) seenCount++;
+      const done = flags.includes(`cleared:${r.id}`) || flags.includes(`solved:${r.id}`);
+      // a chest still shut: count the "C"s in reading order against the opened flags (hidden chests stay a surprise)
+      const chestChars = r.map.flatMap((row) => [...row]).filter((ch) => d.legend[ch] === "chest").length;
+      const shut = isSeen && Array.from({ length: chestChars }, (_, i) => i).some((i) => !flags.includes(`chest:${r.id}:${i}`));
+      const cls = `wm-room${r.id === room ? " here" : isSeen ? " seen" : " unknown"}${r.purpose === "boss" && isSeen ? " boss" : ""}${done ? " done" : ""}`;
       items.push(
         <div key={r.id} className={cls} style={{ left: `calc(${x}px * var(--s))`, top: `calc(${y}px * var(--s))`, width: `calc(${W}px * var(--s))`, height: `calc(${H}px * var(--s))` }}>
-          <span className="wm-name">{isSeen ? r.name : "?"}</span>
-          {r.id === guide?.roomId && <span className="mm-quest wm-q" />}
+          {r.id === room ? <Px rows={GLYPH.wren} color="var(--ember)" /> : r.purpose === "boss" && isSeen ? <Px rows={GLYPH.skull} color={flags.includes(`boss:${place}`) ? "var(--muted)" : "#e8b0a0"} /> : shut ? <Px rows={GLYPH.chest} color="#e0b050" /> : null}
+          {r.id === guide?.roomId && r.id !== room && <span className="mm-quest wm-q" />}
         </div>,
       );
       const e = at(gx + 1, gy);
       if (e && r.map[6][19] !== "#" && (isSeen || seen(e))) items.push(<span key={`e${r.id}`} className="mm-link h wm-link" style={{ left: `calc(${x + W}px * var(--s))`, top: `calc(${y + H / 2 - 1}px * var(--s))`, width: `calc(${G}px * var(--s))` }} />);
-      const s = at(gx, gy + 1);
-      if (s && r.map[11][9] !== "#" && (isSeen || seen(s))) items.push(<span key={`s${r.id}`} className="mm-link v wm-link" style={{ left: `calc(${x + W / 2 - 1}px * var(--s))`, top: `calc(${y + H}px * var(--s))`, height: `calc(${G}px * var(--s))` }} />);
+      const so = at(gx, gy + 1);
+      if (so && r.map[11][9] !== "#" && (isSeen || seen(so))) items.push(<span key={`s${r.id}`} className="mm-link v wm-link" style={{ left: `calc(${x + W / 2 - 1}px * var(--s))`, top: `calc(${y + H}px * var(--s))` }} />);
     }
   }
+  // the objective line: a room in this dungeon (named once you've seen it), or wherever else it is
+  const goal = guide?.roomId ? d.rooms.find((r) => r.id === guide.roomId) : undefined;
+  const inside = !!guide && (guide.where === "here" || guide.where === "beyond the wall" || guide.where.endsWith("away"));
+  const goalText = !guide ? null : !inside ? guide.where : goal?.id === room ? (guide.where === "here" ? "this room" : guide.where) : `${goal && seen(goal) ? goal.name : "an unexplored room"} · ${guide.where}`;
   return (
     <div className="worldmap">
-      <span className="eyebrow">{d.name.toUpperCase()}</span>
+      <span className="eyebrow">{d.name.toUpperCase()} <span className="wm-count">· {seenCount}/{d.rooms.length} rooms</span></span>
       <div className="worldmap-grid" style={{ width: `calc(${d.cols * (W + G) - G}px * var(--s))`, height: `calc(${d.rows * (H + G) - G}px * var(--s))` }}>{items}</div>
+      <div className="wm-caption">
+        <span><Px rows={GLYPH.wren} color="var(--ember)" className="wm-key" /> {roomName}</span>
+        {goalText && <span><span className="mm-quest wm-key" /> {goalText}</span>}
+      </div>
     </div>
   );
 }
