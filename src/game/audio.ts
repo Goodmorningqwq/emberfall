@@ -256,58 +256,98 @@ function tone(wave: Wave, freq: number | [number, number], dur: number, gain = 0
 }
 
 /**
- * A small voice: a pulse-ish source (two detuned saws) through two formant bandpasses, so a
- * short sweep reads as a sung vowel. Wren's voice sits around 280-360 Hz with "a"/"u" formants.
- * f0 is [from, to] in Hz; formants are [F1, F2] pairs (can sweep by giving two pairs).
+ * Wren's voice. A pulse (two detuned saws under a warmth low-pass) through three vowel
+ * bandpasses, so a short pitch sweep reads as a sung syllable. The PROFILE is who is speaking
+ * (tuned in the Voice Lab artifact - paste a preset here); the CUES are what she says.
  */
-function voice(f0: [number, number], dur: number, formants: [[number, number], [number, number]?], gain = 0.3, delay = 0, breath = 0.15) {
+export interface VoiceProfile {
+  pitch: number; // base note, Hz
+  tract: number; // formant multiplier: smaller = younger/smaller voice
+  clarity: number; // bandpass Q
+  breath: number; // 0..1 air under the note
+  vibrato: number; // depth as a fraction of f0
+  vibRate: number; // Hz
+  warmth: number; // low-pass on the pulse, Hz
+  length: number; // stretch on every cue
+}
+export const WREN: VoiceProfile = { pitch: 300, tract: 1.0, clarity: 7, breath: 0.35, vibrato: 0.012, vibRate: 6, warmth: 4000, length: 1.0 };
+const VOWELS: Record<string, [number, number, number]> = { a: [850, 1250, 2850], e: [600, 2100, 2950], i: [320, 2500, 3100], o: [470, 830, 2750], u: [360, 720, 2550], schwa: [550, 1500, 2700] };
+interface Cue {
+  f0: [number, number]; // multiples of the profile pitch, start -> end
+  dur: number;
+  vowel: [string, string];
+  gain: number;
+  breath: number;
+}
+const CUES: Record<"hurt" | "dash" | "effort" | "hm" | "yell" | "potion" | "death", Cue> = {
+  hurt: { f0: [1.25, 0.86], dur: 0.26, vowel: ["a", "a"], gain: 0.9, breath: 0.2 },
+  dash: { f0: [1.0, 1.1], dur: 0.1, vowel: ["u", "schwa"], gain: 0.5, breath: 0.1 },
+  effort: { f0: [1.1, 0.93], dur: 0.12, vowel: ["a", "schwa"], gain: 0.45, breath: 0.3 },
+  hm: { f0: [1.0, 1.28], dur: 0.22, vowel: ["schwa", "e"], gain: 0.45, breath: 0.05 },
+  yell: { f0: [1.12, 1.42], dur: 0.35, vowel: ["a", "a"], gain: 0.95, breath: 0.2 },
+  potion: { f0: [1.0, 1.12], dur: 0.25, vowel: ["o", "u"], gain: 0.4, breath: 0.05 },
+  death: { f0: [1.18, 0.62], dur: 0.9, vowel: ["a", "o"], gain: 0.9, breath: 0.25 },
+};
+
+function say(id: keyof typeof CUES, delay = 0) {
   if (!ctx || !master) return;
+  const p = WREN;
+  const cue = CUES[id];
   const t0 = ctx.currentTime + delay + timeOffset;
+  const dur = cue.dur * p.length;
+  const f0: [number, number] = [cue.f0[0] * p.pitch, cue.f0[1] * p.pitch];
+  const fa = VOWELS[cue.vowel[0]].map((f) => f * p.tract);
+  const fb = VOWELS[cue.vowel[1]].map((f) => f * p.tract);
+  const gain = cue.gain * 0.35 * vol() * 2;
   const g = ctx.createGain();
   g.gain.setValueAtTime(0.0001, t0);
-  g.gain.linearRampToValueAtTime(gain * vol(), t0 + 0.02);
-  g.gain.setValueAtTime(gain * vol(), t0 + dur * 0.6);
+  g.gain.linearRampToValueAtTime(gain, t0 + 0.02);
+  g.gain.setValueAtTime(gain, t0 + dur * 0.6);
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
   const mix = ctx.createGain();
   mix.gain.value = 0.5;
+  const lp = ctx.createBiquadFilter();
+  lp.type = "lowpass";
+  lp.frequency.value = p.warmth;
   for (const det of [-7, 7]) {
     const o = ctx.createOscillator();
     o.type = "sawtooth";
     o.frequency.setValueAtTime(f0[0], t0);
     o.frequency.exponentialRampToValueAtTime(Math.max(40, f0[1]), t0 + dur);
     o.detune.value = det;
-    // a little vibrato, like a held note
     const v = ctx.createOscillator();
     const vg = ctx.createGain();
-    v.frequency.value = 6;
-    vg.gain.value = f0[0] * 0.012;
+    v.frequency.value = p.vibRate;
+    vg.gain.value = f0[0] * p.vibrato;
     v.connect(vg).connect(o.frequency);
-    o.connect(mix);
+    o.connect(lp);
     o.start(t0);
     v.start(t0);
     o.stop(t0 + dur + 0.05);
     v.stop(t0 + dur + 0.05);
   }
-  const [fa, fb] = formants;
-  for (const i of [0, 1]) {
-    const f = ctx.createBiquadFilter();
-    f.type = "bandpass";
-    f.Q.value = i === 0 ? 6 : 9;
-    f.frequency.setValueAtTime(fa[i], t0);
-    if (fb) f.frequency.exponentialRampToValueAtTime(fb[i], t0 + dur);
-    mix.connect(f).connect(g);
-  }
-  // breath under the vowel
-  if (breath > 0 && noiseBuf) {
+  lp.connect(mix);
+  fa.forEach((f, i) => {
+    const bp = ctx!.createBiquadFilter();
+    bp.type = "bandpass";
+    bp.Q.value = p.clarity * (i === 0 ? 0.85 : i === 1 ? 1.3 : 1.6);
+    bp.frequency.setValueAtTime(f, t0);
+    bp.frequency.exponentialRampToValueAtTime(fb[i], t0 + dur);
+    const fg = ctx!.createGain();
+    fg.gain.value = i === 0 ? 1 : i === 1 ? 0.7 : 0.35;
+    mix.connect(bp).connect(fg).connect(g);
+  });
+  if (cue.breath * p.breath > 0 && noiseBuf) {
     const src = ctx.createBufferSource();
     src.buffer = noiseBuf;
     src.loop = true;
     const bf = ctx.createBiquadFilter();
     bf.type = "bandpass";
-    bf.frequency.value = 2200;
+    bf.frequency.value = 2200 * p.tract;
+    bf.Q.value = 1.2;
     const bg = ctx.createGain();
-    bg.gain.setValueAtTime(breath * gain * vol(), t0);
-    bg.gain.exponentialRampToValueAtTime(0.0001, t0 + dur * 0.7);
+    bg.gain.setValueAtTime(cue.breath * p.breath * gain * 1.2, t0);
+    bg.gain.exponentialRampToValueAtTime(0.0001, t0 + dur * 0.75);
     src.connect(bf).connect(bg).connect(master);
     src.start(t0);
     src.stop(t0 + dur);
@@ -339,9 +379,9 @@ const SFX: Record<SfxName, () => void> = {
   hit: () => { noise(0.04, 0.4, 7000, 2500); tone("sine", [180, 70], 0.11, 0.35); tone("triangle", [900, 500], 0.06, 0.1, 0.01); },
   clang: () => { tone("square", 880, 0.05, 0.15); tone("sawtooth", [1400, 900], 0.12, 0.12, 0.01); noise(0.05, 0.15, 6000, 2000); },
   // a short, bright "ah!" over the body thump
-  hurt: () => { voice([360, 250], 0.26, [[850, 1300], [650, 1050]], 0.32, 0, 0.2); noise(0.1, 0.1, 2000, 300); },
+  hurt: () => { say("hurt"); noise(0.1, 0.1, 2000, 300); },
   // a clipped "hup" with the rush of air
-  dash: () => { voice([300, 330], 0.1, [[600, 1100], [350, 900]], 0.16, 0, 0.1); noise(0.16, 0.16, 1200, 6000, 0.02, "highpass"); },
+  dash: () => { say("dash"); noise(0.16, 0.16, 1200, 6000, 0.02, "highpass"); },
   pickup: () => { tone("sine", 660, 0.08, 0.25); tone("sine", 990, 0.12, 0.25, 0.07); },
   key: () => { tone("triangle", 880, 0.08, 0.22); tone("triangle", 1174, 0.08, 0.22, 0.08); tone("triangle", 1760, 0.16, 0.22, 0.16); },
   heart: () => { tone("sine", 523, 0.1, 0.22); tone("sine", 784, 0.18, 0.22, 0.09); },
@@ -355,7 +395,7 @@ const SFX: Record<SfxName, () => void> = {
   "bomb-place": () => tone("square", [200, 150], 0.06, 0.15),
   bomb: () => { noise(0.45, 0.5, 3000, 80); tone("sine", [120, 30], 0.5, 0.5); },
   // three gulps and a sparkle
-  potion: () => { for (const i of [0, 1, 2]) tone("sine", [260 + i * 60, 520 + i * 90], 0.09, 0.2, i * 0.11); tone("triangle", 1568, 0.18, 0.12, 0.36); tone("triangle", 2093, 0.24, 0.1, 0.42); voice([300, 330], 0.25, [[400, 800], [450, 900]], 0.12, 0.5, 0.05); },
+  potion: () => { for (const i of [0, 1, 2]) tone("sine", [260 + i * 60, 520 + i * 90], 0.09, 0.2, i * 0.11); tone("triangle", 1568, 0.18, 0.12, 0.36); tone("triangle", 2093, 0.24, 0.1, 0.42); say("potion", 0.5); },
   slime: () => { tone("sine", [200, 80], 0.18, 0.25); noise(0.12, 0.12, 1500, 300); },
   sprite: () => { tone("sine", [1400, 2400], 0.1, 0.12); tone("sine", [2400, 600], 0.14, 0.12, 0.1); },
   spore: () => noise(0.5, 0.15, 400, 1200, 0, "bandpass"),
@@ -366,7 +406,7 @@ const SFX: Record<SfxName, () => void> = {
   phase: () => { tone("sawtooth", [55, 40], 0.5, 0.3); tone("sine", 41, 0.6, 0.3, 0.1); },
   victory: () => { for (const [i, f] of [523, 659, 784, 1046, 1318].entries()) tone("triangle", f, 0.35, 0.22, i * 0.11); },
   // a falling "aah..." and the body going down
-  death: () => { voice([340, 180], 0.9, [[850, 1300], [500, 900]], 0.3, 0, 0.25); tone("sine", [120, 40], 0.6, 0.2, 0.5); noise(0.5, 0.1, 1000, 100, 0.6); },
+  death: () => { say("death"); tone("sine", [120, 40], 0.6, 0.2, 0.5); noise(0.5, 0.1, 1000, 100, 0.6); },
   ui: () => tone("square", 1200, 0.03, 0.08),
   lesson: () => { tone("sine", 880, 0.06, 0.12); tone("sine", 1320, 0.1, 0.12, 0.06); },
   crack: () => { noise(0.4, 0.4, 2500, 150); tone("square", [140, 60], 0.3, 0.3); },
@@ -383,10 +423,10 @@ const SFX: Record<SfxName, () => void> = {
   // the blade through the air
   swing: () => noise(0.16, 0.22, 900, 4500, 0, "bandpass"),
   // a short breath of effort under a swing
-  effort: () => voice([320, 270], 0.12, [[700, 1150], [600, 1000]], 0.14, 0, 0.3),
+  effort: () => say("effort"),
   // a curious "hm?" (lessons, signs) and a battle cry (boss stun window)
-  hm: () => voice([300, 380], 0.22, [[400, 1100], [450, 1300]], 0.14, 0, 0.05),
-  yell: () => voice([330, 420], 0.35, [[800, 1250], [850, 1300]], 0.3, 0, 0.2),
+  hm: () => say("hm"),
+  yell: () => say("yell"),
   // ---- monsters
   "slime-tell": () => { tone("sine", [180, 320], 0.12, 0.14); tone("sine", [220, 380], 0.1, 0.1, 0.06); },
   "slime-hurt": () => { tone("sine", [420, 160], 0.12, 0.2); noise(0.08, 0.1, 1200, 300); },
