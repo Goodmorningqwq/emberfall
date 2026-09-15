@@ -29,6 +29,11 @@ const PROPS: Record<string, { tex: string; w: number; h: number; foot: [number, 
   "gate-whisperwood": { tex: "gate", w: 64, h: 64, foot: [0, 0, 0, 0] },
   "gate-crypt": { tex: "gate", w: 64, h: 64, foot: [0, 0, 0, 0] },
   "gate-cinder": { tex: "gate", w: 64, h: 64, foot: [0, 0, 0, 0] },
+  lantern: { tex: "lantern", w: 32, h: 48, foot: [0.3, 1.1, 0.4, 0.4] },
+  well: { tex: "well", w: 48, h: 48, foot: [0.1, 0.6, 1.3, 0.9] },
+  crates: { tex: "crates", w: 32, h: 32, foot: [0, 0.3, 1, 0.7] },
+  bush: { tex: "bush", w: 32, h: 32, foot: [0.1, 0.4, 0.8, 0.6] },
+  "ruin-wall": { tex: "ruin-wall", w: 64, h: 32, foot: [0, 0.3, 2, 0.6] },
 };
 
 /**
@@ -57,7 +62,7 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
   preload() {
     this.load.spritesheet("town-tiles", "assets/tiles/town.png", { frameWidth: TILE, frameHeight: TILE });
     this.load.json("town-meta", "assets/tiles/town.json");
-    for (const p of ["house-elder", "house-forge", "house-apothecary", "shrine", "plinth", "tree", "gate", "signpost"]) this.load.image(p, `assets/sprites/props/${p}.png`);
+    for (const p of ["house-elder", "house-forge", "house-apothecary", "shrine", "plinth", "tree", "gate", "signpost", "lantern", "well", "crates", "bush", "ruin-wall", "root", "block"]) this.load.image(p, `assets/sprites/props/${p}.png`);
     for (const n of ["blacksmith", "apothecary", "elder"]) this.load.image(`npc-${n}`, `assets/sprites/npc/${n}.png`);
     for (const i of ["potion", "bomb", "coin", "key"]) this.load.image(`icon-${i}`, `assets/ui/icons/${i}.png`);
     HERO.preload(this);
@@ -76,6 +81,12 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
       const g = this.add.graphics();
       g.fillStyle(0xffffff, 1).fillCircle(3, 3, 3);
       g.generateTexture("spore", 6, 6);
+      g.destroy();
+    }
+    if (!this.textures.exists("halo")) {
+      const g = this.add.graphics();
+      for (let r = 24; r > 0; r -= 2) g.fillStyle(0xffa040, 0.05).fillCircle(24, 24, r);
+      g.generateTexture("halo", 48, 48);
       g.destroy();
     }
     const W = this.def.cols * TILE, H = this.def.rows * TILE;
@@ -188,7 +199,16 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
         const img = this.add.image(x, y, p.tex).setOrigin(0).setDepth(y + p.h - 6);
         if (a.kind.startsWith("gate")) {
           const sealed = a.kind !== "gate-whisperwood";
-          if (sealed) img.setTint(0x9a9aa6);
+          if (sealed) {
+            img.setTint(0x9a9aa6);
+            // barred: roots choke the marsh gate, fallen stone blocks the mountain lane
+            if (a.kind === "gate-crypt") {
+              for (const [dx, sc] of [[14, 0.9], [30, 1.1], [46, 0.85]] as const) this.add.image(x + dx, y + 62, "root").setOrigin(0.5, 1).setScale(sc).setTint(0x8aa08a).setDepth(y + 63);
+            } else {
+              for (const [dx, dy] of [[8, 30], [30, 26], [20, 38]] as const) this.add.image(x + dx, y + dy, "block").setOrigin(0).setScale(0.8).setTint(0xb0a090).setDepth(y + dy + 26);
+            }
+            this.solids.add(this.add.zone(x + 32, y + 46, 56, 20));
+          }
           // a sign hangs by each gate; the walkable gap is the middle
           const zone = this.add.zone(x + 32, y + 40, 40, 30);
           this.physics.add.existing(zone, true);
@@ -201,6 +221,10 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
         }
         const [fx, fy, fw, fh] = p.foot;
         if (fw > 0) this.solids.add(this.add.zone(x + (fx + fw / 2) * TILE, y + (fy + fh / 2) * TILE, fw * TILE, fh * TILE));
+        if (a.kind === "lantern") {
+          const halo = this.add.image(x + 16, y + 12, "halo").setDepth(y + p.h - 5).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.5).setScale(1.5);
+          this.tweens.add({ targets: halo, alpha: 0.32, scale: 1.35, duration: 180 + Math.random() * 140, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+        }
         if (a.kind === "shrine") {
           const zone = this.add.zone(x + 32, y + 70, 60, 20);
           this.physics.add.existing(zone, true);
