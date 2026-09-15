@@ -259,10 +259,17 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
           const flame = this.add.image(x + 32, y + 18, "spore").setScale(4, 6).setTint(0x8ad7ff).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.35).setDepth(y + p.h);
           this.tweens.add({ targets: flame, alpha: 0.6, scaleY: 7, duration: 700, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
         }
-        if (a.kind === "plinth" && st.hasItem("shard")) {
-          // one shard home: a small ember flickers on the cold plinth
-          const ember = this.add.image(x + 24, y + 10, "spore").setScale(3, 4).setTint(0xffb060).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.6).setDepth(y + p.h);
-          this.tweens.add({ targets: ember, alpha: 0.9, scale: 4, duration: 300, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+        const shards = st.items.find((i) => i.id === "shard")?.qty ?? 0;
+        if (a.kind === "plinth" && shards > 0) {
+          // each shard home is one more ember on the cold plinth; the flame grows with them
+          for (let i = 0; i < shards; i++) {
+            const ember = this.add.image(x + 24 + (i - (shards - 1) / 2) * 8, y + 10 - i * 2, "spore").setScale(2, 3 + i * 0.5).setTint(i === 1 ? 0x7ab8ff : 0xffb060).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.45).setDepth(y + p.h);
+            this.tweens.add({ targets: ember, alpha: 0.7, scaleY: 4 + i * 0.5, duration: 300 + i * 90, yoyo: true, repeat: -1, ease: "Sine.easeInOut", delay: i * 120 });
+          }
+          if (shards >= 2) {
+            const halo = this.add.image(x + 24, y + 12, "halo").setDepth(y + p.h - 1).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.22).setScale(1.5);
+            this.tweens.add({ targets: halo, alpha: 0.12, scale: 1.3, duration: 700, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+          }
         }
         continue;
       }
@@ -320,7 +327,13 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
         break;
       }
       // the elder's line changes once the shard is home
-      const line = n.key === "npc-elder" && st.hasItem("shard") ? "You brought it back. One flame of three... the plinth will hold it. Rest, then look west when the marsh road drains." : npc.lines[0];
+      const shards = st.items.find((i) => i.id === "shard")?.qty ?? 0;
+      const elderLine =
+        shards >= 3 ? "Three of three. The plinth burns like it did when I was a boy. Whatever comes now, Emberfall is warm."
+        : shards === 2 ? "Two flames. The last one sleeps under the mountain - that smoke on the south road is its breath. The Cinder road isn't cut yet; rest while it is."
+        : shards === 1 ? "You brought it back. One flame of three... the plinth will hold it. Rest, then look west: the marsh road has drained."
+        : npc.lines[0];
+      const line = n.key === "npc-elder" ? elderLine : npc.lines[0];
       st.setDialogue({ title: `${npc.title} · ${npc.name}`, text: line });
       break;
     }
