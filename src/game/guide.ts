@@ -15,25 +15,27 @@ export function questStateOf(): QuestState {
  * Scenes decide *where* (a world point) and call point(); this draws.
  */
 export class GuideDrawer {
-  private arrow: Phaser.GameObjects.Image;
-  private dots: Phaser.GameObjects.Arc[] = [];
+  private mark: Phaser.GameObjects.Image;
   private shown = false;
 
   constructor(private scene: Phaser.Scene) {
-    if (!scene.textures.exists("chev")) {
-      // a gold chevron with a dark rim so it reads on grass, stone and water alike
+    if (!scene.textures.exists("qmark")) {
+      // a small gold square with a dark rim: the same mark the minimap uses for the objective room
       const g = scene.add.graphics();
-      g.fillStyle(0x2a1a10, 1).fillTriangle(0, 0, 16, 8, 0, 16);
-      g.fillStyle(0xffd166, 1).fillTriangle(2, 3, 13, 8, 2, 13);
-      g.fillStyle(0x2a1a10, 1).fillTriangle(2, 5, 7, 8, 2, 11);
-      g.generateTexture("chev", 16, 16);
+      g.fillStyle(0x2a1a10, 1).fillRect(0, 0, 10, 10);
+      g.fillStyle(0xffd166, 1).fillRect(2, 2, 6, 6);
+      g.fillStyle(0xfff2b0, 1).fillRect(3, 3, 2, 2);
+      g.generateTexture("qmark", 10, 10);
       g.destroy();
     }
-    this.arrow = scene.add.image(0, 0, "chev").setDepth(9500).setAlpha(0);
-    for (let i = 0; i < 4; i++) this.dots.push(scene.add.circle(0, 0, 2, 0xffd166, 0.8).setDepth(-990).setAlpha(0));
+    this.mark = scene.add.image(0, 0, "qmark").setDepth(9500).setAlpha(0);
   }
 
-  /** Point from Wren (px,py) toward a world point; `where`/`roomId` go to the HUD. Hide when close. */
+  /**
+   * Point from Wren (px,py) toward a world point. On screen: the mark hangs over the thing itself.
+   * Off screen: it sits at the edge of the view in that direction (the Star Rail way). The HUD gets
+   * the reading for the tracker line and the minimap marker.
+   */
   point(px: number, py: number, tx: number, ty: number, where: string, roomId?: string) {
     const dx = tx - px, dy = ty - py;
     const dist = Math.hypot(dx, dy);
@@ -41,33 +43,41 @@ export class GuideDrawer {
     const tiles = Math.round(dist / TILE);
     // quantised so the HUD only re-renders when the reading actually changes
     useGame.getState().setGuide({ angle: Math.round(angle * 16) / 16, tiles, roomId, where });
-    // the chevron is the loudest cue there is: only when the thing isn't in plain sight (another room, or
-    // more than a screen-quarter away), and only if the player wants it. The tracker still shows the direction.
     const st = useGame.getState();
-    const near = where === "here" ? dist < 6 * TILE : dist < 28;
-    const on = !near && st.screen === "game" && st.settings.guide;
-    this.arrow.setPosition(px + Math.cos(angle) * 34, py - 16 + Math.sin(angle) * 34).setRotation(angle);
-    // the chevron breathes so it reads as "go", not as a prop
-    const pulse = 0.85 + 0.15 * Math.sin(this.scene.time.now / 180);
-    this.arrow.setAlpha(on ? 0.9 * pulse : 0);
-    for (const [i, d] of this.dots.entries()) {
-      const t = 44 + i * 14;
-      d.setPosition(px + Math.cos(angle) * t, py - 2 + Math.sin(angle) * t).setAlpha(on && dist > t + 12 ? 0.55 - i * 0.1 : 0);
+    const on = dist > 20 && st.screen === "game" && st.settings.guide;
+    const cam = this.scene.cameras.main;
+    const M = 14;
+    const inView = tx > cam.scrollX + M && tx < cam.scrollX + cam.width - M && ty > cam.scrollY + M + 40 && ty < cam.scrollY + cam.height - M - 44;
+    let mx: number, my: number;
+    if (inView) {
+      mx = tx;
+      my = ty - 18 - Math.sin(this.scene.time.now / 160) * 3; // hovers over the thing
+    } else {
+      // clamp the ray from Wren to the view's inner rectangle (below the top HUD, above the hotbar)
+      const left = cam.scrollX + M, right = cam.scrollX + cam.width - M, top = cam.scrollY + M + 40, bottom = cam.scrollY + cam.height - M - 44;
+      const cx = Phaser.Math.Clamp(px, left, right), cy = Phaser.Math.Clamp(py, top, bottom);
+      let t = Infinity;
+      if (dx > 0) t = Math.min(t, (right - cx) / dx);
+      if (dx < 0) t = Math.min(t, (left - cx) / dx);
+      if (dy > 0) t = Math.min(t, (bottom - cy) / dy);
+      if (dy < 0) t = Math.min(t, (top - cy) / dy);
+      if (!isFinite(t)) t = 0;
+      mx = Phaser.Math.Clamp(cx + dx * t, left, right);
+      my = Phaser.Math.Clamp(cy + dy * t, top, bottom);
     }
+    this.mark.setPosition(mx, my).setAlpha(on ? 0.75 + 0.25 * Math.sin(this.scene.time.now / 220) : 0);
     this.shown = on;
   }
 
   hide() {
-    if (!this.shown && this.arrow.alpha === 0) return;
-    this.arrow.setAlpha(0);
-    for (const d of this.dots) d.setAlpha(0);
+    if (!this.shown && this.mark.alpha === 0) return;
+    this.mark.setAlpha(0);
     this.shown = false;
     useGame.getState().setGuide(null);
   }
 
   destroy() {
-    this.arrow.destroy();
-    for (const d of this.dots) d.destroy();
+    this.mark.destroy();
   }
 }
 

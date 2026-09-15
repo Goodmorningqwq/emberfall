@@ -29,10 +29,10 @@ type Dir = "north" | "south" | "east" | "west";
 const ENEMY_CLIPS: Record<string, number> = { "slime-hop-loop": 6, "slime-splat": 6, "blueslime-hop-loop": 6, "blueslime-splat": 6, "magmaslime-hop-loop": 6, "magmaslime-splat": 6, "sprite-hover-loop": 6, "mushroom-spore": 8, "door-locked-open": 6, "door-boss-open": 6, "water-loop": 4, "lava-loop": 4 };
 const ENEMY_FPS: Record<string, number> = { "slime-hop-loop": 9, "slime-splat": 14, "blueslime-hop-loop": 9, "blueslime-splat": 14, "magmaslime-hop-loop": 9, "magmaslime-splat": 14, "sprite-hover-loop": 12, "mushroom-spore": 7.3, "door-locked-open": 10, "door-boss-open": 8, "water-loop": 2.5, "lava-loop": 3 };
 /** Boss plate text + HP per boss object kind. */
-const BOSSES: Record<string, { name: string; sub: string; hp: number; flash: number; phase2: string; blocked: (hasTool: boolean) => string; stunned: string }> = {
-  treant: { name: "ELDER TREANT", sub: "Warden of the Hollow", hp: TREANT_HP, flash: 0xffb060, phase2: "IT DIGS IN DEEPER", blocked: (t) => (t ? "Bark shrugs off steel - ring the core" : "Bark shrugs off steel"), stunned: "STUNNED - STRIKE THE CORE" },
-  boneknight: { name: "BONE KNIGHT", sub: "Captain of the Drowned", hp: BONEKNIGHT_HP, flash: 0x9ad0ff, phase2: "HE QUICKENS", blocked: (t) => (t ? "The shield takes it - hook it away" : "The shield takes it - get behind him"), stunned: "SHIELD DOWN - STRIKE" },
-  cindergolem: { name: "CINDER GOLEM", sub: "Heart of the Cinder", hp: CINDERGOLEM_HP, flash: 0xff9a4a, phase2: "THE CRUST SPLITS", blocked: (t) => (t ? "The crust drinks steel - fire its back" : "The crust drinks steel"), stunned: "IT GLOWS - STRIKE" },
+const BOSSES: Record<string, { name: string; sub: string; hp: number; flash: number; phase2: string; blocked: (hasTool: boolean) => string; stunned: string; opening: string; guarded: string }> = {
+  treant: { name: "ELDER TREANT", sub: "Warden of the Hollow", hp: TREANT_HP, flash: 0xffb060, phase2: "IT DIGS IN DEEPER", blocked: (t) => (t ? "Bark shrugs off steel - ring the core when it opens" : "Bark shrugs off steel"), stunned: "STUNNED - STRIKE THE CORE", opening: "THE CORE SHOWS - RING IT", guarded: "The bark is shut - wait for the slam" },
+  boneknight: { name: "BONE KNIGHT", sub: "Captain of the Drowned", hp: BONEKNIGHT_HP, flash: 0x9ad0ff, phase2: "HE QUICKENS", blocked: (t) => (t ? "The shield takes it - hook it when his arm drops" : "The shield takes it - get behind him"), stunned: "SHIELD DOWN - STRIKE", opening: "HIS ARM DROPS - HOOK THE SHIELD", guarded: "The hook glances off - wait for his swing" },
+  cindergolem: { name: "CINDER GOLEM", sub: "Heart of the Cinder", hp: CINDERGOLEM_HP, flash: 0xff9a4a, phase2: "THE CRUST SPLITS", blocked: (t) => (t ? "The crust drinks steel - fire its back" : "The crust drinks steel"), stunned: "IT GLOWS - STRIKE", opening: "", guarded: "The vent is on its back" },
 };
 const DIRS: Record<Dir, { dx: number; dy: number }> = { north: { dx: 0, dy: -1 }, south: { dx: 0, dy: 1 }, east: { dx: 1, dy: 0 }, west: { dx: -1, dy: 0 } };
 
@@ -129,7 +129,7 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
       this.load.spritesheet(`tiles-${m.tileset}`, `assets/tiles/${m.tileset}.png`, { frameWidth: TILE, frameHeight: TILE });
       this.load.json(`tiles-meta-${m.tileset}`, `assets/tiles/${m.tileset}.json`);
     }
-    for (const p of ["door", "torch", "block", "chest", "chest-open", "slime", "blueslime", "sprite", "mushroom", "treant", "root", "door-locked", "door-locked-edge", "door-boss", "stump", "crystal", "plate", "crack", "heart-container", "signpost", "bomb", "boomerang", "archway", "skeleton", "bat", "boneknight", "boneknight-noshield", "shield-ground", "sarcophagus", "bones", "anchor", "pit-tile", "hook", "stone", "decor-leaves", "decor-tuft", "decor-shrooms", "decor-puddle", "decor-moss", "decor-rubble", "decor-puddle-dark", "decor-candle", "cinderling", "cindergolem", "magmaslime", "firebat", "brazier", "thorns", "vent", "slag"]) {
+    for (const p of ["door", "torch", "block", "chest", "chest-open", "slime", "blueslime", "sprite", "mushroom", "treant", "root", "door-locked", "door-locked-w", "door-locked-e", "door-boss", "door-boss-w", "door-boss-e", "stump", "crystal", "plate", "crack", "heart-container", "signpost", "bomb", "boomerang", "archway", "skeleton", "bat", "boneknight", "boneknight-noshield", "shield-ground", "sarcophagus", "bones", "anchor", "pit-tile", "hook", "stone", "decor-leaves", "decor-tuft", "decor-shrooms", "decor-puddle", "decor-moss", "decor-rubble", "decor-puddle-dark", "decor-candle", "cinderling", "cindergolem", "magmaslime", "firebat", "brazier", "thorns", "vent", "slag"]) {
       if (!this.textures.exists(p)) this.load.image(p, `assets/sprites/props/${p}.png`);
     }
     for (const i of ["key", "boomerang", "bomb", "shard", "potion", "coin", "bosskey", "grapple", "firerod"]) if (!this.textures.exists(`icon-${i}`)) this.load.image(`icon-${i}`, `assets/ui/icons/${i}.png`);
@@ -300,10 +300,11 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
           const vertical = a.tx === b.tx; // side door: tiles stacked, prop straddles the wall
           let image: Phaser.GameObjects.Image, zone: Phaser.GameObjects.Zone;
           if (vertical) {
-            // a narrow slab standing in the wall gap (the front-facing art looked like a door lying on the floor)
+            // the front door turned to face into the room (the Zelda way): arch toward the floor
             const x = a.tx * TILE, y = a.ty * TILE;
-            image = this.add.image(x + 4, y, "door-locked-edge").setOrigin(0).setDepth(y + 64);
-            zone = this.add.zone(x + 16, y + 32, 30, 64);
+            const westWall = a.tx % ROOM_W === 0;
+            image = this.add.image(x - 8, y, `${kind}-${westWall ? "w" : "e"}`).setOrigin(0).setDepth(y + 64);
+            zone = this.add.zone(x + 16, y + 32, 34, 64);
           } else {
             const x = a.tx * TILE, y = (a.ty - 1) * TILE;
             image = this.add.image(x, y, kind).setOrigin(0).setDepth(y + 48);
@@ -470,14 +471,14 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
           const spr = this.add.sprite(x, y, "water-loop-0").setOrigin(0).setDepth(-998);
           if (this.anims.exists("water-loop")) spr.play({ key: "water-loop", startFrame: (p.tx + p.ty) % 4 });
           this.roomStuff.push(spr);
-          const zone = this.add.zone(x + 16, y + 16, 32, 32);
+          const zone = this.fenceZone(p.tx, p.ty);
           this.waterGroup.add(zone);
           this.water.push({ sprite: spr, zone });
           break;
         }
         case "pit": {
           this.roomStuff.push(this.add.image(x, y, "pit-tile").setOrigin(0).setDepth(-998));
-          this.waterGroup.add(this.add.zone(x + 16, y + 16, 32, 32));
+          this.waterGroup.add(this.fenceZone(p.tx, p.ty));
           break;
         }
         case "lava": {
@@ -489,7 +490,7 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
           const spr = this.add.sprite(x, y, "lava-loop-0").setOrigin(0).setDepth(-998);
           if (this.anims.exists("lava-loop")) spr.play({ key: "lava-loop", startFrame: (p.tx * 3 + p.ty) % 4 });
           this.roomStuff.push(spr);
-          const zone = this.add.zone(x + 16, y + 16, 32, 32);
+          const zone = this.fenceZone(p.tx, p.ty);
           this.waterGroup.add(zone);
           this.water.push({ sprite: spr, zone });
           break;
@@ -612,7 +613,6 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
     }
     // puzzle targets pulse once so the eye finds them
     for (const pl of this.plates) if (!solved) this.tweens.add({ targets: pl.image, scaleX: 1.12, scaleY: 1.12, duration: 260, yoyo: true, repeat: 2, delay: spawnAt });
-    if (this.cracks.some((c) => c.tiles.some((t) => this.dungeon.roomAtWorld(t.tx * TILE, t.ty * TILE) === room))) this.time.delayedCall(spawnAt + 200, () => this.room === room && this.startLesson("bomb"));
     // free-placed objects (the boss)
     for (const o of room.objects ?? []) {
       if (o.kind === bossKind && bossHere) {
@@ -963,6 +963,25 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
     }
   }
 
+  /**
+   * A blocking zone for a water/lava/pit tile. Where the tile touches a wall the zone grows into it, so
+   * the thin walkable strip under a wall face can't be used to sneak around the pool.
+   */
+  private fenceZone(tx: number, ty: number) {
+    let x = tx * TILE, y = ty * TILE, w = TILE, h = TILE;
+    if (this.dungeon.isWall(tx, ty - 1)) {
+      y -= 20;
+      h += 20;
+    }
+    if (this.dungeon.isWall(tx, ty + 1)) h += 20;
+    if (this.dungeon.isWall(tx - 1, ty)) {
+      x -= 20;
+      w += 20;
+    }
+    if (this.dungeon.isWall(tx + 1, ty)) w += 20;
+    return this.add.zone(x + w / 2, y + h / 2, w, h);
+  }
+
   /** Rune plates with no block to push: Wren standing on one is enough. */
   private checkPlates() {
     if (!this.plates.length || this.blocks.length) return;
@@ -1185,15 +1204,17 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
     this.player.hurt(x, y, dmg);
   }
 
-  bossStatus(status: "stunned" | "recovered" | "bark") {
+  bossStatus(status: "stunned" | "recovered" | "bark" | "opening" | "guarded") {
     const st = useGame.getState();
     if (!st.boss) return;
     const info = BOSSES[this.meta.boss];
     const hasTool = st.hasItem(this.meta.tool ?? "boomerang");
-    const text = status === "stunned" ? info.stunned : status === "bark" ? info.blocked(hasTool) : "";
+    const text = status === "stunned" ? info.stunned : status === "bark" ? info.blocked(hasTool) : status === "opening" ? info.opening : status === "guarded" ? info.guarded : "";
     if (status === "stunned") sfx("yell");
+    if (status === "opening") sfx("lesson");
+    if (status === "opening" && !text) return;
     st.setBoss({ ...st.boss, status: text });
-    if (status === "bark") this.time.delayedCall(1400, () => useGame.getState().boss?.status === text && useGame.getState().setBoss({ ...useGame.getState().boss!, status: "" }));
+    if (status === "bark" || status === "guarded" || status === "opening") this.time.delayedCall(status === "opening" ? 1800 : 1400, () => useGame.getState().boss?.status === text && useGame.getState().setBoss({ ...useGame.getState().boss!, status: "" }));
     // a pulsing ring on the ember core while it's open to attack
     this.bossRing?.destroy();
     this.bossRing = undefined;

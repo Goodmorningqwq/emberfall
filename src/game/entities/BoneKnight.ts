@@ -32,6 +32,8 @@ export class BoneKnight extends Enemy {
   private phase2Announced = false;
   private stomp?: Phaser.Tweens.Tween;
   private nextStepAt = 0;
+  /** after a swing or a charge his shield arm hangs for a moment: the hook can take it then */
+  private openUntil = 0;
 
   constructor(scene: DungeonScene, group: Phaser.Physics.Arcade.Group, x: number, y: number) {
     super(scene, group, x, y, "boneknight", BONEKNIGHT_HP);
@@ -112,12 +114,16 @@ export class BoneKnight extends Enemy {
         s.setVelocity(0, 0);
         break;
       case "swing":
-        if (now >= this.stateUntil) this.rest(now, this.phase2 ? 500 : 800);
+        if (now >= this.stateUntil) {
+          this.openGuard(now, this.phase2 ? 1100 : 1600);
+          this.rest(now, this.phase2 ? 500 : 800);
+        }
         break;
       case "charge":
         if (now >= this.stateUntil || (s.body as Phaser.Physics.Arcade.Body).blocked.none === false) {
           s.setVelocity(0, 0);
           if ((s.body as Phaser.Physics.Arcade.Body).blocked.none === false) this.scene.shake(160, 0.006);
+          this.openGuard(now, this.phase2 ? 1500 : 2200);
           this.rest(now, 900);
         }
         break;
@@ -203,7 +209,7 @@ export class BoneKnight extends Enemy {
    */
   private startQuake(now: number) {
     this.state = "quakeTell";
-    const TELL = this.phase2 ? 1300 : 1700;
+    const TELL = this.phase2 ? 1900 : 2500;
     this.stateUntil = now + TELL;
     const s = this.sprite;
     sfx("roar");
@@ -221,9 +227,27 @@ export class BoneKnight extends Enemy {
     });
   }
 
-  /** Grappled: the shield tears off his arm and skids across the floor; he staggers, wide open. */
+  /** The shield arm drops after he commits: a glint on the shield says "now". */
+  private openGuard(now: number, ms: number) {
+    this.openUntil = now + ms;
+    const s = this.sprite;
+    s.setTint(0x506080).setTintMode(Phaser.TintModes.ADD);
+    this.scene.time.delayedCall(ms, () => s.active && this.state !== "exposed" && s.clearTint().setTintMode(Phaser.TintModes.MULTIPLY));
+    this.scene.bossStatus("opening");
+  }
+
+  get guardOpen() {
+    return this.scene.time.now < this.openUntil;
+  }
+
+  /** Grappled: with the guard open the shield tears off his arm and skids across the floor; otherwise the hook glances off it. */
   grappled() {
     if (this.isDead || this.state === "exposed") return;
+    if (!this.guardOpen) {
+      this.scene.tweens.add({ targets: this.sprite, x: "+=2", duration: 40, yoyo: true, repeat: 2 });
+      this.scene.bossStatus("guarded");
+      return;
+    }
     this.scene.tweens.killTweensOf(this.sprite);
     this.stomp = undefined;
     this.swingHz = undefined;

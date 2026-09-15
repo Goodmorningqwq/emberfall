@@ -462,17 +462,18 @@ export function HUD() {
         </div>
       </div>
 
+      <div className="right-col">
+      {place !== "hub" && <Minimap />}
       {step && !dialogue && !banner && !boss?.intro && (
         <div className="quest pxslot" title={step.title}>
           <span className="quest-eyebrow">{step.title.toUpperCase()} · {qi + 1}/{QUEST.length} <span className="kbd">M</span></span>
           {justDone && <span className="quest-obj done">{justDone}</span>}
           <span className="quest-obj">{step.objective}</span>
           {questNote && <span className="quest-note">{questNote}</span>}
-          {guide && whereText && <span className="quest-where"><i className="quest-arrow" style={{ transform: `rotate(${guide.angle}rad)` }} />{whereText}</span>}
+          {guide && whereText && <span className="quest-where"><i className="quest-mark" />{whereText}</span>}
         </div>
       )}
-
-      {place !== "hub" && <Minimap />}
+      </div>
 
       <div className="hotbar pxpanel">
         <Slot icon="sword" keyHint="LMB" selected />

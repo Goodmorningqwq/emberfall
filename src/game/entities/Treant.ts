@@ -29,6 +29,9 @@ export class Treant extends Enemy {
   private phase2Announced = false;
   /** resting tint: clear in phase 1, darker bark in phase 2 */
   private baseTint: number | null = null;
+  /** the ember core is only reachable for a moment after it slams (the bark opens to push the roots) */
+  private coreOpenUntil = 0;
+  private coreGlow?: Phaser.GameObjects.Image;
 
   constructor(scene: DungeonScene, group: Phaser.Physics.Arcade.Group, x: number, y: number) {
     super(scene, group, x, y, "treant", TREANT_HP);
@@ -112,7 +115,10 @@ export class Treant extends Enemy {
         if (now >= this.stateUntil) this.rest(now);
         break;
       case "slam":
-        if (now >= this.stateUntil) this.rest(now);
+        if (now >= this.stateUntil) {
+          this.openCore(now, this.phase2 ? 1600 : 2400);
+          this.rest(now);
+        }
         break;
       case "stunned":
         if (now >= this.stateUntil) {
@@ -192,6 +198,21 @@ export class Treant extends Enemy {
     });
   }
 
+  /** After the slam the bark parts and the core shows: ring it now. */
+  private openCore(now: number, ms: number) {
+    this.coreOpenUntil = now + ms;
+    const s = this.sprite;
+    this.coreGlow?.destroy();
+    this.coreGlow = this.scene.add.image(s.x, s.y - 40, "halo").setTint(0xffb060).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.7).setScale(0.9).setDepth(s.depth + 1);
+    this.scene.tweens.add({ targets: this.coreGlow, alpha: 0.3, scale: 1.2, duration: 220, yoyo: true, repeat: Math.floor(ms / 440) });
+    this.scene.time.delayedCall(ms, () => this.coreGlow?.destroy());
+    this.scene.bossStatus("opening");
+  }
+
+  get coreOpen() {
+    return this.scene.time.now < this.coreOpenUntil;
+  }
+
   /** Bark: no damage unless stunned — just a dull knock. */
   takeHit(fromX: number, fromY: number, damage = 1): boolean {
     if (this.isDead) return false;
@@ -215,6 +236,12 @@ export class Treant extends Enemy {
 
   boomerangHit() {
     if (this.isDead || this.state === "stunned") return;
+    if (!this.coreOpen) {
+      this.scene.tweens.add({ targets: this.sprite, x: "+=2", duration: 40, yoyo: true, repeat: 2 });
+      this.scene.bossStatus("guarded");
+      return;
+    }
+    this.coreGlow?.destroy();
     this.state = "stunned";
     this.stateUntil = this.scene.time.now + STUN_MS;
     this.sway.pause();

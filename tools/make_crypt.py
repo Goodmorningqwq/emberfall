@@ -33,7 +33,7 @@ room("entrance", 0, 2, "Drowned Stair", "start", [
 room("drowned-hall", 1, 2, "Drowned Hall", "puzzle", [
     "#########..#########",
     "#########..#########",
-    "#########LL#########",
+    "#########..#########",
     "#..~~~~~~~~~~~~~~..#",
     "#..~~~~~~~~~~~~~~..#",
     "#..~~~~~~~~~~~~~~..#",
@@ -94,7 +94,7 @@ room("cistern", 2, 1, "Cistern", "puzzle", [
     "####################",
     "####################",
     "####################",
-    "#..~~~~~~~^........#",
+    "#..~~~~~~~~^.......#",
     "#..~~~~~~~~........#",
     "#..~~~~~~~~...c....#",
     "...~~~~~~~~.........",
@@ -197,8 +197,8 @@ except Exception:
 COL = {"#": (52, 58, 70), ".": (104, 112, 100), "~": (46, 96, 120), "_": (10, 10, 14), "^": (200, 170, 90), "t": (255, 170, 60),
        "L": (200, 160, 60), "Z": (190, 70, 60), "W": (120, 90, 70), "@": (240, 240, 240), "Q": (150, 150, 160), "p": (220, 210, 190),
        "X": (90, 150, 200), "S": (160, 120, 70), "C": (230, 190, 80), "c": (200, 160, 60), "k": (230, 230, 220), "b": (150, 110, 170), "w": (110, 160, 230), "K": (255, 255, 255)}
-NOTE = {"entrance": "sign: rune plates drain water", "drowned-hall": "plate drains it : N locked, E open", "ossuary": "3 skeletons : small key",
-        "crossing": "bats, slime : W locked, N boss", "captains-vault": "Skeleton Captain : Grapple hook", "cistern": "grapple over, plate : Boss key",
+NOTE = {"entrance": "sign: rune plates drain water", "drowned-hall": "plate drains it : N + E open", "ossuary": "3 skeletons : small key",
+        "crossing": "bats, slime : W locked (ossuary key), N boss", "captains-vault": "Skeleton Captain : Grapple hook", "cistern": "grapple over, plate : Boss key",
         "bat-roost": "bats : key : crack N", "flooded-chapel": "slimes, plate : heart", "boss": "hook his shield; hook a post when he quakes : shard 2/3",
         "reliquary": "bomb passage : gold + potion"}
 for i, rid in enumerate(order):
