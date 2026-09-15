@@ -237,6 +237,40 @@ function Minimap() {
   );
 }
 
+/**
+ * Every boss gets its own bar frame (PixelLab, 192x32) with a transparent channel the
+ * fill is drawn behind. `channel` is the fill rect inside the frame, in frame pixels.
+ */
+const BOSS_BARS: Record<string, { img: string; w: number; h: number; channel: [number, number, number, number]; fill: string; hi: string; lo: string }> = {
+  "ELDER TREANT": { img: "/assets/sprites/props/bossbar-treant.png", w: 192, h: 32, channel: [32, 12, 127, 9], fill: "#e8763a", hi: "#ffd090", lo: "#7a2e10" },
+};
+
+/** The boss's own health bar: bespoke frame, fill clipped to its channel, name riding above. */
+function BossBar({ name, hp, max }: { name: string; hp: number; max: number }) {
+  const cfg = BOSS_BARS[name];
+  if (!cfg) {
+    return (
+      <div className="bossbar-generic pxpanel">
+        <span className="t-title bossname">{name}</span>
+        <div className="pxbar bar"><div className="fill" style={{ width: `${(100 * hp) / max}%` }} /></div>
+      </div>
+    );
+  }
+  const [cx, cy, cw, ch] = cfg.channel;
+  const frac = Math.max(0, Math.min(1, hp / max));
+  return (
+    <div className="bossbar-own" style={{ width: `calc(${cfg.w}px * var(--s))` }}>
+      <span className="t-title bossname">{name}</span>
+      <div className="bossbar-frame" style={{ width: `calc(${cfg.w}px * var(--s))`, height: `calc(${cfg.h}px * var(--s))` }}>
+        <div className="bossbar-track" style={{ left: `calc(${cx}px * var(--s))`, top: `calc(${cy}px * var(--s))`, width: `calc(${cw}px * var(--s))`, height: `calc(${ch}px * var(--s))`, background: cfg.lo }}>
+          <div className="bossbar-fill" style={{ width: `${frac * 100}%`, background: `linear-gradient(180deg, ${cfg.hi} 0, ${cfg.hi} calc(2px * var(--s)), ${cfg.fill} calc(2px * var(--s)), ${cfg.fill} 100%)` }} />
+        </div>
+        <img src={cfg.img} alt="" draggable={false} />
+      </div>
+    </div>
+  );
+}
+
 /** Adds a class for `ms` whenever `value` changes in the given direction — the HUD's little "something happened" pops. */
 function useFlash(value: number, dir: "up" | "any" = "any", ms = 450) {
   const [on, setOn] = useState(false);
@@ -374,13 +408,13 @@ export function HUD() {
 
       {boss && (
         <>
-          {/* one stone plate: lands mid-screen on the intro, then slides up and becomes the health bar */}
+          {/* the stone name plate lands mid-screen on the intro, then rises and hands over to the boss's own bar */}
           <div className={`bossplate pxpanel ${boss.intro ? "intro" : "bar"}`}>
             <span className="eyebrow">BOSS</span>
             <span className="t-title bossname">{boss.name}</span>
             <span className="muted t-small bosssub">{boss.sub}</span>
-            <div className="pxbar bar"><div className="fill" style={{ width: `${(100 * boss.hp) / boss.max}%` }} /></div>
           </div>
+          {!boss.intro && <BossBar name={boss.name} hp={boss.hp} max={boss.max} />}
           {!boss.intro && boss.status && <div className="bossstatus" key={boss.status}>{boss.status}</div>}
         </>
       )}

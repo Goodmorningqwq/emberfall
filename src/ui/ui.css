@@ -199,12 +199,22 @@ html, body { margin: 0; height: 100%; background: #0f110f; color: var(--ink); ov
 .bossplate .eyebrow { font-size: 16px; color: #e05a4a; letter-spacing: .05em; max-height: calc(16px * var(--s)); overflow: hidden; transition: max-height .4s, opacity .3s; }
 .bossplate .bosssub { max-height: calc(16px * var(--s)); overflow: hidden; transition: max-height .4s, opacity .3s; }
 .bossplate .bossname { color: #ffd2c4; text-shadow: 0 var(--px) 0 var(--shadow); }
-.bossplate .bar { width: 100%; box-sizing: border-box; height: calc(24px * var(--s)); max-height: 0; opacity: 0; overflow: hidden; transition: max-height .5s .3s, opacity .4s .3s; }
-.bossplate .fill { height: 100%; background: #c93b2e; box-shadow: inset 0 var(--px) 0 #f07a5a; transition: width .18s steps(6); }
 .bossplate.intro { animation: pop .3s ease-out; }
-.bossplate.bar { top: calc(4px * var(--s)); transform: translate(-50%, 0); padding: calc(2px * var(--s)) calc(10px * var(--s)) calc(4px * var(--s)); width: calc(190px * var(--s)); }
+/* hand-over: the plate rises to the bar's spot and fades as the bar appears there */
+.bossplate.bar { top: calc(4px * var(--s)); transform: translate(-50%, 0) scale(.92); opacity: 0; transition: top .7s cubic-bezier(.4,0,.2,1), opacity .35s .35s, transform .7s; pointer-events: none; }
 .bossplate.bar .eyebrow, .bossplate.bar .bosssub { max-height: 0; opacity: 0; }
-.bossplate.bar .bar { max-height: calc(24px * var(--s)); opacity: 1; }
+/* the boss's own bar (frame per boss, see BOSS_BARS) */
+.bossbar-own { position: absolute; left: 50%; top: calc(2px * var(--s)); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 0; animation: bossbar-in .5s .45s cubic-bezier(.2,.8,.2,1) both; }
+.bossbar-own .bossname { color: #ffd2c4; text-shadow: 0 var(--px) 0 var(--shadow), var(--px) 0 0 var(--shadow), calc(-1 * var(--px)) 0 0 var(--shadow), 0 calc(-1 * var(--px)) 0 var(--shadow); margin-bottom: calc(-4px * var(--s)); position: relative; z-index: 1; }
+.bossbar-frame { position: relative; image-rendering: pixelated; }
+.bossbar-frame img { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
+.bossbar-track { position: absolute; overflow: hidden; }
+.bossbar-fill { height: 100%; transition: width .18s steps(6); }
+@keyframes bossbar-in { from { opacity: 0; transform: translate(-50%, calc(12px * var(--s))); } to { opacity: 1; transform: translate(-50%, 0); } }
+/* fallback for bosses without a bespoke frame yet */
+.bossbar-generic { position: absolute; left: 50%; top: calc(4px * var(--s)); transform: translateX(-50%); width: calc(190px * var(--s)); display: flex; flex-direction: column; align-items: center; gap: calc(2px * var(--s)); padding: calc(2px * var(--s)) calc(10px * var(--s)) calc(4px * var(--s)); box-sizing: border-box; }
+.bossbar-generic .bar { width: 100%; box-sizing: border-box; height: calc(24px * var(--s)); }
+.bossbar-generic .fill { height: 100%; background: #c93b2e; box-shadow: inset 0 var(--px) 0 #f07a5a; transition: width .18s steps(6); }
 /* status floats beside the boss (anchored by --boss-x/--boss-y), where the eyes already are */
 .bossstatus { position: absolute; left: calc(var(--boss-x, 50) * 1%); top: calc(var(--boss-y, 20) * 1%); margin-left: calc(56px * var(--s)); font-size: calc(16px * max(1, var(--s) - 1)); color: var(--ember); background: rgba(8,10,8,.85); border: var(--px) solid var(--ember); padding: calc(2px * var(--s)) calc(6px * var(--s)); white-space: nowrap; animation: bossstatus .6s ease-in-out infinite alternate; }
 .frame.boss-right .bossstatus { margin-left: 0; transform: translateX(calc(-100% - 56px * var(--s))); animation: bossstatus-l .6s ease-in-out infinite alternate; }

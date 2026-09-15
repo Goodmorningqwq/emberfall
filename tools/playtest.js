@@ -47,7 +47,7 @@ window.__vhold = async (code, keyCode, ms) => {
 window.__hudOverlaps = () => {
   const frame = document.querySelector('#ui .frame'); if (!frame) return ['no frame'];
   const F = frame.getBoundingClientRect();
-  const sel = ['.hud', '.minimap-wrap', '.hotbar', '.coach', '.wtag', '.banner .card', '.bossplate', '.bossstatus', '.dialogue'];
+  const sel = ['.hud', '.minimap-wrap', '.hotbar', '.coach', '.wtag', '.banner .card', '.bossplate.intro', '.bossbar-own', '.bossbar-generic', '.bossstatus', '.dialogue'];
   const boxes = [];
   for (const s of sel) for (const el of frame.querySelectorAll(s)) { const r = el.getBoundingClientRect(); if (r.width && r.height) boxes.push({ s, r }); }
   const out = [];
