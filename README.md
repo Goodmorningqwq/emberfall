@@ -26,3 +26,20 @@ Open http://localhost:5173 — WASD/arrows move, J attack, K roll.
 `public/assets/sprites/props/` — chest, push block, torch, locked door, slime.
 
 `tools/fetch_wren.py` pulls animation frames from PixelLab by animation id.
+
+## QA
+
+Source of truth: [`docs/QA.md`](docs/QA.md).
+
+```bash
+npm test                 # static contracts + typecheck (CI gate)
+npm run test:regression  # full 34-beat playthrough (Playwright + Chromium)
+```
+
+Dev console (with `npm run dev`):
+
+```js
+await import("/tools/playtest.js");
+await import("/tools/regression.js");
+await window.__regress();
+```
