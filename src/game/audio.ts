@@ -386,6 +386,7 @@ export function stopNpc() {
 let lastLineAt = 0;
 /** A spoken line (not a grunt): rate-limited so lines don't stack. */
 export function speak(line: VoiceLine) {
+  if (!useGame.getState().settings.voice) return;
   if (!ensure() || !ctx) return;
   if (ctx.state === "suspended") void ctx.resume();
   const now = ctx.currentTime;
@@ -413,6 +414,7 @@ function playClip(name: string, delay: number, rateJitter: number): boolean {
 
 function say(id: keyof typeof CUES, delay = 0) {
   if (!ctx || !master) return;
+  if (!useGame.getState().settings.voice && !previewing) return;
   // a recorded take, with a little rate variance so repeats don't sound stamped; hurt alternates two takes
   if (!previewing) {
     const name = id === "hurt" && Math.random() < 0.5 && clips.get("hurt2") ? "hurt2" : id;
@@ -515,7 +517,7 @@ const SFX: Record<SfxName, () => void> = {
   hit: () => { noise(0.04, 0.4, 7000, 2500); tone("sine", [180, 70], 0.11, 0.35); tone("triangle", [900, 500], 0.06, 0.1, 0.01); },
   clang: () => { tone("square", 880, 0.05, 0.15); tone("sawtooth", [1400, 900], 0.12, 0.12, 0.01); noise(0.05, 0.15, 6000, 2000); },
   // a short, bright "ah!" over the body thump
-  hurt: () => { say("hurt"); noise(0.1, 0.1, 2000, 300); },
+  hurt: () => { say("hurt"); noise(0.1, 0.1, 2000, 300); if (!useGame.getState().settings.voice) tone("sine", [170, 60], 0.13, 0.28); },
   // a clipped "hup" with the rush of air
   dash: () => { say("dash"); noise(0.16, 0.16, 1200, 6000, 0.02, "highpass"); },
   pickup: () => { tone("sine", 660, 0.08, 0.25); tone("sine", 990, 0.12, 0.25, 0.07); },

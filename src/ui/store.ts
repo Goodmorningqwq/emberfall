@@ -18,13 +18,15 @@ export interface Settings {
   music: number; // 0..1
   /** the on-screen chevron + trail (the tracker and minimap marker stay) */
   guide: boolean;
+  /** Wren's voice (grunts and spoken lines); off for now - the townsfolk keep theirs */
+  voice: boolean;
 }
 const SETTINGS_KEY = "emberfall.settings";
 export function readSettings(): Settings {
   try {
-    return { shake: 1, sfx: 0.8, music: 0.6, guide: true, ...(JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}") as Partial<Settings>) };
+    return { shake: 1, sfx: 0.8, music: 0.6, guide: true, voice: false, ...(JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}") as Partial<Settings>) };
   } catch {
-    return { shake: 1, sfx: 0.8, music: 0.6, guide: true };
+    return { shake: 1, sfx: 0.8, music: 0.6, guide: true, voice: false };
   }
 }
 

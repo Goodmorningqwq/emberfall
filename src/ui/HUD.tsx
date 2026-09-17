@@ -691,6 +691,12 @@ export function HUD() {
               </button>
             </div>
             <div className="pause-settings">
+              <span className="muted t-small">Wren's voice</span>
+              <button className="pxbtn pxslot" onClick={() => { setSettings({ voice: !settings.voice }); sfx("ui"); }}>
+                {settings.voice ? "On" : "Off"}
+              </button>
+            </div>
+            <div className="pause-settings">
               <span className="muted t-small">Screen shake</span>
               <button className="pxbtn pxslot" onClick={() => setSettings({ shake: settings.shake === 1 ? 0.5 : settings.shake === 0.5 ? 0 : 1 })}>
                 {settings.shake === 1 ? "Full" : settings.shake === 0.5 ? "Low" : "Off"}
