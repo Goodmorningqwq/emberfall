@@ -1,5 +1,6 @@
 // Console helpers for playtesting (paste into the dev-tools console).
 window.__boot = async () => {
+  window.__noAutoPause = true; // the in-app pane hides itself; a hidden tab would otherwise pause the run
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   window.__sleep = sleep;
   window.__store = (await import("/src/ui/store.ts")).useGame;

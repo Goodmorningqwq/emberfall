@@ -327,3 +327,7 @@ html, body { margin: 0; height: 100%; background: #0f110f; color: var(--ink); ov
 #ui .bag.journal { max-height: 92%; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--muted) transparent; }
 /* the journal, bag, shop and dialogue read at the same body size as the tracker on big screens (3x → 2x text) */
 @container (min-width: 1100px) { .journal-obj, .journal-story, .journal-mark, .worldmap .eyebrow, .wm-caption, .bag-item-text, .bag-item-text .muted, .bag-head .muted, .dialogue .eyebrow, .dialogue-hint, .shop .eyebrow, .shop-card, .shop-card .muted { font-size: calc(16px * max(1, var(--s) - 1)); } }
+/* title: the note under Continue (an unreadable save, a restored one) and the armed New-game button */
+.title-note { display: flex; flex-direction: column; align-items: center; gap: calc(3px * var(--s)); font-size: 16px; text-align: center; max-width: calc(220px * var(--s)); }
+.title-menu .pxbtn.warn { color: var(--ember); }
+.save-failed { color: var(--ember); margin-top: calc(2px * var(--s)); }

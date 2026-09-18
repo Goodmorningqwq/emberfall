@@ -53,8 +53,22 @@ export function noiseBuffer() {
 export function unlockAudio() {
   if (!ensure() || !ctx) return;
   if (ctx.state === "suspended") void ctx.resume();
-  preloadVoice();
+  if (useGame.getState().settings.voice) preloadVoice(); // her clips are only worth fetching if she'll speak
   if (wantedAmbient && !ambient) startAmbient(wantedAmbient);
+}
+
+/** The bed fades with a hidden tab (music.ts calls this from its visibilitychange listener). */
+export function duckAmbient(on: boolean) {
+  if (!ambient || !ctx) return;
+  ambient.gain.gain.setTargetAtTime(on ? 0.0001 : ambientVol(), ctx.currentTime, on ? 0.1 : 0.6);
+}
+
+/** Two low beats - the hearts warning when Wren's voice is off (it used to be the "I can't take much more" line). */
+export function heartbeat() {
+  if (!ensure() || !ctx) return;
+  if (vol() <= 0) return;
+  tone("sine", [70, 45], 0.14, 0.4);
+  tone("sine", [62, 40], 0.16, 0.3, 0.19);
 }
 
 // ------------------------------------------------------------------ ambience

@@ -353,10 +353,13 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
         useGame.getState().setFlag("visited:shrine");
         sfx("heart");
         useGame.getState().heal(99);
-        this.toast("Rested. The shrine keeps your progress.");
-        // the save is automatic; the shrine just says so out loud
-        useGame.getState().setNarration("Saved.");
-        this.time.delayedCall(1600, () => useGame.getState().narration === "Saved." && useGame.getState().setNarration(null));
+        // the save is automatic; the shrine just says so out loud - unless saving is actually failing
+        if (useGame.getState().saveFailed) this.toast("Rested. This browser isn't keeping your progress.");
+        else {
+          this.toast("Rested. The shrine keeps your progress.");
+          useGame.getState().setNarration("Saved.");
+          this.time.delayedCall(1600, () => useGame.getState().narration === "Saved." && useGame.getState().setNarration(null));
+        }
         break;
       }
       const npc = this.def.npcs[n.key];
@@ -577,6 +580,7 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
   }
 
   update(_t: number, delta: number) {
+    this.player?.pollMenuPad();
     if (this.frozen) return;
     try {
       this.player.update(delta);

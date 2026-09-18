@@ -116,6 +116,8 @@ export const ITEM_META: Record<ItemId, { name: string; hint: string }> = {
 
 interface GameState {
   screen: "title" | "intro" | "game" | "dead" | "complete";
+  /** the last autosave threw (private mode, quota): progress is not being kept */
+  saveFailed: boolean;
   hearts: number; // in half-hearts
   maxHearts: number;
   gold: number;
@@ -202,14 +204,58 @@ interface GameState {
   quitToTitle: () => void;
 }
 
-export function readSave(): SaveData | null {
+const BAK_KEY = SAVE_KEY + ".bak";
+
+/**
+ * What is in storage, for the title screen: a save to continue (`ok`), one the shadow copy had to
+ * rescue (`restored`), one from an older build (`old`, with whatever meta still parses), garbage
+ * (`corrupt`), or nothing. Never starts a new game on its own.
+ */
+export type SavePeek =
+  | { kind: "absent" }
+  | { kind: "ok" | "restored"; data: SaveData }
+  | { kind: "old"; gold?: number; playtimeMs?: number }
+  | { kind: "corrupt" };
+export function peekSave(): SavePeek {
+  let raw: string | null = null;
   try {
-    const raw = localStorage.getItem(SAVE_KEY);
-    if (!raw) return null;
-    const data = JSON.parse(raw) as SaveData;
-    return data.version === SAVE_VERSION ? data : null;
+    raw = localStorage.getItem(SAVE_KEY);
   } catch {
-    return null;
+    return { kind: "absent" };
+  }
+  if (!raw) return { kind: "absent" };
+  try {
+    const data = JSON.parse(raw) as Partial<SaveData>;
+    if (data && data.version === SAVE_VERSION) return { kind: "ok", data: data as SaveData };
+    return { kind: "old", gold: typeof data?.gold === "number" ? data.gold : undefined, playtimeMs: typeof data?.playtimeMs === "number" ? data.playtimeMs : undefined };
+  } catch {
+    // the live key is garbage: the shadow copy is the last good save - put it back
+    try {
+      const bak = localStorage.getItem(BAK_KEY);
+      if (bak) {
+        const data = JSON.parse(bak) as Partial<SaveData>;
+        if (data && data.version === SAVE_VERSION) {
+          localStorage.setItem(SAVE_KEY, bak);
+          return { kind: "restored", data: data as SaveData };
+        }
+      }
+    } catch {
+      /* no usable copy either */
+    }
+    return { kind: "corrupt" };
+  }
+}
+export function readSave(): SaveData | null {
+  const p = peekSave();
+  return p.kind === "ok" || p.kind === "restored" ? p.data : null;
+}
+/** Remove the save and its shadow copy (the title's "Clear it"). */
+export function clearSave() {
+  try {
+    localStorage.removeItem(SAVE_KEY);
+    localStorage.removeItem(BAK_KEY);
+  } catch {
+    /* nothing to clear */
   }
 }
 
@@ -232,9 +278,18 @@ function writeSave(s: GameState) {
       playtimeMs: s.playtimeMs + (s.sessionStart ? Date.now() - s.sessionStart : 0),
       savedAt: Date.now(),
     };
+    const prev = localStorage.getItem(SAVE_KEY);
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+    if (s.saveFailed) useGame.setState({ saveFailed: false });
+    // the previous good save becomes the shadow copy; its own failure (quota) is not a failed save
+    try {
+      if (prev && (JSON.parse(prev) as Partial<SaveData>).version === SAVE_VERSION) localStorage.setItem(BAK_KEY, prev);
+    } catch {
+      /* no shadow copy this time */
+    }
   } catch {
-    /* storage unavailable (private mode etc.) — play on without saving */
+    // storage unavailable (private mode, quota): play on, but say so once (HUD line; the shrine stops claiming "Saved.")
+    if (!s.saveFailed) useGame.setState({ saveFailed: true });
   }
 }
 
@@ -258,6 +313,7 @@ const fresh = () => ({
 
 export const useGame = create<GameState>((set, get) => ({
   screen: "title",
+  saveFailed: false,
   ...fresh(),
   facing: "south",
   action: "idle",
@@ -368,7 +424,7 @@ export const useGame = create<GameState>((set, get) => ({
   keepExploring: () => set({ screen: "game" }),
   continueGame: () => {
     const d = readSave();
-    if (!d) return get().newGame();
+    if (!d) return; // nothing to continue: stay on the title (never a silent new game)
     set({
       screen: "game",
       hearts: Math.max(2, d.hearts),
@@ -404,15 +460,25 @@ export const useGame = create<GameState>((set, get) => ({
   },
 }));
 
-// auto-save whenever progress-relevant state changes while playing
+// auto-save whenever progress-relevant state changes while playing (death and the ending count: the store
+// has already moved on by then and the next continue should know)
 let saveTimer: number | undefined;
+const playing = (screen: GameState["screen"]) => screen !== "title" && screen !== "intro";
 useGame.subscribe((s, prev) => {
-  if (s.screen !== "game" && s.screen !== "complete") return;
+  if (!playing(s.screen)) return;
   if (s.hearts === prev.hearts && s.gold === prev.gold && s.keys === prev.keys && s.items === prev.items && s.flags === prev.flags && s.room === prev.room && s.lessons === prev.lessons && s.counters === prev.counters && s.place === prev.place && s.swordTier === prev.swordTier && s.armorTier === prev.armorTier) return;
   window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => writeSave(useGame.getState()), 300);
 });
 window.addEventListener("beforeunload", () => {
   const s = useGame.getState();
-  if (s.screen === "game") writeSave(s);
+  if (playing(s.screen)) writeSave(s);
+});
+// a hidden tab: flush the save, and pause the fight so Wren isn't hit while nobody is looking (never auto-resume)
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) return;
+  const s = useGame.getState();
+  if (playing(s.screen)) writeSave(s);
+  // (the scripted playtests run in a pane that hides itself: they opt out via window.__noAutoPause)
+  if (s.screen === "game" && !s.paused && !s.dialogue && !s.shop && !(window as unknown as { __noAutoPause?: boolean }).__noAutoPause) s.togglePause(true);
 });

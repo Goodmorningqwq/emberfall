@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { readSave, useGame } from "./store";
+import { useMemo, useState } from "react";
+import { clearSave, peekSave, useGame } from "./store";
 import { dungeonFor } from "../game/data/dungeons";
 import { QUEST, questIndex } from "../game/quests";
 
@@ -10,7 +10,14 @@ function fmtTime(ms: number) {
 
 export function Title() {
   const { newGame, continueGame } = useGame();
-  const save = useMemo(readSave, []);
+  const [peek, setPeek] = useState(useMemo(peekSave, []));
+  const save = peek.kind === "ok" || peek.kind === "restored" ? peek.data : null;
+  // starting over on top of a save takes two clicks; the first one says what it would cost
+  const [confirming, setConfirming] = useState(false);
+  const startNew = () => {
+    if (save && !confirming) return setConfirming(true);
+    newGame();
+  };
   const hearts = save ? Array.from({ length: save.maxHearts / 2 }, (_, i) => (save.hearts - i * 2 >= 2 ? "full" : save.hearts - i * 2 === 1 ? "half" : "empty")) : [];
   const shards = save?.items.find((i) => i.id === "shard")?.qty ?? 0;
   const inTown = save?.place === "hub";
@@ -43,8 +50,20 @@ export function Title() {
               </span>
             </button>
           )}
-          <button className="pxbtn pxpanel" onClick={newGame} autoFocus={!save}>
-            <span>New game</span>
+          {(peek.kind === "old" || peek.kind === "corrupt") && (
+            <div className="title-note muted">
+              <span>
+                {peek.kind === "old"
+                  ? `A save from an earlier build is here${peek.gold !== undefined ? ` (${peek.gold} gold${peek.playtimeMs !== undefined ? `, ${fmtTime(peek.playtimeMs)}` : ""})` : ""}; this build can't read it.`
+                  : "A save is here but it can't be read."}
+              </span>
+              <button className="pxbtn pxslot" onClick={() => { clearSave(); setPeek({ kind: "absent" }); }}>Clear it</button>
+            </div>
+          )}
+          {peek.kind === "restored" && <span className="title-note muted">Your save was damaged; the last good copy was restored.</span>}
+          <button className={`pxbtn pxpanel${confirming ? " warn" : ""}`} onClick={startNew} onBlur={() => setConfirming(false)} autoFocus={!save}>
+            <span>{confirming ? (finale ? "Start over? The finished journey will be erased" : `Start over? ${chapter ? `"${chapter.title}" will be erased` : "Your save will be erased"}`) : "New game"}</span>
+            {confirming && <span className="muted t-small">Click again to confirm</span>}
           </button>
         </div>
         <span className="title-version muted">alpha {__APP_VERSION__}</span>

@@ -2,7 +2,7 @@ import Phaser from "phaser";
 import { HERO, HURT_MS, DEATH_MS, type Clip, type Dir } from "./heroAssets";
 import { SWORD, SWORD_MS, SWORD_RECOVER_MS } from "./weapons";
 import { useGame, type Facing } from "../../ui/store";
-import { sfx, speak } from "../audio";
+import { sfx, speak, heartbeat } from "../audio";
 import type { LessonId } from "../../ui/store";
 
 /** What a scene must provide for Wren to live in it (the dungeon and the town both do). */
@@ -271,7 +271,7 @@ export class Player {
     // low on hearts: she says so, but not more than once in a while
     if (useGame.getState().hearts > 0 && useGame.getState().hearts <= 2 && now - this.lastLowHpLine > 25000) {
       this.lastLowHpLine = now;
-      this.scene.time.delayedCall(450, () => speak("lowhp"));
+      this.scene.time.delayedCall(450, () => (useGame.getState().settings.voice ? speak("lowhp") : heartbeat()));
     }
     if (useGame.getState().hearts <= 0) return this.die(fromX, fromY);
     this.scene.onPlayerHurt();
@@ -361,6 +361,18 @@ export class Player {
    * Gamepad, standard mapping: A attack, B dash/sprint, X tool, Y potion, RB bomb, LB swap tool,
    * Start pause, Back bag, right stick aims (else the left stick, else facing).
    */
+  /**
+   * The menus freeze the scene, and with it the only pad poll - so the scenes call this *before* their
+   * frozen guard: Start resumes, Back closes the bag. Nothing else, so a menu press never queues a swing.
+   */
+  pollMenuPad() {
+    const pad = this.pad();
+    if (!pad) return;
+    const st = useGame.getState();
+    if (this.padPressed(pad, 9) && st.paused) { st.setInputMode("pad"); st.togglePause(false); }
+    if (this.padPressed(pad, 8) && st.bagOpen) { st.setInputMode("pad"); st.toggleBag(); }
+  }
+
   private readPad() {
     const pad = this.pad();
     if (!pad) return { dashHeld: false, dashPressed: false };
@@ -368,6 +380,16 @@ export class Player {
     const rs = new Phaser.Math.Vector2(pad.rightStick.x, pad.rightStick.y);
     if (rs.lengthSq() > 0.3 * 0.3) this.padAim.copy(rs.normalize());
     else this.padAim.set(0, 0);
+    if (st.dialogue) {
+      // a sign or a townsperson is talking: A continues / closes the box (the HUD keeps its own 250 ms grace
+      // and its skip-typing rule, so hand it the same key the keyboard would send); no swing, no throw
+      if (this.padPressed(pad, 0)) { st.setInputMode("pad"); window.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", bubbles: true })); }
+      this.padPressed(pad, 2);
+      if (this.padPressed(pad, 9)) { st.setInputMode("pad"); st.togglePause(); }
+      const held = pad.buttons[1]?.pressed ?? false;
+      this.padPressed(pad, 1);
+      return { dashHeld: held, dashPressed: false };
+    }
     if (this.padPressed(pad, 0)) { this.wantAttack = true; st.setInputMode("pad"); }
     if (this.padPressed(pad, 2)) { this.wantThrow = true; st.setInputMode("pad"); }
     if (this.padPressed(pad, 3)) this.scene.drinkPotion();

@@ -1,5 +1,5 @@
 import { useGame } from "../ui/store";
-import { audioContext, noiseBuffer } from "./audio";
+import { audioContext, noiseBuffer, duckAmbient } from "./audio";
 
 /**
  * Procedural chiptune. No audio files: a four-voice step sequencer (square lead,
@@ -434,6 +434,7 @@ useGame.subscribe((s, prev) => {
   }
 });
 document.addEventListener("visibilitychange", () => {
+  duckAmbient(document.hidden);
   const c = audioContext();
   if (!bus || !c) return;
   if (document.hidden) bus.gain.setTargetAtTime(0.0001, c.currentTime, 0.1);

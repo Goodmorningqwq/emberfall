@@ -2145,6 +2145,7 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
   }
 
   update(_time: number, delta: number) {
+    this.player?.pollMenuPad();
     if (this.frozen) return;
     try {
       this.dt = delta;

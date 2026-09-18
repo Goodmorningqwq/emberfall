@@ -5,7 +5,7 @@ import { Title } from "./Title";
 import { dungeonFor } from "../game/data/dungeons";
 import town from "../game/data/emberfall-town.json";
 import { QUEST, questIndex, SIDE_QUESTS, sideState, sideProgress } from "../game/quests";
-import { sfx } from "../game/audio";
+import { sfx, preloadVoice } from "../game/audio";
 import { SHOPS } from "./shop";
 
 /** PixelLab icon set at public/assets/ui/icons/<name>.png (24x24). */
@@ -96,7 +96,7 @@ function WorldTag() {
 
 /** Sign / NPC dialogue: bottom panel, typewriter, any key or click to close. */
 function DialogueBox() {
-  const { dialogue, setDialogue } = useGame();
+  const { dialogue, setDialogue, inputMode } = useGame();
   const [shown, setShown] = useState(0);
   useEffect(() => {
     setShown(0);
@@ -132,7 +132,7 @@ function DialogueBox() {
           {!done && <span className="caret">_</span>}
         </span>
         <span className={`dialogue-hint muted${done ? "" : " hidden"}`}>
-          <span className="kbd">E</span> continue
+          <span className="kbd">{inputMode === "pad" ? "A" : "E"}</span> continue
         </span>
       </div>
     </div>
@@ -475,7 +475,7 @@ function useFlash(value: number, dir: "up" | "any" = "any", ms = 450) {
 }
 
 export function HUD() {
-  const { screen, hearts, maxHearts, gold, keys, items, bagOpen, toggleBag, paused, togglePause, quitToTitle, banner, boss, respawn, dialogue, tag, flags, settings, setSettings, place, tool, journalOpen, toggleJournal, guide, questNote, inputMode, counters } = useGame();
+  const { screen, hearts, maxHearts, gold, keys, items, bagOpen, toggleBag, paused, togglePause, quitToTitle, banner, boss, respawn, dialogue, tag, flags, settings, setSettings, place, tool, journalOpen, toggleJournal, guide, questNote, inputMode, counters, saveFailed } = useGame();
   const qState = { flags, place, has: (id: string) => items.some((i) => i.id === id && i.qty > 0), shards: items.find((i) => i.id === "shard")?.qty ?? 0, counters };
   const sides = SIDE_QUESTS.map((q) => ({ q, state: sideState(q, qState), n: sideProgress(q, qState) }));
   const sideLive = sides.find((x) => x.state === "active" || x.state === "ready");
@@ -499,7 +499,8 @@ export function HUD() {
   }, [qi, screen]);
   const whereText = guide ? (guide.where === "here" ? (guide.tiles <= 6 ? "right here" : "this room") : guide.where) : null;
   const pad = inputMode === "pad";
-  const K = pad ? { attack: "A", potion: "Y", bomb: "RB", tool: "X", swap: "LB", bag: "Back", journal: "Start", pause: "Start", dash: "B" } : { attack: "LMB", potion: "1", bomb: "2", tool: "RMB", swap: "Q", bag: "Tab", journal: "M", pause: "Esc", dash: "Shift" };
+  // the pad has no journal button (Start is pause): the journal badge simply isn't shown on a pad
+  const K = pad ? { attack: "A", potion: "Y", bomb: "RB", tool: "X", swap: "LB", bag: "Back", journal: "", pause: "Start", dash: "B", talk: "A" } : { attack: "LMB", potion: "1", bomb: "2", tool: "RMB", swap: "Q", bag: "Tab", journal: "M", pause: "Esc", dash: "Shift", talk: "E" };
   const rect = useCanvasRect();
   const s = uiScale(rect);
   const healFlash = useFlash(hearts, "up");
@@ -594,6 +595,7 @@ export function HUD() {
           <span className={`stat gold${goldFlash ? " flash" : ""}`}><Icon name="coin" />{gold}</span>
           <span className={`stat${keyFlash ? " flash" : ""}`}><Icon name="key" />x{keys}</span>
         </div>
+        {saveFailed && <span className="muted t-small shadowed save-failed">Not saving - this browser won't keep progress</span>}
       </div>
 
       <div className="right-col">
@@ -659,17 +661,34 @@ export function HUD() {
           <div className="pause pxpanel" onClick={(e) => e.stopPropagation()}>
             <span className="t-title">Paused</span>
             <div className="controls">
-              <div><span className="kbd">WASD</span><span>Move</span></div>
-              <div><span className="kbd">LMB</span><span>Attack toward cursor</span></div>
-              <div><span className="kbd">Shift</span><span>Tap: dash · Hold: sprint</span></div>
-              <div><span className="kbd">RMB</span><span>Use tool (boomerang / hook)</span></div>
-              <div><span className="kbd">Q</span><span>Swap tool</span></div>
-              <div><span className="kbd">1</span><span>Drink potion</span></div>
-              <div><span className="kbd">2</span><span>Drop bomb</span></div>
-              <div><span className="kbd">Tab</span><span>Bag</span></div>
-              <div><span className="kbd">M</span><span>Quest journal</span></div>
-              <div><span className="kbd">Pad</span><span>Stick move · A strike · B dash · X tool · Y potion · RB bomb · LB swap · Back bag · Start pause</span></div>
-              <div><span className="kbd">Esc</span><span>Pause / resume</span></div>
+              {pad ? (
+                <>
+                  <div><span className="kbd">Stick</span><span>Move (d-pad works too) · right stick aims</span></div>
+                  <div><span className="kbd">A</span><span>Strike · continue talk</span></div>
+                  <div><span className="kbd">B</span><span>Tap: dash · Hold: sprint</span></div>
+                  <div><span className="kbd">X</span><span>Use tool</span></div>
+                  <div><span className="kbd">LB</span><span>Swap tool</span></div>
+                  <div><span className="kbd">Y</span><span>Drink potion</span></div>
+                  <div><span className="kbd">RB</span><span>Drop bomb</span></div>
+                  <div><span className="kbd">Back</span><span>Bag</span></div>
+                  <div><span className="kbd">Start</span><span>Pause / resume</span></div>
+                  <div><span className="kbd">M</span><span>Quest journal (keyboard)</span></div>
+                </>
+              ) : (
+                <>
+                  <div><span className="kbd">WASD</span><span>Move (arrows work too)</span></div>
+                  <div><span className="kbd">LMB</span><span>Attack toward cursor</span></div>
+                  <div><span className="kbd">Shift</span><span>Tap: dash · Hold: sprint</span></div>
+                  <div><span className="kbd">RMB</span><span>Use tool (boomerang / hook / rod)</span></div>
+                  <div><span className="kbd">Q</span><span>Swap tool</span></div>
+                  <div><span className="kbd">1</span><span>Drink potion</span></div>
+                  <div><span className="kbd">2</span><span>Drop bomb</span></div>
+                  <div><span className="kbd">Tab</span><span>Bag</span></div>
+                  <div><span className="kbd">M</span><span>Quest journal</span></div>
+                  <div><span className="kbd">Esc</span><span>Pause / resume</span></div>
+                  <div><span className="kbd">Pad</span><span>A gamepad works too - plug one in and press a button</span></div>
+                </>
+              )}
             </div>
             <div className="pause-settings">
               <span className="muted t-small">Music</span>
@@ -691,7 +710,7 @@ export function HUD() {
             </div>
             <div className="pause-settings">
               <span className="muted t-small">Wren's voice</span>
-              <button className="pxbtn pxslot" onClick={() => { setSettings({ voice: !settings.voice }); sfx("ui"); }}>
+              <button className="pxbtn pxslot" onClick={() => { setSettings({ voice: !settings.voice }); if (!settings.voice) preloadVoice(); sfx("ui"); }}>
                 {settings.voice ? "On" : "Off"}
               </button>
             </div>
