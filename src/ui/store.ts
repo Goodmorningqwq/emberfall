@@ -38,7 +38,7 @@ export interface Banner {
   icon?: ItemId | "heart";
 }
 
-export type LessonId = "move" | "dash" | "attack" | "potion" | "throw" | "bomb" | "grapple" | "firerod";
+export type LessonId = "move" | "dash" | "attack" | "potion" | "throw" | "grapple" | "firerod";
 /** The contextual tutorial tag beside Wren. `keys` = which of W/A/S/D are still to press. */
 export interface Lesson {
   id: LessonId;

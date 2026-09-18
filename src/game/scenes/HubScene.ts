@@ -90,6 +90,7 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
   }
 
   create(data: { from?: string } = {}) {
+    this.game.canvas.classList.add("ready");
     registerPropAtlas(this);
     setAmbient("town");
     if (useGame.getState().screen === "game") setMusic("town");
@@ -146,7 +147,6 @@ export class HubScene extends Phaser.Scene implements PlayerHost {
     cam.setBounds(0, 0, W, H);
     cam.startFollow(this.player.sprite, true, 0.12, 0.12);
     cam.setRoundPixels(true);
-    this.game.canvas.classList.add("ready");
 
     const st = useGame.getState();
     st.setRoom("emberfall", "Emberfall", "");

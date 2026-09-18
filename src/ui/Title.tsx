@@ -47,7 +47,7 @@ export function Title() {
             <span>New game</span>
           </button>
         </div>
-        <span className="title-version muted">v0.1 prototype</span>
+        <span className="title-version muted">alpha {__APP_VERSION__}</span>
       </div>
     </div>
   );

@@ -180,7 +180,7 @@ export class Treant extends Enemy {
       if (this.isDead) return;
       const spike = scene.add.image(x, y, "root").setOrigin(0.5, 1).setDepth(y).setScale(1, 0.1);
       scene.tweens.add({ targets: spike, scaleY: 1, duration: 110, ease: "Back.easeOut" });
-      scene.cameras.main.shake(70, 0.003);
+      scene.shake(70, 0.003);
       this.spikes.push({ hz: { x, y: y - 6, r: 14 }, until: scene.time.now + 380 });
       scene.time.delayedCall(420, () => scene.tweens.add({ targets: spike, scaleY: 0, alpha: 0.6, duration: 160, ease: "Quad.easeIn", onComplete: () => spike.destroy() }));
     });

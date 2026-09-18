@@ -24,13 +24,15 @@ html, body { margin: 0; height: 100%; background: #0f110f; color: var(--ink); ov
 #game { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
 #game canvas { image-rendering: pixelated; image-rendering: crisp-edges; opacity: 0; transition: opacity .6s ease-out; }
 #game canvas.ready { opacity: 1; }
+/* the one line a broken boot gets (main.tsx): muted, over everything, never pixel-scaled */
+#boot-error { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); font: 700 16px "Emberfall Pixel", monospace; color: #a8aa9c; background: rgba(16, 20, 16, .85); padding: 6px 10px; z-index: 50; pointer-events: none; white-space: nowrap; }
 #ui { position: absolute; inset: 0; pointer-events: none; }
 #ui .frame { position: absolute; pointer-events: none; container-type: size; --s: 2; --px: calc(1px * var(--s)); --sh: min(var(--s), max(2, calc(var(--s) - 1))); }
 #ui .frame > * { pointer-events: none; }
 #ui .frame img { image-rendering: pixelated; display: block; }
 
 /* type: the bitmap font only ever renders at 16px × an integer */
-.frame { font-family: "Emberfall Pixel", "Pixelify Sans", monospace; -webkit-font-smoothing: none; font-smooth: never; color: var(--ink); }
+.frame { font-family: "Emberfall Pixel", monospace; -webkit-font-smoothing: none; font-smooth: never; color: var(--ink); }
 .t-title { font-size: calc(16px * var(--s)); line-height: 1; }
 .t-body  { font-size: calc(16px * max(1, var(--s) - 1)); line-height: 1.25; }
 .t-small { font-size: calc(16px * max(1, var(--s) - 1)); line-height: 1; }

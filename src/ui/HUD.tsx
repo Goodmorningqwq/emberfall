@@ -51,11 +51,10 @@ const LESSON_TEXT: Record<LessonId, { key: string; text: string }> = {
   throw: { key: "RMB", text: "Throw the boomerang" },
   grapple: { key: "RMB", text: "Fire the hook at an anchor post" },
   firerod: { key: "RMB", text: "Fire the rod at a brazier" },
-  bomb: { key: "2", text: "Drop a bomb by the cracked wall" },
 };
 
 /** The contextual tutorial tag beside Wren. Position comes from --wren-x/--wren-y set by the scene each frame. */
-const PAD_KEYS: Partial<Record<LessonId, string>> = { dash: "B", attack: "A", potion: "Y", throw: "X", bomb: "RB", grapple: "X", firerod: "X" };
+const PAD_KEYS: Partial<Record<LessonId, string>> = { dash: "B", attack: "A", potion: "Y", throw: "X", grapple: "X", firerod: "X" };
 function Coach() {
   const lesson = useGame((s) => s.lesson);
   const inputMode = useGame((s) => s.inputMode);
@@ -572,9 +571,9 @@ export function HUD() {
       <div className="frame" style={frame as React.CSSProperties}>
         <div className="bag-backdrop dead">
           <div className="pause pxpanel death">
-            <span className="eyebrow">WHISPERWOOD HOLLOW</span>
+            <span className="eyebrow">{dungeonFor(place).completeEyebrow.toUpperCase()}</span>
             <span className="t-title">You fell.</span>
-            <span className="muted t-small">The Hollow keeps what it takes. Your keys and treasures are safe.</span>
+            <span className="muted t-small">You wake at the entrance. Your keys and treasures are safe.</span>
             <div className="pause-actions">
               <button className="pxbtn pxslot" onClick={quitToTitle}>Title</button>
               <button className="pxbtn pxslot" onClick={respawn} autoFocus>Try again</button>

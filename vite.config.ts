@@ -1,7 +1,22 @@
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
+import { execSync } from "node:child_process";
+
+/** "0.0.1+6b2175b" - package version plus the commit (Vercel's env, else git, else "dev"). */
+function appVersion() {
+  const pkg = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf-8")) as { version: string };
+  let sha = process.env.VERCEL_GIT_COMMIT_SHA ?? "";
+  if (!sha) {
+    try {
+      sha = execSync("git rev-parse HEAD", { stdio: ["ignore", "pipe", "ignore"] }).toString().trim();
+    } catch {
+      sha = "";
+    }
+  }
+  return `${pkg.version}+${sha ? sha.slice(0, 7) : "dev"}`;
+}
 
 /**
  * Dev-only: POST /__snap?name=<file> with a data-URL body saves a PNG to
@@ -35,6 +50,12 @@ function snapshotSink(): Plugin {
 
 export default defineConfig({
   plugins: [react(), snapshotSink()],
+  define: { __APP_VERSION__: JSON.stringify(appVersion()) },
   server: { port: 5173, strictPort: true },
-  build: { target: "es2022" },
+  build: {
+    target: "es2022",
+    // the engine and React change once a year; the game changes every push - keep them in their own
+    // hashed chunks so a one-line edit re-ships kilobytes, not the 1.4 MB of Phaser
+    rollupOptions: { output: { manualChunks: { phaser: ["phaser"], react: ["react", "react-dom", "zustand"] } } },
+  },
 });

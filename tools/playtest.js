@@ -31,8 +31,10 @@ window.__snap = (name) => new Promise((resolve) => {
 // Virtual-time driver: when the page is hidden (RAF stalls) step Phaser by hand
 // via MessageChannel, which browsers don't throttle. __run(ms) advances ms of game time.
 window.__run = (ms) => new Promise((resolve) => {
-  // visible page: RAF is stepping the game, so just wait it out in real time
-  if (document.visibilityState === "visible") return setTimeout(() => resolve(true), ms);
+  // a page that is painting: RAF is stepping the game, so just wait it out in real time. The in-app pane can
+  // report "visible" while nothing paints (RAF never fires) - probe once and remember, so we step by hand then.
+  if (window.__rafLive === undefined) { window.__rafLive = false; requestAnimationFrame(() => (window.__rafLive = true)); }
+  if (document.visibilityState === "visible" && window.__rafLive) return setTimeout(() => resolve(true), ms);
   // Phaser's TweenManager clocks itself off Date.now(), not the loop delta: skew Date.now by the same virtual time
   if (!window.__realNow) { window.__realNow = Date.now.bind(Date); window.__vskew = 0; Date.now = () => window.__realNow() + window.__vskew; }
   const loop = window.__game.loop; const ch = new MessageChannel();

@@ -174,6 +174,8 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
   }
 
   create() {
+    // first thing: the canvas fades in even if something below throws (a black square hides every clue)
+    this.game.canvas.classList.add("ready");
     registerPropAtlas(this);
     for (const [clip, n] of Object.entries(ENEMY_CLIPS)) {
       if (this.anims.exists(clip)) continue;
@@ -228,7 +230,6 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
     this.guide = new GuideDrawer(this);
     this.createdAt = this.time.now;
     this.enterRoom(entRoom, true);
-    this.game.canvas.classList.add("ready");
 
     // React panels freeze the world while open. Not scene.pause(): in Phaser 4
     // that stops rendering too and the canvas clears to black.
@@ -368,8 +369,8 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
   private clearRoomStuff() {
     // situational lessons don't follow her out of the room; they re-trigger where they apply
     const l = useGame.getState().lesson;
-    if (l && (l.id === "attack" || l.id === "bomb" || l.id === "potion")) useGame.getState().setLesson(null);
-    this.pendingLessons = this.pendingLessons.filter((id) => id !== "attack" && id !== "bomb" && id !== "potion");
+    if (l && (l.id === "attack" || l.id === "potion")) useGame.getState().setLesson(null);
+    this.pendingLessons = this.pendingLessons.filter((id) => id !== "attack" && id !== "potion");
     useGame.getState().setNarration(null);
     useGame.getState().setQuestNote(null);
     for (const e of this.enemies) e.destroy();
@@ -1164,7 +1165,7 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
       sfx("roar");
       setMusic("boss");
       this.time.delayedCall(700, () => speak("boss"));
-      cam.shake(420, 0.012);
+      this.shake(420, 0.012);
       // the name plate lands mid-screen, then rides up and becomes the health bar
       useGame.getState().setBoss({ name: info.name, sub: info.sub, hp: info.hp, max: info.hp, status: "", intro: true });
     });
@@ -1273,7 +1274,7 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
       const ring = this.add.circle(a.x, a.y + 14, 30, 0x9ad0ff, 0.12).setStrokeStyle(2, 0x9ad0ff, 0.9).setDepth(-990);
       this.tweens.add({ targets: ring, scale: 1.25, alpha: 0.4, duration: 260, yoyo: true, repeat: Math.floor(ms / 520), onComplete: () => ring.destroy() });
     }
-    this.cameras.main.shake(ms, 0.0015 * useGame.getState().settings.shake);
+    this.shake(ms, 0.0015);
   }
 
   /** The quake lands: a shockwave over the whole floor. Safe on the hook or beside a post. */
@@ -1345,11 +1346,17 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
     if (!door) return;
     const st = useGame.getState();
     const at = { x: door.image.x + door.image.width / 2, y: door.image.y - 6 };
+    // a refusal you can hear and see: the door rattles in its frame
+    const refuse = (icon: string, text: string) => {
+      sfx("block");
+      if (!this.tweens.getTweensOf(door.image).length) this.tweens.add({ targets: door.image, x: door.image.x + (door.vertical ? 0 : 2), y: door.image.y + (door.vertical ? 2 : 0), duration: 40, yoyo: true, repeat: 1 });
+      return this.toast(icon, text, true, at);
+    };
     if (door.kind === "locked") {
-      if (st.keys <= 0) return this.toast("icon-key", "Locked - needs a small key", true, at);
+      if (st.keys <= 0) return refuse("icon-key", "Locked - needs a small key");
       st.addKeys(-1);
     } else {
-      if (!st.hasItem("bosskey")) return this.toast("icon-bosskey", "Locked - needs the Boss Key", true, at);
+      if (!st.hasItem("bosskey")) return refuse("icon-bosskey", "Locked - needs the Boss Key");
       st.useItem("bosskey");
     }
     st.setFlag(door.id);
@@ -1426,7 +1433,6 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
     if (id === "throw" && !st.hasItem("boomerang")) return;
     if (id === "grapple" && !st.hasItem("grapple")) return;
     if (id === "firerod" && !st.hasItem("firerod")) return;
-    if (id === "bomb" && (!st.hasItem("bomb") || !st.hasFlag("unlock:bomb"))) return;
     if (id === "potion" && (!st.hasItem("potion") || !st.hasFlag("unlock:potion"))) return;
     if (st.lesson) {
       this.pendingLessons.push(id);
@@ -1678,16 +1684,23 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
     this.physics.add.overlap(bolt.sprite, this.enemyGroup, (_b, obj) => {
       const e = (obj as Phaser.GameObjects.GameObject).getData("enemy") as Enemy;
       if (!e || e.isDead || bolt.done || !bolt.canHit(e)) return;
+      // the bolt lands like a blade does: a hit sound and a beat of hit-stop (the crust clangs)
       if (e instanceof CinderGolem) {
-        if (e.backHit(bolt.sprite.x, bolt.sprite.y)) e.overheat();
+        const back = e.backHit(bolt.sprite.x, bolt.sprite.y);
+        if (back) e.overheat();
         else this.bossStatus("bark");
+        sfx(back ? "hit" : "clang");
+        this.hitStop(30);
         bolt.burst();
         return;
       }
       if (e instanceof Skeleton) e.heat(2600);
       e.hitThisSwing = false;
+      const blocked = e.blocksNow;
       const died = e.takeHit(bolt.sprite.x, bolt.sprite.y, 1);
-      this.damageNumber(e.sprite.x, e.sprite.y - e.sprite.displayHeight, 1);
+      sfx(blocked ? "clang" : "hit");
+      this.hitStop(30);
+      if (!blocked) this.damageNumber(e.sprite.x, e.sprite.y - e.sprite.displayHeight, 1);
       if (died) this.onEnemyDied(e);
       bolt.burst();
     });
@@ -1897,7 +1910,6 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
     const p = this.player.sprite;
     this.bombs.push(new Bomb(this, p.x, p.y + 2));
     sfx("bomb-place");
-    this.finishLesson("bomb");
     return true;
   }
 
@@ -1928,8 +1940,11 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
       const s = e.sprite;
       if (Phaser.Math.Distance.Between(x, y, s.x, s.y - s.displayHeight / 2) < r + s.displayWidth / 2) {
         e.hitThisSwing = false;
+        // a guarded boss or a shield-bearer takes nothing: say so (clang), and print no number it didn't deal
+        const blocked = e.blocksNow;
         const died = e.takeHit(x, y, 2);
-        this.damageNumber(s.x, s.y - s.displayHeight, 2);
+        if (blocked) sfx("clang");
+        else this.damageNumber(s.x, s.y - s.displayHeight, 2);
         if (died) this.onEnemyDied(e);
       }
     }
@@ -2137,11 +2152,15 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
       const p = this.player.sprite;
       this.player.update(delta);
       if (this.transitioning) return;
-      for (const e of this.enemies) e.update(now, p.x, p.y);
-      // area hazards (spore clouds, root spikes)
-      for (const e of this.enemies) {
-        for (const hz of e.hazards) {
-          if (Phaser.Math.Distance.Between(hz.x, hz.y, p.x, p.y - 8) < hz.r + 4) this.player.hurt(hz.x, hz.y);
+      // a sign box holds Wren, so it holds the room too: no enemy moves, no hazard bites while she reads
+      const reading = !!useGame.getState().dialogue;
+      if (!reading) {
+        for (const e of this.enemies) e.update(now, p.x, p.y);
+        // area hazards (spore clouds, root spikes)
+        for (const e of this.enemies) {
+          for (const hz of e.hazards) {
+            if (Phaser.Math.Distance.Between(hz.x, hz.y, p.x, p.y - 8) < hz.r + 4) this.player.hurt(hz.x, hz.y);
+          }
         }
       }
       this.boomerang?.update(p.x, p.y - 14);
@@ -2149,8 +2168,10 @@ export class DungeonScene extends Phaser.Scene implements PlayerHost {
       if (this.grapple?.done) this.grapple = undefined;
       for (const b of this.bolts) b.update();
       this.bolts = this.bolts.filter((b) => !b.done);
-      this.updateVents(now);
-      this.updateFire(now);
+      if (!reading) {
+        this.updateVents(now);
+        this.updateFire(now);
+      }
       this.checkPlates();
       // the potion lesson only makes sense while she's hurt: at full hearts it can't be completed, so it goes
       {

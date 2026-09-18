@@ -92,3 +92,7 @@ into `docs/sprite-review/` and reference it in `docs/NIGHT_LOG.md`.
 - `__snap(name)` resolves on the renderer's next frame. With the pane hidden there is no frame: start it, step
   `await __run(120)`, then await it (race it against a timeout, or the tool call hangs for 45 s). Same for a fresh
   dev server: the first `__start` can exceed the 45 s tool limit while Vite transforms — race it and re-check.
+- The in-app pane can say `visibilityState === "visible"` while RAF never fires (nothing paints): `__run` now probes
+  RAF once (`window.__rafLive`) and steps by hand when it's dead. Symptom before the fix: the regression "ran" for
+  minutes with `time.now` frozen and every bump failing ("Tam talks" false) - check `__game.loop.frame` advances
+  across a `__run` before blaming the game.

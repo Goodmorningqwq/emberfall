@@ -90,6 +90,19 @@ export class Dungeon {
           placements.push({ kind, ch, tx: r.gx * ROOM_W + x, ty: r.gy * ROOM_H + y, index: counts[kind] - 1 });
         }
       }
+      if (import.meta.env.DEV) {
+        // authoring checks: a legend char nobody defined places nothing silently, an extra "C" would be a
+        // free 30-gold chest and an extra "S" prints a literal "..." - say so in the console while it's cheap
+        const unknown = new Set<string>();
+        for (const row of r.map) for (const ch of row) if (ch !== "#" && ch !== "." && !def.legend[ch]) unknown.add(ch);
+        if (unknown.size) console.warn(`[dungeon ${def.id}] room ${r.id}: legend has no entry for ${[...unknown].join(" ")}`);
+        const want = (kind: string, arr: unknown[] | undefined, what: string) => {
+          const n = counts[kind] ?? 0;
+          if (n && (arr?.length ?? 0) !== n) console.warn(`[dungeon ${def.id}] room ${r.id}: ${n} ${what} on the map but ${arr?.length ?? 0} in "${kind === "chest" ? "chests" : "signs"}"`);
+        };
+        want("chest", r.chests, "chest tile(s)");
+        want("sign", r.signs, "sign tile(s)");
+      }
       return { ...r, x: r.gx * ROOM_W * TILE, y: r.gy * ROOM_H * TILE, w: ROOM_W * TILE, h: ROOM_H * TILE, placements };
     });
   }

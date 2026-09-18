@@ -5,10 +5,21 @@ import { unlockAudio } from "./game/audio";
 import { resumeMusic, setMusic, stopMusic, duckMusic } from "./game/music";
 import { stopNpc } from "./game/audio";
 import { useGame } from "./ui/store";
+import { isDebug } from "./game/debug";
 
-if (import.meta.env.DEV) {
-  // an exception inside Phaser's step aborts the render silently; make it loud
-  window.addEventListener("error", (e) => console.error("[uncaught]", e.error?.stack ?? e.message));
+// an exception inside Phaser's step aborts the render silently: log it, and if the game never got as far
+// as showing its canvas, say so on screen instead of leaving a black square under the menu
+window.addEventListener("error", (e) => {
+  console.error("[uncaught]", e.error?.stack ?? e.message);
+  const canvas = document.querySelector("#game canvas");
+  if ((canvas && !canvas.classList.contains("ready")) || isDebug()) bootError(String(e.message ?? "error"));
+});
+function bootError(msg: string) {
+  if (document.getElementById("boot-error")) return;
+  const el = document.createElement("div");
+  el.id = "boot-error";
+  el.textContent = `Something broke - reload the page. (${__APP_VERSION__}${isDebug() ? ` - ${msg}` : ""})`;
+  document.getElementById("app")?.appendChild(el);
 }
 
 // browsers only start audio after a gesture; any first click/key does it
@@ -29,3 +40,7 @@ if (useGame.getState().screen === "title") setMusic("title");
 createRoot(document.getElementById("ui")!).render(<HUD />);
 const game = createGame(document.getElementById("game")!);
 if (import.meta.env.DEV) (window as unknown as { __game: unknown }).__game = game; // console access for playtesting
+if (isDebug()) {
+  // a plain number every 2 s: the one input #27's depth-sort question needs
+  window.setInterval(() => console.log(`[emberfall ${__APP_VERSION__}] fps ${game.loop.actualFps.toFixed(0)}`), 2000);
+}
